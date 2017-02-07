@@ -40,7 +40,8 @@ class TestNoContentChecks(unittest.TestCase):
 
             def sleep(self, duration):
                 "a comment"
-                raise NotImplementedError('msg'.format(self.__class__.__name__))
+                msg = 'msg'.format(self.__class__.__name__)
+                raise NotImplementedError(msg)
 
     def test_function_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
@@ -51,7 +52,8 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_property_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-            @property
-            def height(self):
-                return self
+            class IAnimal(pure_interface.PureInterface):
+                @property
+                def height(self):
+                    return self
 
