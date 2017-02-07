@@ -1,7 +1,7 @@
 
 try:
     from abc import abstractmethod, abstractproperty, abstractclassmethod, abstractstaticmethod
-except NameError:
+except ImportError:
     from abc import abstractmethod, abstractproperty
 
     class abstractclassmethod(classmethod):
@@ -87,28 +87,65 @@ def _is_empty_function(func):
         func = six.get_method_function(func)
     if isinstance(func, property):
         func = property.fget
-    instructions = list(dis.Bytecode(func))
-    if len(instructions) < 2:
-        return True  # this never happens as there is always the implicit return None which is 2 instructions
-    last_instruction = instructions[-1]
-    if not (last_instruction.opname == 'RETURN_VALUE' and last_instruction.arg is None):
-        # not return None
-        return False
-    instructions = instructions[:-1]
-    last_instruction = instructions[-1]
-    if last_instruction.opname == 'LOAD_CONST' and last_instruction.argval is None:
-        instructions = instructions[:-1]  # this is what we expect, consume
-    if len(instructions) == 0:
-        return True  # empty
-    last_instruction = instructions[-1]
-    if last_instruction.opname == 'RAISE_VARARGS':
-        if len(instructions) < 3:
+    if six.PY2:
+        code_obj = six.get_function_code(func)
+        # quick check
+        if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
+            return True
+        if code_obj.co_code == b'd\x01\x00S' and code_obj.co_consts[1] is None:
+            return True
+        # convert bytes to instructions
+        instructions = []
+        instruction = None
+        for byte in code_obj.co_code:
+            byte = ord(byte)
+            if instruction is None:
+                instruction = [byte]
+            else:
+                instruction.append(byte)
+            if instruction[0] < dis.HAVE_ARGUMENT or len(instruction) == 3:
+                instruction[0] = dis.opname[instruction[0]]
+                instructions.append(tuple(instruction))
+                instruction = None
+        if len(instructions) < 2:
+            return True  # this never happens as there is always the implicit return None which is 2 instructions
+        assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
+        instruction = instructions[-2]
+        if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
             return False
-        # the thing we are raising should be the result of __call__  (instantiating exception object)
-        if instructions[-2].opname == 'CALL_FUNCTION':
-            for instr in instructions[:-2]:
-                if instr.opname == 'LOAD_GLOBAL' and instr.argval == 'NotImplementedError':
-                    return True
+        instructions = instructions[:-2]
+        if len(instructions) == 0:
+            return True
+        # look for raise NotImplementedError
+        if instructions[-1] == ('RAISE_VARARGS', 1, 0):
+            # the thing we are raising should be the result of __call__  (instantiating exception object)
+            if instructions[-2][0] == 'CALL_FUNCTION':
+                for instr in instructions[:-2]:
+                    if instr[0] == 'LOAD_GLOBAL' and code_obj.co_names[instr[1]] == 'NotImplementedError':
+                        return True
+    else:  # python 3
+        instructions = list(dis.Bytecode(func))
+        if len(instructions) < 2:
+            return True  # this never happens as there is always the implicit return None which is 2 instructions
+        last_instruction = instructions[-1]
+        if not (last_instruction.opname == 'RETURN_VALUE' and last_instruction.arg is None):
+            # not return None
+            return False
+        instructions = instructions[:-1]
+        last_instruction = instructions[-1]
+        if last_instruction.opname == 'LOAD_CONST' and last_instruction.argval is None:
+            instructions = instructions[:-1]  # this is what we expect, consume
+        if len(instructions) == 0:
+            return True  # empty
+        last_instruction = instructions[-1]
+        if last_instruction.opname == 'RAISE_VARARGS':
+            if len(instructions) < 3:
+                return False
+            # the thing we are raising should be the result of __call__  (instantiating exception object)
+            if instructions[-2].opname == 'CALL_FUNCTION':
+                for instr in instructions[:-2]:
+                    if instr.opname == 'LOAD_GLOBAL' and instr.argval == 'NotImplementedError':
+                        return True
 
     return False
 
