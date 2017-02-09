@@ -198,3 +198,14 @@ class TestPropertyImplementations(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             Plant()
+
+    def test_getattr_property_passes(self):
+        class Plant(object, IPlant):
+            def __getattr__(self, item):
+                if item == 'height':
+                    return 10
+                else:
+                    raise AttributeError(item)
+
+        a = Plant()
+        self.assertEqual(a.height, 10)
