@@ -216,6 +216,28 @@ class PureInterfaceType(abc.ABCMeta):
                 raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
         return self
 
+    def __instancecheck__(cls, instance):
+        if super(PureInterfaceType, cls).__instancecheck__(instance):
+            return True
+        # duck-type checking
+        subtype = type(instance)
+        implemented_by_class = True
+        for attr in cls.__abstractmethods__:
+            cls_value = getattr(cls, attr)
+            subtype_value = getattr(subtype, attr, None)
+            if subtype_value is None:
+                implemented_by_class = False
+                try:
+                    subtype_value = getattr(instance, attr)
+                except AttributeError:
+                    return False
+            if callable(cls_value) and not callable(subtype_value):
+                return False
+
+        if implemented_by_class:
+            cls.register(subtype)
+        return True
+
 
 @six.add_metaclass(PureInterfaceType)
 class PureInterface(object):
