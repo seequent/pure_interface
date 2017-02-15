@@ -22,11 +22,13 @@ except ImportError:
 import abc
 import dis
 import types
+import sys
 
 import six
 
 # OPTIONS
 ONLY_FUNCTIONS_AND_PROPERTIES = False  # disallow everything except functions and properties
+CHECK_METHOD_SIGNATURES = not hasattr(sys, 'frozen')  # ensure overridden methods have compatible signature
 
 
 class InterfaceError(Exception):
@@ -150,6 +152,40 @@ def _is_empty_function(func):
     return False
 
 
+def _get_function_signature(function):
+    code_obj = six.get_function_code(function)
+    args = code_obj.co_varnames[:code_obj.co_argcount]
+    return args, len(function.__defaults__) if function.__defaults__ is not None else 0
+
+
+def _signatures_are_consistent(func_sig, base_sig):
+    # TODO: allow new arguments in func_sig if they have default values
+    func_args, func_num_defaults = func_sig
+    base_args, base_num_defaults = base_sig
+    base_num_args = len(base_args)
+    func_num_args = len(func_args)
+    func_num_required = func_num_args - func_num_defaults
+    base_num_required = base_num_args - base_num_defaults
+    return (func_args[:base_num_args] == base_args and  # parameter names match
+            func_num_args - base_num_args <= func_num_defaults and  # new args have defaults
+            func_num_required <= base_num_required  # number of required args does not increase
+            )
+
+
+def _method_signatures_match(name, func, bases):
+    func_sig = _get_function_signature(func)
+    for base in bases:
+        if base is object:
+            continue
+        if hasattr(base, name):
+            base_func = getattr(base, name)
+            if hasattr(base_func, six._meth_func):
+                base_func = six.get_method_function(base_func)
+            base_sig = _get_function_signature(base_func)
+            return _signatures_are_consistent(func_sig, base_sig)
+    return True
+
+
 class PureInterfaceType(abc.ABCMeta):
     def __new__(mcs, clsname, bases, attributes):
         type_is_interface = all(_type_is_pure_interface(cls) for cls in bases)
@@ -158,6 +194,10 @@ class PureInterfaceType(abc.ABCMeta):
         else:
             if bases[0] is object:
                 bases = bases[1:]  # create a consistent MRO order
+        interface_method_names = set()
+        for base in bases:
+            base_interface_method_names = getattr(base, '_interface_method_names', set())
+            interface_method_names.update(base_interface_method_names)
         if type_is_interface:
             # all methods and properties are abstract
             namespace = {}
@@ -165,17 +205,23 @@ class PureInterfaceType(abc.ABCMeta):
             for name, value in six.iteritems(attributes):
                 if _builtin_attrs(name):
                     pass
+                elif getattr(value, '__isabstractmethod__', False):
+                    if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
+                        interface_method_names.add(name)
                 elif isinstance(value, staticmethod):
                     func = six.get_method_function(value)
                     functions.append(func)
                     value = abstractstaticmethod(func)
+                    interface_method_names.add(name)
                 elif isinstance(value, classmethod):
                     func = six.get_method_function(value)
                     functions.append(func)
                     value = abstractclassmethod(func)
+                    interface_method_names.add(name)
                 elif isinstance(value, types.FunctionType):
                     functions.append(value)
                     value = abstractmethod(value)
+                    interface_method_names.add(name)
                 elif isinstance(value, property):
                     functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
                     value = abstractproperty(value.fget, value.fset, value.fdel)
@@ -185,11 +231,28 @@ class PureInterfaceType(abc.ABCMeta):
             for func in functions:
                 if func is not None and not _is_empty_function(func):
                     raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
-        else:
+        else:  # concrete sub-type
             namespace = attributes
+        if CHECK_METHOD_SIGNATURES:
+            for name in interface_method_names:
+                if name not in attributes:
+                    continue
+                value = attributes[name]
+                if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
+                    raise InterfaceError('Interface method over-ridden with non-method')
+                if isinstance(value, (staticmethod, classmethod)):
+                    func = six.get_method_function(value)
+                else:
+                    func = value
+                if not _method_signatures_match(name, func, bases):
+                    msg = '{module}.{clsname}.{name} argments does not match base class'.format(
+                        module=attributes['__module__'], clsname=clsname, name=name)
+                    raise InterfaceError(msg)
+
         cls = abc.ABCMeta.__new__(mcs, clsname, bases, namespace)
         cls._type_is_pure_interface = type_is_interface
-        cls.__abstractproperties = frozenset()
+        cls._abstractproperties = frozenset()
+        cls._interface_method_names = frozenset(interface_method_names)
         if not type_is_interface:
             abstract_properties = set()
             functions = []
@@ -199,7 +262,7 @@ class PureInterfaceType(abc.ABCMeta):
                     functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
                     setattr(cls, attr, AttributeProperty(attr))
                     abstract_properties.add(attr)
-            cls.__abstractproperties = frozenset(abstract_properties)
+            cls._abstractproperties = frozenset(abstract_properties)
             abstractmethods = set(cls.__abstractmethods__) - abstract_properties
             for func in functions:
                 if func is not None and func.__name__ in abstractmethods:
@@ -211,7 +274,7 @@ class PureInterfaceType(abc.ABCMeta):
 
     def __call__(cls, *args, **kwargs):
         self = abc.ABCMeta.__call__(cls, *args, **kwargs)
-        for attr in cls.__abstractproperties:
+        for attr in cls._abstractproperties:
             if not hasattr(self, attr):
                 raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
         return self
@@ -240,5 +303,5 @@ class PureInterfaceType(abc.ABCMeta):
 
 
 @six.add_metaclass(PureInterfaceType)
-class PureInterface(object):
+class PureInterface(abc.ABC):
     pass
