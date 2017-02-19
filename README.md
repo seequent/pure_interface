@@ -10,7 +10,7 @@ The goals of this package are:
   no function body content criteria.
 * fallback to duck-type checking for `isinstance(a, PureInterface)` (or `PureInterface.provided_by(a)`) 
 (for easier duck typing.)
-* Ensure that method overrides have a the same signature (optional?)
+* Ensure that method overrides have a the same signature
 * Release mode and warning switches. E.g. warn if using ducktype isinstance.  Turn off method signature checking  
 * Support interface adapters/mappers
 * support python 2.7 and 3.5+

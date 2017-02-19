@@ -43,7 +43,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         a = Animal2()
         self.assertFalse(isinstance(a, IAnimal))
 
-    def test_duck_type_check_registers(self):
+    def test_isinstance_duck_type_check_registers(self):
         class Animal2(object):
             def speak(self, volume):
                 print('hello')
@@ -53,6 +53,19 @@ class TestIsInstanceChecks(unittest.TestCase):
                 return 43
 
         a = Animal2()
-        self.assertFalse(issubclass(Animal2, IAnimal))
+        self.assertNotIn(Animal2, IAnimal._abc_registry)
         self.assertTrue(isinstance(a, IAnimal))
-        self.assertTrue(issubclass(Animal2, IAnimal))
+        self.assertIn(Animal2, IAnimal._abc_registry)
+
+    def test_issubclass_duck_type_check_registers(self):
+        class Animal3(object):
+            def speak(self, volume):
+                print('hello')
+
+            @property
+            def height(self):
+                return 43
+
+        self.assertNotIn(Animal3, IAnimal._abc_registry)
+        self.assertTrue(issubclass(Animal3, IAnimal))
+        self.assertIn(Animal3, IAnimal._abc_registry)

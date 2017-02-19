@@ -64,6 +64,7 @@ def _builtin_attrs(name):
 
 
 def _type_is_pure_interface(cls):
+    """ Return True if cls is a pure interface"""
     if cls is object:
         return False
     if hasattr(cls, '_type_is_pure_interface'):
@@ -77,7 +78,7 @@ def _type_is_pure_interface(cls):
                     return False
             elif isinstance(value, property):
                 for func in (value.fget, value.fset, value.fdel):
-                    if not _is_empty_function(func):
+                    if func is not None and not _is_empty_function(func):
                         return False
         return True
 
@@ -153,7 +154,7 @@ def _is_empty_function(func):
 
 
 def _get_function_signature(function):
-    code_obj = six.get_function_code(function)
+    code_obj = function.__code__
     args = code_obj.co_varnames[:code_obj.co_argcount]
     return args, len(function.__defaults__) if function.__defaults__ is not None else 0
 
@@ -301,7 +302,23 @@ class PureInterfaceType(abc.ABCMeta):
             cls.register(subtype)
         return True
 
+    def __subclasscheck__(cls, subclass):
+        if super(PureInterfaceType, cls).__subclasscheck__(subclass):
+            return True
+        # duck-type checking
+        for attr in cls.__abstractmethods__:
+            cls_value = getattr(cls, attr)
+            subtype_value = getattr(subclass, attr, None)
+            if subtype_value is None:
+                return False
+            if callable(cls_value) and not callable(subtype_value):
+                return False
+
+        cls._abc_registry.add(subclass)
+        abc.ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
+        return True
+
 
 @six.add_metaclass(PureInterfaceType)
-class PureInterface(abc.ABC):
+class PureInterface(abc.ABC if hasattr(abc, 'ABC') else object):
     pass

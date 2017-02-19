@@ -94,6 +94,10 @@ class TestImplementationChecks(unittest.TestCase):
             def foo(self):
                 pass
 
+            @abc.abstractproperty
+            def bar(self):
+                return None
+
         class EmptyABCPI(IABC, pure_interface.PureInterface):
             pass
 
