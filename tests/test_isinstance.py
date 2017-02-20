@@ -69,3 +69,26 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertNotIn(Animal3, IAnimal._abc_registry)
         self.assertTrue(issubclass(Animal3, IAnimal))
         self.assertIn(Animal3, IAnimal._abc_registry)
+
+    def test_concrete_subclass_check(self):
+        class Cat(object, IAnimal):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+            def happy(self):
+                return True
+
+        class StripeyCat(object):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+        sc = StripeyCat()
+        self.assertFalse(isinstance(sc, Cat))
