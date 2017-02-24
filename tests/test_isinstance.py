@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import pure_interface
-
+import mock
 import unittest
+
+import pure_interface
 
 
 class IAnimal(pure_interface.PureInterface):
@@ -92,3 +93,41 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         sc = StripeyCat()
         self.assertFalse(isinstance(sc, Cat))
+
+    def test_warning_issued_once(self):
+        pure_interface.WARN_ABOUT_UNNCESSARY_DUCK_TYPING = True
+
+        class Cat2(object):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            issubclass(Cat2, IAnimal)
+            issubclass(Cat2, IAnimal)
+
+        self.assertEqual(warn.call_count, 1)
+        msg = warn.call_args[0][0]
+        self.assertIn('Cat2', msg)
+        self.assertIn('IAnimal', msg)
+
+    def test_warning_not_issued(self):
+        pure_interface.WARN_ABOUT_UNNCESSARY_DUCK_TYPING = False
+
+        class Cat3(object):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            issubclass(Cat3, IAnimal)
+
+        warn.assert_not_called()

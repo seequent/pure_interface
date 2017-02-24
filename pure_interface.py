@@ -23,13 +23,23 @@ import abc
 import dis
 import types
 import sys
+import inspect
+import warnings
 import weakref
 
 import six
 
 # OPTIONS
 ONLY_FUNCTIONS_AND_PROPERTIES = False  # disallow everything except functions and properties
-CHECK_METHOD_SIGNATURES = not hasattr(sys, 'frozen')  # ensure overridden methods have compatible signature
+# ensure overridden methods have compatible signature
+CHECK_METHOD_SIGNATURES = not hasattr(sys, 'frozen')
+# issue a warning if duck typing fallback is used when inheriting would work
+WARN_ABOUT_UNNCESSARY_DUCK_TYPING = not hasattr(sys, 'frozen')
+
+if six.PY2:
+    _six_ord = ord
+else:
+    _six_ord = lambda x: x
 
 
 class InterfaceError(Exception):
@@ -91,65 +101,41 @@ def _is_empty_function(func):
         func = six.get_method_function(func)
     if isinstance(func, property):
         func = property.fget
-    if six.PY2:
-        code_obj = six.get_function_code(func)
-        # quick check
-        if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
-            return True
-        if code_obj.co_code == b'd\x01\x00S' and code_obj.co_consts[1] is None:
-            return True
-        # convert bytes to instructions
-        instructions = []
-        instruction = None
-        for byte in code_obj.co_code:
-            byte = ord(byte)
-            if instruction is None:
-                instruction = [byte]
-            else:
-                instruction.append(byte)
-            if instruction[0] < dis.HAVE_ARGUMENT or len(instruction) == 3:
-                instruction[0] = dis.opname[instruction[0]]
-                instructions.append(tuple(instruction))
-                instruction = None
-        if len(instructions) < 2:
-            return True  # this never happens as there is always the implicit return None which is 2 instructions
-        assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
-        instruction = instructions[-2]
-        if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
-            return False
-        instructions = instructions[:-2]
-        if len(instructions) == 0:
-            return True
-        # look for raise NotImplementedError
-        if instructions[-1] == ('RAISE_VARARGS', 1, 0):
-            # the thing we are raising should be the result of __call__  (instantiating exception object)
-            if instructions[-2][0] == 'CALL_FUNCTION':
-                for instr in instructions[:-2]:
-                    if instr[0] == 'LOAD_GLOBAL' and code_obj.co_names[instr[1]] == 'NotImplementedError':
-                        return True
-    else:  # python 3
-        instructions = list(dis.Bytecode(func))
-        if len(instructions) < 2:
-            return True  # this never happens as there is always the implicit return None which is 2 instructions
-        last_instruction = instructions[-1]
-        if not (last_instruction.opname == 'RETURN_VALUE' and last_instruction.arg is None):
-            # not return None
-            return False
-        instructions = instructions[:-1]
-        last_instruction = instructions[-1]
-        if last_instruction.opname == 'LOAD_CONST' and last_instruction.argval is None:
-            instructions = instructions[:-1]  # this is what we expect, consume
-        if len(instructions) == 0:
-            return True  # empty
-        last_instruction = instructions[-1]
-        if last_instruction.opname == 'RAISE_VARARGS':
-            if len(instructions) < 3:
-                return False
-            # the thing we are raising should be the result of __call__  (instantiating exception object)
-            if instructions[-2].opname == 'CALL_FUNCTION':
-                for instr in instructions[:-2]:
-                    if instr.opname == 'LOAD_GLOBAL' and instr.argval == 'NotImplementedError':
-                        return True
+    code_obj = six.get_function_code(func)
+    # quick check
+    if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
+        return True
+    if code_obj.co_code == b'd\x01\x00S' and code_obj.co_consts[1] is None:
+        return True
+    # convert bytes to instructions
+    instructions = []
+    instruction = None
+    for byte in code_obj.co_code:
+        byte = _six_ord(byte)
+        if instruction is None:
+            instruction = [byte]
+        else:
+            instruction.append(byte)
+        if instruction[0] < dis.HAVE_ARGUMENT or len(instruction) == 3:
+            instruction[0] = dis.opname[instruction[0]]
+            instructions.append(tuple(instruction))
+            instruction = None
+    if len(instructions) < 2:
+        return True  # this never happens as there is always the implicit return None which is 2 instructions
+    assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
+    instruction = instructions[-2]
+    if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
+        return False
+    instructions = instructions[:-2]
+    if len(instructions) == 0:
+        return True
+    # look for raise NotImplementedError
+    if instructions[-1] == ('RAISE_VARARGS', 1, 0):
+        # the thing we are raising should be the result of __call__  (instantiating exception object)
+        if instructions[-2][0] == 'CALL_FUNCTION':
+            for instr in instructions[:-2]:
+                if instr[0] == 'LOAD_GLOBAL' and code_obj.co_names[instr[1]] == 'NotImplementedError':
+                    return True
 
     return False
 
@@ -263,6 +249,7 @@ class PureInterfaceType(abc.ABCMeta):
         cls._pi_interface_method_names = frozenset(interface_method_names)
         cls._pi_interface_property_names = frozenset(interface_property_names)
         cls._pi_adapters = weakref.WeakKeyDictionary()
+        cls._pi_ductype_subclasses = set()
         if not type_is_interface:
             abstract_properties = set()
             functions = []
@@ -319,6 +306,20 @@ class PureInterfaceType(abc.ABCMeta):
             if not hasattr(subclass, attr):
                 return False
 
+        if subclass not in cls._pi_ductype_subclasses:
+            cls._pi_ductype_subclasses.add(subclass)
+            if WARN_ABOUT_UNNCESSARY_DUCK_TYPING:
+                # calc stacklevel
+                frames = inspect.getouterframes(inspect.currentframe(), context=0)
+                stacklevel = 4 if len(frames) > 1 and frames[1][3] == '__instancecheck__' else 2
+                if len(frames) > 3 and frames[3][3] == 'adapt_to_interface':
+                    stacklevel = 5
+                cls_name = cls.__name__
+                sub_name = subclass.__name__
+                warnings.warn('{module}.{sub_name} implements {cls_name}.\n'
+                              'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
+                              .format(cls_name=cls_name, sub_name=sub_name, module=cls.__module__),
+                              stacklevel=stacklevel)
         cls._abc_registry.add(subclass)
         abc.ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
         return True
