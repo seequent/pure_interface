@@ -9,8 +9,9 @@ Features:
   This means that `class C(PureInterface, ABCInterface)` will be a pure interface if the abc interface meets the 
   no function body content criteria.
 * Fallback to duck-type checking for `isinstance(a, Interface)`
+* Fallback to duck-type checking for `issubclass(C, Interface)`
 * Ensure that method overrides have a the same signature (optional)
-* Option to warn if isinstance did a duck-type check when inheritance or registering would wok.  
+* Option to warn if `isinstance` or `issubclass` did a duck-type check when inheritance or registering would wok.  
 * Option to turn off method signature checking.
 * Support interface adapters.
 * Support python 2.7 and 3.2+
