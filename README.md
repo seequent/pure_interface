@@ -1,19 +1,19 @@
 # pure_interface
-A Python abc (abstract base class) implementation that disallows function body content on interfaces.
+A Python interface library that disallows function body content on interfaces and supports adaption.
 
-The goals of this package are:
-* to prevent implementation code in an interface class
-* work just like a python abc interface (to get IDE support)
-* allow concrete implementations to use attributes instead of properties (to make retrofitting of interfaces easier)
-* work nicely with abc interfaces that do not include any implementation.
+Features:
+* Prevents implementation code in an interface class
+* Works just like a python abc abstract classes (to get IDE support)
+* Allows concrete implementations flexibility to implement abstract properties as attributes or even use `__getattr__`.
+* Treats abc interfaces that do not include any implementation as a pure interface type.
   This means that `class C(PureInterface, ABCInterface)` will be a pure interface if the abc interface meets the 
   no function body content criteria.
-* fallback to duck-type checking for `isinstance(a, Interface)` (or `issubclass(A, Interface)`) 
-(so that duck typing still works.)
+* Fallback to duck-type checking for `isinstance(a, Interface)`
 * Ensure that method overrides have a the same signature (optional)
-* Release mode and warning switches. E.g. warn if using ducktype isinstance.  Turn off method signature checking when frozen.
-* Support interface adapters/mappers
-* support python 2.7 and 3.2+
+* Option to warn if isinstance did a duck-type check when inheritance or registering would wok.  
+* Option to turn off method signature checking.
+* Support interface adapters.
+* Support python 2.7 and 3.2+
 
 ## A note on the name
 
@@ -71,7 +71,34 @@ Including code in a method will result in an `InterfaceError` being raised when 
     >>>     def method_one(self):
     >>>         print('hello')
                 
-    pure_interface.InterfaceError: Function "method_one" is not empty
+    InterfaceError: Function "method_one" is not empty
+
+# Instance Checking
+pure_interface types will fall-back to duck-type checking if the instance is not an actual (or registered) subclss.
+
+    class IAnimal(PureInterface):
+        @abstractproperty
+        def height(self):
+    
+        def speak(self, volume):
+            pass
+    
+    class Animal2(object):
+        def __init__(self):
+            self.height = 43
+
+        def speak(self, volume):
+            print('hello')
+
+    a = Animal2()
+    isinstance(a, IAnimal) --> True
+    
+  PureInterface supports the abc `register` method to register classes as subtypes of an interface.
+  
+    IAnimal.register(Animal2)
+
+Registering a class in this way will make `isinstance` calls faster.
+
 
 # Concrete Implementations
 
@@ -92,10 +119,52 @@ that satisfy the empty method criteria can will result in a type that is conside
         def method_one(self):
             pass
             
-    class MyPureInterface(PureInterface, ABCInterface):
         def method_two(self):
             pass
          
+
 # Adaption
 
-This topic comming in a commit near you.
+Adapters for an interface are registered with the 
+`adapts` decorator or with the `register_adapter` function. Take for example an interface `ISpeaker` and a class
+`Talker` and an adapter class `TalkerToSpeaker`.
+
+    class ISpeaker(PureInterface):
+        def speak(self, volume):
+            pass
+    
+    
+    class Talker(object):
+        def talk(self):
+            return 'talk'
+    
+    
+    @adapts(Talker, ISpeaker)
+    class TalkerToSpeaker(object, ISpeaker):
+        def __init__(self, talker):
+            self._talker = talker
+    
+        def speak(self, volume):
+            return self._talker.talk()
+
+The `adapts` decorator call above is equivalent to
+
+    register_adapter(TalkerToSpeaker, Talker, ISpeaker)
+
+Adapter factory functions can be decorated too:
+
+    @adapts(Talker, ISpeaker)
+    def talker_to_speaker(talker):
+        return TalkerToSpeaker(talker)
+
+The `adapt_to_interface` function will adapt an object to the given interface if possible
+and raise `ValueError` if not.
+
+    speaker = adapter_to_interface(Talker(), ISpeaker)
+    
+If you want to get `None` rather than an exception use `adapt_to_interface_or_none` instead.
+
+ You can filter a list of objects, returning a generator of those that implement an interface using
+ `iter_adapted(objects, interface)`:
+ 
+    list(iter_adapter([None, Talker(), a_speaker, 'text'], ISpeaker) -> [<TalkerToSpeaker>, a_speaker]
