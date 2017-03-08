@@ -4,7 +4,7 @@ A Python interface library that disallows function body content on interfaces an
 Features:
 * Prevents implementation code in an interface class
 * Works just like a python abc abstract classes (to get IDE support)
-* Allows concrete implementations flexibility to implement abstract properties as attributes or even use `__getattr__`.
+* Allows concrete implementations flexibility to implement abstract properties as attributes.
 * Treats abc interfaces that do not include any implementation as a pure interface type.
   This means that `class C(PureInterface, ABCInterface)` will be a pure interface if the abc interface meets the 
   no function body content criteria.

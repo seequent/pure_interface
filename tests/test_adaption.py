@@ -11,6 +11,11 @@ class ISpeaker(pure_interface.PureInterface):
         pass
 
 
+class Speaker(object):
+    def speak(self, volume):
+        return 'speak'
+
+
 class Talker(object):
     def talk(self):
         return 'talk'
@@ -118,3 +123,27 @@ class TestAdaption(unittest.TestCase):
 
         with self.assertRaises(ValueError):  # to_interface is not concrete
             pure_interface.register_adapter(TalkerToSpeaker3, Talker, TalkerToSpeaker)
+
+    def test_adapt_to_interface_raises(self):
+        with self.assertRaises(ValueError):
+            pure_interface.adapt_to_interface(None, ISpeaker)
+
+        with self.assertRaises(ValueError):
+            pure_interface.adapt_to_interface(Talker4(), ISpeaker)
+
+    def test_adapt_to_interface_or_none(self):
+        self.assertIsNone(pure_interface.adapt_to_interface_or_none(None, ISpeaker))
+        self.assertIsNone(pure_interface.adapt_to_interface_or_none(Talker4(), ISpeaker))
+
+    def test_iter_adapted(self):
+        a_speaker = Speaker()
+        a_talker = Talker()
+        input = [None, Talker4(), a_talker, a_speaker, 'text']
+        # act
+        output = list(pure_interface.iter_adapted(input, ISpeaker))
+        # assert
+        self.assertEqual(len(output), 2)
+        self.assertIs(output[1], a_speaker)
+        speaker = output[0]
+        self.assertIsInstance(speaker, TalkerToSpeaker)
+        self.assertIs(speaker._talker, a_talker)

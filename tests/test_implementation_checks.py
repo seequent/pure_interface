@@ -111,6 +111,31 @@ class TestImplementationChecks(unittest.TestCase):
         with self.assertRaises(TypeError):
             PIEmptyABC()
 
+    def test_only_functions_and_properties_false_positive(self):
+        pure_interface.ONLY_FUNCTIONS_AND_PROPERTIES = True
+
+        try:
+            class IAnimal(pure_interface.PureInterface):
+                @pure_interface.abstractproperty
+                def height(self):
+                    return None
+        except Exception as exc:
+            self.fail(str(exc))
+        finally:
+            pure_interface.ONLY_FUNCTIONS_AND_PROPERTIES = False
+
+    def test_only_functions_and_properties_works(self):
+        pure_interface.ONLY_FUNCTIONS_AND_PROPERTIES = True
+
+        with self.assertRaises(pure_interface.InterfaceError):
+            class IAnimal(pure_interface.PureInterface):
+                eagle = True
+
+                @pure_interface.abstractproperty
+                def height(self):
+                    return None
+        pure_interface.ONLY_FUNCTIONS_AND_PROPERTIES = False
+
 
 class TestPropertyImplementations(unittest.TestCase):
     def test_abstract_property_override_passes(self):

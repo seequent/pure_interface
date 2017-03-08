@@ -47,6 +47,10 @@ class InterfaceError(Exception):
 
 
 class AttributeProperty(property):
+    """ Property that stores it's value in the instance dict under the same name.
+        Abstract properties for concrete classes are replaced with these in the type definition to allow
+        implementations to use attributes.
+    """
     def __init__(self, name):
         self.name = name
         super(AttributeProperty, self).__init__()
@@ -70,8 +74,11 @@ class AttributeProperty(property):
 
 
 def _builtin_attrs(name):
+    """ attributes that are permitted even when ONLY_FUNCTIONS_AND_PROPERTIES is True.
+    These attributes are also ignored when checking ABC types for emptyness.
+    """
     return name in ('__doc__', '__module__', '__qualname__', '__abstractmethods__', '__dict__',
-                    '_abc_cache', '_abc_registry')
+                    '_abc_cache', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache')
 
 
 def _type_is_pure_interface(cls):
@@ -97,6 +104,10 @@ def _type_is_pure_interface(cls):
 
 
 def _is_empty_function(func):
+    """ Return True if func is considered empty.
+     All functions with no return statement have an implicit return None - this is explicit in the code object.
+
+    """
     if isinstance(func, (staticmethod, classmethod, types.MethodType)):
         func = six.get_method_function(func)
     if isinstance(func, property):
@@ -125,7 +136,7 @@ def _is_empty_function(func):
     assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
     instruction = instructions[-2]
     if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
-        return False
+        return False # return is not None
     instructions = instructions[:-2]
     if len(instructions) == 0:
         return True
@@ -141,13 +152,18 @@ def _is_empty_function(func):
 
 
 def _get_function_signature(function):
+    """ Returns a list of argument names and the number of default arguments """
     code_obj = function.__code__
     args = code_obj.co_varnames[:code_obj.co_argcount]
     return args, len(function.__defaults__) if function.__defaults__ is not None else 0
 
 
 def _signatures_are_consistent(func_sig, base_sig):
-    # TODO: allow new arguments in func_sig if they have default values
+    """
+    :param func_sig: (args, num_default) tuple for overriding function
+    :param base_sig: (args, num_default) tuple for base class function
+    :return: True if signatures are consistent
+    """
     func_args, func_num_defaults = func_sig
     base_args, base_num_defaults = base_sig
     base_num_args = len(base_args)
@@ -220,7 +236,7 @@ class PureInterfaceType(abc.ABCMeta):
                     functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
                     value = abstractproperty(value.fget, value.fset, value.fdel)
                 elif ONLY_FUNCTIONS_AND_PROPERTIES:
-                    raise InterfaceError('ONLY_FUNCTIONS_AND_PROPERTIES option voilated by {}'.format(value))
+                    raise InterfaceError('ONLY_FUNCTIONS_AND_PROPERTIES option voilated by {}'.format(name))
                 namespace[name] = value
             for func in functions:
                 if func is not None and not _is_empty_function(func):
