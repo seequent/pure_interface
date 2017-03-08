@@ -8,6 +8,7 @@ except ImportError:
         __isabstractmethod__ = True
 
         def __init__(self, callable):
+            self.im_func = callable
             callable.__isabstractmethod__ = True
             super(abstractclassmethod, self).__init__(callable)
 
@@ -16,6 +17,7 @@ except ImportError:
         __isabstractmethod__ = True
 
         def __init__(self, callable):
+            self.im_func = callable
             callable.__isabstractmethod__ = True
             super(abstractstaticmethod, self).__init__(callable)
 
