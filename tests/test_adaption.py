@@ -135,12 +135,12 @@ class TestAdaption(unittest.TestCase):
         self.assertIsNone(pure_interface.adapt_to_interface_or_none(None, ISpeaker))
         self.assertIsNone(pure_interface.adapt_to_interface_or_none(Talker4(), ISpeaker))
 
-    def test_iter_adapted(self):
+    def test_filter_adapt(self):
         a_speaker = Speaker()
         a_talker = Talker()
         input = [None, Talker4(), a_talker, a_speaker, 'text']
         # act
-        output = list(pure_interface.iter_adapted(input, ISpeaker))
+        output = list(pure_interface.filter_adapt(input, ISpeaker))
         # assert
         self.assertEqual(len(output), 2)
         self.assertIs(output[1], a_speaker)

@@ -75,7 +75,7 @@ Including code in a method will result in an `InterfaceError` being raised when 
     InterfaceError: Function "method_one" is not empty
 
 # Instance Checking
-pure_interface types will fall-back to duck-type checking if the instance is not an actual (or registered) subclss.
+pure_interface types will fall back to duck-type checking if the instance is not an actual (or registered) subclss.
 
     class IAnimal(PureInterface):
         @abstractproperty
@@ -99,6 +99,23 @@ pure_interface types will fall-back to duck-type checking if the instance is not
     IAnimal.register(Animal2)
 
 Registering a class in this way will make `isinstance` calls faster.
+
+The duck-type checking makes working with data transfer objects (DTO's) much easier.
+
+    class IMyDataType(PureInterface):
+        @property
+        def thing(self):
+            pass
+        
+    class DTO(object):
+        pass
+       
+    d = DTO()
+    d.thing = 'hello'
+    isinstance(d, IMyDataType) --> True
+    e = DTO()
+    e.something_else = True
+    isinstance(e, IMyDataType) --> False
 
 
 # Concrete Implementations
@@ -128,23 +145,21 @@ that satisfy the empty method criteria can will result in a type that is conside
 
 Adapters for an interface are registered with the 
 `adapts` decorator or with the `register_adapter` function. Take for example an interface `ISpeaker` and a class
-`Talker` and an adapter class `TalkerToSpeaker`.
+`Talker` and an adapter class `TalkerToSpeaker`:
 
     class ISpeaker(PureInterface):
         def speak(self, volume):
             pass
-    
-    
+        
     class Talker(object):
         def talk(self):
             return 'talk'
-    
-    
+        
     @adapts(Talker, ISpeaker)
     class TalkerToSpeaker(object, ISpeaker):
         def __init__(self, talker):
             self._talker = talker
-    
+        
         def speak(self, volume):
             return self._talker.talk()
 
@@ -166,6 +181,6 @@ and raise `ValueError` if not.
 If you want to get `None` rather than an exception use `adapt_to_interface_or_none` instead.
 
  You can filter a list of objects, returning a generator of those that implement an interface using
- `iter_adapted(objects, interface)`:
+ `filter_adapt(objects, interface)`:
  
-    list(iter_adapter([None, Talker(), a_speaker, 'text'], ISpeaker) -> [<TalkerToSpeaker>, a_speaker]
+    list(filter_adapt([None, Talker(), a_speaker, 'text'], ISpeaker) -> [<TalkerToSpeaker>, a_speaker]

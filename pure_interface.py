@@ -439,7 +439,7 @@ def adapt_to_interface_or_none(obj, to_interface):
         return None
 
 
-def iter_adapted(objects, to_interface):
+def filter_adapt(objects, to_interface):
     """ Generates adaptions of the given objects to this interface.
     Objects that cannot be adapted to this interface are silently skipped.
     """
