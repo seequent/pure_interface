@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pure_interface',
-    version='1.1',
+    version='1.2',
     py_modules=['pure_interface'],
     url='https://github.com/tim-mitchell/pure_interface',
     install_requires=['six'],
