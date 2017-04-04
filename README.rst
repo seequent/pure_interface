@@ -31,7 +31,9 @@ You can install released versions of pure_interface using pip::
 
     pip install pure_interface
     
-or you can grab the source code from `GitHub https://github.com/tim-mitchell/pure_interface`_.
+or you can grab the source code from GitHub_.
+
+.. _GitHub: https://github.com/tim-mitchell/pure_interface
  
 Defining a Pure Interface
 -------------------------
@@ -189,3 +191,4 @@ You can filter a list of objects, returning a generator of those that implement 
 ``filter_adapt(objects, interface)``::
 
    list(filter_adapt([None, Talker(), a_speaker, 'text'], ISpeaker) -> [<TalkerToSpeaker>, a_speaker]
+
