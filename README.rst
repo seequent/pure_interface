@@ -31,7 +31,7 @@ You can install released versions of pure_interface using pip::
 
     pip install pure_interface
     
-or you can grab the source code from [GitHub](https://github.com/tim-mitchell/pure_interface).
+or you can grab the source code from `GitHub https://github.com/tim-mitchell/pure_interface`_.
  
 Defining a Pure Interface
 -------------------------
@@ -80,7 +80,7 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
 
 Instance Checking
 -----------------
-pure_interface types will fall back to duck-type checking if the instance is not an actual (or registered) subclss.::
+pure_interface types will fall back to duck-type checking if the instance is not an actual (or registered) subclass.::
 
     class IAnimal(PureInterface):
         @abstractproperty

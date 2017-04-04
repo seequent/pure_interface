@@ -210,19 +210,25 @@ class PureInterfaceType(abc.ABCMeta):
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
     def __new__(mcs, clsname, bases, attributes):
-        type_is_interface = all(_type_is_pure_interface(cls) for cls in bases)
+        base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
+        type_is_interface = all(is_interface for cls, is_interface in base_types)
         if clsname == 'PureInterface' and attributes['__module__'] == 'pure_interface':
             type_is_interface = True
-        else:
-            if bases[0] is object:
-                bases = bases[1:]  # create a consistent MRO order
+        elif bases[0] is object:
+            bases = bases[1:]  # create a consistent MRO order
         interface_method_names = set()
         interface_property_names = set()
-        for base in bases:
-            base_interface_method_names = getattr(base, '_pi_interface_method_names', set())
-            interface_method_names.update(base_interface_method_names)
-            base_interface_property_names = getattr(base, '_pi_interface_property_names', set())
-            interface_property_names.update(base_interface_property_names)
+        bases_to_check = []
+        for base, base_is_interface in base_types:
+            if base is object:
+                continue
+            if base_is_interface:
+                base_interface_method_names = getattr(base, '_pi_interface_method_names', set())
+                interface_method_names.update(base_interface_method_names)
+                base_interface_property_names = getattr(base, '_pi_interface_property_names', set())
+                interface_property_names.update(base_interface_property_names)
+            elif not isinstance(base, PureInterfaceType):
+                bases_to_check.append(base)
         if type_is_interface:
             namespace, functions, method_names, property_names = mcs._ensure_everything_is_abstract(attributes)
             interface_method_names.update(method_names)
@@ -234,6 +240,9 @@ class PureInterfaceType(abc.ABCMeta):
             namespace = attributes
         if CHECK_METHOD_SIGNATURES:
             mcs._check_method_signatures(attributes, bases, clsname, interface_method_names)
+            for base in bases_to_check:
+                i = bases.index(base)
+                mcs._check_method_signatures(base.__dict__, bases[i+1:], clsname, interface_method_names)
 
         cls = abc.ABCMeta.__new__(mcs, clsname, bases, namespace)
         cls._pi_type_is_pure_interface = type_is_interface
