@@ -1,8 +1,9 @@
 from setuptools import setup
+import pure_interface
 
 setup(
     name='pure_interface',
-    version='1.3.3',
+    version=pure_interface.__version__,
     py_modules=['pure_interface'],
     url='https://github.com/tim-mitchell/pure_interface',
     install_requires=['six'],

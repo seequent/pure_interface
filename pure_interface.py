@@ -31,6 +31,9 @@ import weakref
 
 import six
 
+__version__ = '1.3.4'
+
+
 # OPTIONS
 ONLY_FUNCTIONS_AND_PROPERTIES = False  # disallow everything except functions and properties
 # ensure overridden methods have compatible signature
@@ -108,7 +111,6 @@ def _type_is_pure_interface(cls):
 def _is_empty_function(func):
     """ Return True if func is considered empty.
      All functions with no return statement have an implicit return None - this is explicit in the code object.
-
     """
     if isinstance(func, (staticmethod, classmethod, types.MethodType)):
         func = six.get_method_function(func)
@@ -382,7 +384,7 @@ class PureInterfaceType(abc.ABCMeta):
                     stacklevel = 5
                 cls_name = cls.__name__
                 sub_name = subclass.__name__
-                warnings.warn('{module}.{sub_name} implements {cls_name}.\n'
+                warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                               'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
                               .format(cls_name=cls_name, sub_name=sub_name, module=cls.__module__),
                               stacklevel=stacklevel)
