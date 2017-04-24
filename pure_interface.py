@@ -31,7 +31,7 @@ import weakref
 
 import six
 
-__version__ = '1.3.4'
+__version__ = '1.4.0'
 
 
 # OPTIONS
@@ -40,6 +40,8 @@ ONLY_FUNCTIONS_AND_PROPERTIES = False  # disallow everything except functions an
 CHECK_METHOD_SIGNATURES = not hasattr(sys, 'frozen')
 # issue a warning if duck typing fallback is used when inheriting would work
 WARN_ABOUT_UNNCESSARY_DUCK_TYPING = not hasattr(sys, 'frozen')
+# adapt_to_interface returns an object restricted to provide ONLY the properties and methods defined in the interface
+ADAPT_TO_INTERFACE_ONLY = not hasattr(sys, 'frozen')
 
 if six.PY2:
     _six_ord = ord
@@ -51,7 +53,7 @@ class InterfaceError(Exception):
     pass
 
 
-class AttributeProperty(property):
+class AttributeProperty(object):
     """ Property that stores it's value in the instance dict under the same name.
         Abstract properties for concrete classes are replaced with these in the type definition to allow
         implementations to use attributes.
@@ -71,11 +73,38 @@ class AttributeProperty(property):
     def __set__(self, instance, value):
         instance.__dict__[self.name] = value
 
-    def __delete__(self, instance):
-        try:
-            del instance.__dict__[self.name]
-        except KeyError:
-            raise AttributeError(self.name)
+
+class DelegateProperty(object):
+    def __init__(self, impl, name):
+        self.impl = impl
+        self.name = name
+        super(DelegateProperty, self).__init__()
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return getattr(type(self.impl), self.name)
+        return getattr(self.impl, self.name)
+
+    def __set__(self, instance, value):
+        setattr(self.impl, self.name, value)
+
+
+class _ImplementationWrapper(object):
+    def __init__(self, implementation, interface):
+        self.__impl = implementation
+        self.__interface = interface
+        self.__method_names = interface._pi_interface_method_names
+        self.__property_names = interface._pi_interface_property_names
+        self.__interface_name = interface.__name__
+
+    def __getattr__(self, attr):
+        impl = self.__impl
+        if attr in self.__method_names:
+            return getattr(impl, attr)
+        elif attr in self.__property_names:
+            return getattr(impl, attr)
+        else:
+            raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, attr))
 
 
 def _builtin_attrs(name):
@@ -240,19 +269,20 @@ class PureInterfaceType(abc.ABCMeta):
                     raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
-        if CHECK_METHOD_SIGNATURES:
+        if CHECK_METHOD_SIGNATURES and _ImplementationWrapper not in bases:
             mcs._check_method_signatures(attributes, bases, clsname, interface_method_names)
             for base in bases_to_check:
                 i = bases.index(base)
                 mcs._check_method_signatures(base.__dict__, bases[i+1:], clsname, interface_method_names)
 
-        cls = abc.ABCMeta.__new__(mcs, clsname, bases, namespace)
+        cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi_type_is_pure_interface = type_is_interface
         cls._pi_abstractproperties = frozenset()
         cls._pi_interface_method_names = frozenset(interface_method_names)
         cls._pi_interface_property_names = frozenset(interface_property_names)
         cls._pi_adapters = weakref.WeakKeyDictionary()
         cls._pi_ducktype_subclasses = set()
+        cls._pi_impl_wrapper_type = None
         if not type_is_interface:
             mcs._patch_properties(cls)
         if type_is_interface and not cls.__abstractmethods__:
@@ -338,7 +368,7 @@ class PureInterfaceType(abc.ABCMeta):
 
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
-        self = abc.ABCMeta.__call__(cls, *args, **kwargs)
+        self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi_abstractproperties:
             if not hasattr(self, attr):
                 raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
@@ -392,6 +422,21 @@ class PureInterfaceType(abc.ABCMeta):
         abc.ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
         return True
 
+    def interface_only(cls, implementation):
+        if cls._pi_impl_wrapper_type is None:
+            type_name = cls.__name__ + 'Only'
+            attributes = {name: DelegateProperty(implementation, name)
+                          for name in list(cls._pi_interface_method_names) + list(cls._pi_interface_property_names)}
+            attributes['__module__'] = cls.__module__
+            cls._pi_impl_wrapper_type = type(type_name, (_ImplementationWrapper, cls), attributes)
+        return cls._pi_impl_wrapper_type(implementation, cls)
+
+    def adapt(cls, obj):
+        return adapt_to_interface(obj, cls)
+
+    def adapt_or_none(cls, obj):
+        return adapt_to_interface_or_none(obj, cls)
+
 
 @six.add_metaclass(PureInterfaceType)
 class PureInterface(abc.ABC if hasattr(abc, 'ABC') else object):
@@ -428,18 +473,26 @@ def register_adapter(adapter, from_type, to_interface):
 def adapt_to_interface(obj, to_interface):
     """ Adapts obj to interface, returning obj if isinstance(obj, to_interface) is True
     and raising ValueError if no adapter is found
+    If ADAPT_TO_INTERFACE_ONLY is True, obj is adapted to an object restricted to to_interface.
     """
     if isinstance(obj, to_interface):
-        return obj
+        adapted = obj
+        if ADAPT_TO_INTERFACE_ONLY:
+            adapted = to_interface.interface_only(adapted)
+        return adapted
+
     adapters = getattr(to_interface, '_pi_adapters', {})
     if not adapters:
         raise ValueError('Cannot adapt {} to {}'.format(obj, to_interface))
+
     for obj_class in type(obj).__mro__:
         if obj_class in adapters:
             factory = adapters[obj_class]
             adapted = factory(obj)
             if not isinstance(adapted, to_interface):
                 raise ValueError('Adapter {} does not implement interface {}'.format(factory, to_interface))
+            if ADAPT_TO_INTERFACE_ONLY:
+                adapted = to_interface.interface_only(adapted)
             return adapted
     raise ValueError('Cannot adapt {} to {}'.format(obj, to_interface))
 
