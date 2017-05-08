@@ -33,7 +33,7 @@ You can install released versions of pure_interface using pip::
 
 or you can grab the source code from GitHub_.
 
-.. _GitHub: https://github.com/tim-mitchell/pure_interface
+.. _GitHub: https://github.com/aranzgeo/pure_interface
 
 Defining a Pure Interface
 -------------------------
