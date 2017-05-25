@@ -220,7 +220,7 @@ def _method_signatures_match(name, func, bases):
     for base in bases:
         if base is object:
             continue
-        if hasattr(base, name):
+        if name in base.__dict__:
             base_func = getattr(base, name)
             if hasattr(base_func, six._meth_func):
                 base_func = six.get_method_function(base_func)

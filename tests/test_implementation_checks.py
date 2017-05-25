@@ -136,6 +136,14 @@ class TestImplementationChecks(unittest.TestCase):
                     return None
         pure_interface.ONLY_FUNCTIONS_AND_PROPERTIES = False
 
+    def test_can_use_type_methods(self):
+        try:
+            class MyInterface(pure_interface.PureInterface):
+                def register(self):
+                    pass
+        except pure_interface.InterfaceError as exc:
+            self.fail(str(exc))
+
 
 class TestPropertyImplementations(unittest.TestCase):
     def test_abstract_property_override_passes(self):
