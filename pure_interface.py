@@ -31,7 +31,7 @@ import weakref
 
 import six
 
-__version__ = '1.5.0'
+__version__ = '1.6.0'
 
 
 # OPTIONS
@@ -137,7 +137,15 @@ def _type_is_pure_interface(cls):
     return False
 
 
-def _is_empty_function(func):
+def _unwrap_function(func):
+    """ Look for decorated functions and return the wrapped function.
+    """
+    while hasattr(func, '__wrapped__'):
+        func = func.__wrapped__
+    return func
+
+
+def _is_empty_function(func, unwrap=False):
     """ Return True if func is considered empty.
      All functions with no return statement have an implicit return None - this is explicit in the code object.
     """
@@ -145,7 +153,10 @@ def _is_empty_function(func):
         func = six.get_method_function(func)
     if isinstance(func, property):
         func = property.fget
+    if unwrap:
+        func = _unwrap_function(func)
     code_obj = six.get_function_code(func)
+
     # quick check
     if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
         return True
@@ -240,6 +251,8 @@ class PureInterfaceType(abc.ABCMeta):
         * optionally check overriding method signatures match those on base class.
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
+    _pi_unwrap_decorators = False
+
     def __new__(mcs, clsname, bases, attributes):
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
         type_is_interface = all(is_interface for cls, is_interface in base_types)
@@ -265,7 +278,7 @@ class PureInterfaceType(abc.ABCMeta):
             interface_method_names.update(method_names)
             interface_property_names.update(property_names)
             for func in functions:
-                if func is not None and not _is_empty_function(func):
+                if func is not None and not _is_empty_function(func, mcs._pi_unwrap_decorators):
                     raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes

@@ -144,6 +144,18 @@ class TestImplementationChecks(unittest.TestCase):
         except pure_interface.InterfaceError as exc:
             self.fail(str(exc))
 
+    def test_decorators_not_unwrapped(self):
+        def d(f):
+            def w():
+                return f()
+            return w
+
+        with self.assertRaises(pure_interface.InterfaceError):
+            class MyInterface(pure_interface.PureInterface):
+                @d
+                def foo(self):
+                    pass
+
 
 class TestPropertyImplementations(unittest.TestCase):
     def test_abstract_property_override_passes(self):

@@ -307,3 +307,24 @@ WARN_ABOUT_UNNCESSARY_DUCK_TYPING
         Consider inheriting ISpeaker or using ISpeaker.register(Speaker)
 
     **Default:** ``not hasattr(sys, 'frozen')`` (``True`` if running from source, ``False`` if bundled into an executable)
+
+
+PyContracts Integration
+-----------------------
+
+You can use ``pure_interface`` with PyContracts_
+
+.. _PyContracts: https://pypi.python.org/pypi/PyContracts
+
+Simply import the ``pure_contracts`` module and use the ``ContractInterface`` class defined there as you
+would the ``PureInterface`` class described above.
+For example::
+
+    from pure_contracts import ContractInterface
+    from contracts import contract
+
+    class ISpeaker(ContractInterface):
+        @contract(volume=int, returns=unicode)
+        def speak(self, volume):
+            pass
+

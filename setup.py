@@ -4,9 +4,10 @@ import pure_interface
 setup(
     name='pure_interface',
     version=pure_interface.__version__,
-    py_modules=['pure_interface'],
+    py_modules=['pure_interface', 'pure_contracts'],
     url='https://github.com/tim-mitchell/pure_interface',
     install_requires=['six'],
+    extras_require={'contracts', ['PyContracts>=1.7']},
     license='MIT',
     author='Tim Mitchell',
     author_email='tim.mitchell@aranzgeo.com',
