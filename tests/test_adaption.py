@@ -92,21 +92,21 @@ class TestAdaption(unittest.TestCase):
         talker = Talker()
         s = pure_interface.adapt_to_interface(talker, ISpeaker)
 
-        self.assertTrue(isinstance(s, ISpeaker))
+        self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_implicit_adapter_passes(self):
         talker = Talker2()
         s = pure_interface.adapt_to_interface(talker, ISpeaker)
 
-        self.assertTrue(isinstance(s, ISpeaker))
+        self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_callable_adapter_passes(self):
         talker = Talker3()
         s = pure_interface.adapt_to_interface(talker, ISpeaker)
 
-        self.assertTrue(isinstance(s, ISpeaker))
+        self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_adapter_call_check(self):

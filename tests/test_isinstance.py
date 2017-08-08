@@ -24,17 +24,21 @@ class TestIsInstanceChecks(unittest.TestCase):
         IAnimal.register(Animal)
         a = Animal()
         self.assertTrue(isinstance(a, IAnimal))
+        self.assertTrue(IAnimal.provided_by(a))
 
     def test_duck_type_fallback_passes(self):
         class Animal2(object):
             def speak(self, volume):
                 print('hello')
 
-            def __init__(self):
-                self.height = 43
+            @property
+            def height(self):
+                return 5
 
         a = Animal2()
-        self.assertTrue(isinstance(a, IAnimal))
+        self.assertFalse(isinstance(a, IAnimal))
+        self.assertTrue(IAnimal.provided_by(a))
+        self.assertIn(Animal2, IAnimal._pi_ducktype_subclasses)
 
     def test_duck_type_fallback_fails(self):
         class Animal2(object):
@@ -43,33 +47,7 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         a = Animal2()
         self.assertFalse(isinstance(a, IAnimal))
-
-    def test_isinstance_duck_type_check_registers(self):
-        class Animal2(object):
-            def speak(self, volume):
-                print('hello')
-
-            @property
-            def height(self):
-                return 43
-
-        a = Animal2()
-        self.assertNotIn(Animal2, IAnimal._abc_registry)
-        self.assertTrue(isinstance(a, IAnimal))
-        self.assertIn(Animal2, IAnimal._abc_registry)
-
-    def test_issubclass_duck_type_check_registers(self):
-        class Animal3(object):
-            def speak(self, volume):
-                print('hello')
-
-            @property
-            def height(self):
-                return 43
-
-        self.assertNotIn(Animal3, IAnimal._abc_registry)
-        self.assertTrue(issubclass(Animal3, IAnimal))
-        self.assertIn(Animal3, IAnimal._abc_registry)
+        self.assertFalse(IAnimal.provided_by(a))
 
     def test_concrete_subclass_check(self):
         class Cat(object, IAnimal):
@@ -83,16 +61,9 @@ class TestIsInstanceChecks(unittest.TestCase):
             def happy(self):
                 return True
 
-        class StripeyCat(object):
-            def speak(self, volume):
-                print('meow')
-
-            @property
-            def height(self):
-                return 35
-
-        sc = StripeyCat()
-        self.assertFalse(isinstance(sc, Cat))
+        c = Cat()
+        with self.assertRaises(ValueError):
+            Cat.provided_by(c)
 
     def test_warning_issued_once(self):
         pure_interface.WARN_ABOUT_UNNCESSARY_DUCK_TYPING = True
@@ -107,8 +78,8 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            issubclass(Cat2, IAnimal)
-            issubclass(Cat2, IAnimal)
+            IAnimal.provided_by(Cat2())
+            IAnimal.provided_by(Cat2())
 
         self.assertEqual(warn.call_count, 1)
         msg = warn.call_args[0][0]
@@ -128,6 +99,6 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            issubclass(Cat3, IAnimal)
+            IAnimal.provided_by(Cat3())
 
         warn.assert_not_called()

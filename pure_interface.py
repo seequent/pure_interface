@@ -387,11 +387,7 @@ class PureInterfaceType(abc.ABCMeta):
                 raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
         return self
 
-    def __instancecheck__(cls, instance):
-        if super(PureInterfaceType, cls).__instancecheck__(instance):
-            return True
-        if not cls._pi_type_is_pure_interface:
-            return False  # can't do duck type checking for sub-classes of concrete types
+    def _ducktype_check(cls, instance):
         # duck-type checking
         subclass = type(instance)
         for attr in cls._pi_interface_method_names:
@@ -403,11 +399,10 @@ class PureInterfaceType(abc.ABCMeta):
                 return False
         return True
 
-    def __subclasscheck__(cls, subclass):
-        if super(PureInterfaceType, cls).__subclasscheck__(subclass):
+    def _class_ducktype_check(cls, subclass):
+        if subclass in cls._pi_ducktype_subclasses:
             return True
-        if not cls._pi_type_is_pure_interface:
-            return False  # can't do duck type checking for sub-classes of concrete types
+
         # duck-type checking
         for attr in cls._pi_interface_method_names:
             subtype_value = getattr(subclass, attr, None)
@@ -417,22 +412,13 @@ class PureInterfaceType(abc.ABCMeta):
             if not hasattr(subclass, attr):
                 return False
 
-        if subclass not in cls._pi_ducktype_subclasses:
-            cls._pi_ducktype_subclasses.add(subclass)
-            if WARN_ABOUT_UNNCESSARY_DUCK_TYPING:
-                # calc stacklevel
-                frames = inspect.getouterframes(inspect.currentframe(), context=0)
-                stacklevel = 4 if len(frames) > 1 and frames[1][3] == '__instancecheck__' else 2
-                if len(frames) > 3 and frames[3][3] == 'adapt_to_interface':
-                    stacklevel = 5
-                cls_name = cls.__name__
-                sub_name = subclass.__name__
-                warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
-                              'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
-                              .format(cls_name=cls_name, sub_name=sub_name, module=cls.__module__),
-                              stacklevel=stacklevel)
-        cls._abc_registry.add(subclass)
-        abc.ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
+        cls._pi_ducktype_subclasses.add(subclass)
+        if WARN_ABOUT_UNNCESSARY_DUCK_TYPING:
+            stacklevel = 2
+            warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
+                          'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
+                          .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
+                          stacklevel=stacklevel)
         return True
 
     def interface_only(cls, implementation):
@@ -448,7 +434,26 @@ class PureInterfaceType(abc.ABCMeta):
         return adapt_to_interface(obj, cls)
 
     def adapt_or_none(cls, obj):
+        """ Returns True if obj provides this interface, either by inheritance or duck-typing.  False otherwise """
         return adapt_to_interface_or_none(obj, cls)
+
+    def provided_by(cls, obj):
+        # (Any) -> bool
+        """ Returns True if obj provides this interface, either by inheritance or duck-typing.  False otherwise """
+        if not cls._pi_type_is_pure_interface:
+            raise ValueError('provided_by() can only be called on interfaces')
+        if isinstance(obj, cls):
+            return True
+        if cls._class_ducktype_check(type(obj)):
+            return True
+        return cls._ducktype_check(obj)
+
+    def provided_by_or_adapter(cls, obj):
+        # (Any) -> bool
+        """ Returns True if obj provides, or can be adapted to, this interface.  False otherwise """
+        if cls.provided_by(obj):
+            return True
+        return adapt_to_interface_or_none(obj, cls) is not None
 
 
 @six.add_metaclass(PureInterfaceType)
@@ -484,11 +489,12 @@ def register_adapter(adapter, from_type, to_interface):
 
 
 def adapt_to_interface(obj, to_interface):
-    """ Adapts obj to interface, returning obj if isinstance(obj, to_interface) is True
+    """ Adapts obj to interface, returning obj if to_interface.provided_by(obj) is True
     and raising ValueError if no adapter is found
-    If ADAPT_TO_INTERFACE_ONLY is True, obj is adapted to an object restricted to to_interface.
+    If ADAPT_TO_INTERFACE_ONLY is True, obj is wrapped by an object that only provides the methods and properties
+    defined by to_interface.
     """
-    if isinstance(obj, to_interface):
+    if to_interface.provided_by(obj):
         adapted = obj
         if ADAPT_TO_INTERFACE_ONLY:
             adapted = to_interface.interface_only(adapted)
@@ -502,7 +508,7 @@ def adapt_to_interface(obj, to_interface):
         if obj_class in adapters:
             factory = adapters[obj_class]
             adapted = factory(obj)
-            if not isinstance(adapted, to_interface):
+            if not to_interface.provided_by(adapted):
                 raise ValueError('Adapter {} does not implement interface {}'.format(factory, to_interface))
             if ADAPT_TO_INTERFACE_ONLY:
                 adapted = to_interface.interface_only(adapted)
@@ -511,7 +517,7 @@ def adapt_to_interface(obj, to_interface):
 
 
 def adapt_to_interface_or_none(obj, to_interface):
-    """ Adapt obj to to_interface or return None if adaption fails"""
+    """ Adapt obj to to_interface or return None if adaption fails """
     try:
         return adapt_to_interface(obj, to_interface)
     except ValueError:
