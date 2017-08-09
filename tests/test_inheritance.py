@@ -38,14 +38,14 @@ class BadGrowingMixin(object):
 
 class TestInheritance(unittest.TestCase):
     def test_bad_mixin_class_is_checked(self):
-        pure_interface.CHECK_METHOD_SIGNATURES = True
+        pure_interface.IS_DEVELOPMENT = True
 
         with self.assertRaises(pure_interface.InterfaceError):
             class Growing(BadGrowingMixin, IGrowingThing):
                 pass
 
     def test_ok_mixin_class_passes(self):
-        pure_interface.CHECK_METHOD_SIGNATURES = True
+        pure_interface.IS_DEVELOPMENT = True
 
         class Growing(GrowingMixin, IGrowingThing):
             pass

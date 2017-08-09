@@ -1,4 +1,3 @@
-==============
 pure_interface
 ==============
 
@@ -11,12 +10,10 @@ Features:
     * Treats abc interfaces that do not include any implementation as a pure interface type.
       This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
       no function body content criteria.
-    * Fallback to duck-type checking for ``isinstance(a, Interface)``
-    * Fallback to duck-type checking for ``issubclass(C, Interface)``
-    * Ensure that method overrides have a the same signature (optional)
-    * Option to warn if ``isinstance`` or ``issubclass`` did a duck-type check when inheritance or registering would wok.
-    * Option to turn off method signature checking.
-    * Support interface adapters.
+    * Fallback to duck-type checking for ``Interface.provided_by(a)``
+    * Ensure that method overrides have a the same signature
+    * Warns if ``provided_by`` did a duck-type check when inheritance or registering would work.
+    * Support interface adaption.
     * Support python 2.7 and 3.5+
 
 A note on the name
@@ -36,37 +33,31 @@ or you can grab the source code from GitHub_.
 .. _GitHub: https://github.com/aranzgeo/pure_interface
 
 Defining a Pure Interface
--------------------------
+=========================
+
 For simplicity in these examples we assume that the entire pure_interface namespace has been imported ::
 
     from pure_interface import *
 
 To define an interface, simply inherit from the class ``PureInterface`` and leave all method bodies empty::
 
-    class MyInterface(PureInterface):
-        def method_one(self):
-            pass
-
-        @abstractmethod
-        def method_two(self):
-            pass
-
+    class IAnimal(PureInterface):
         @property
-        def property_one(self):
+        def height(self):
             pass
 
-        @abstractproperty
-        def property_two(self):
+        def speak(self, volume):
             pass
+
 
 As ``PureInterface`` is a subtype of ``abc.ABC`` the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
-For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and on Python 2.7
-``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
+For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and
+on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
 
 However these decorators are optional as **ALL** methods and properties on a pure interface are abstract ::
 
-    >>> MyInterface()
-    TypeError: Can't instantiate abstract class MyInterface with abstract methods method_one, method_two, property_one, property_two
+    IAnimal()
+    TypeError: Can't instantiate abstract class IAnimal with abstract methods height, speak
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
@@ -75,38 +66,89 @@ considered empty.
 
 Including code in a method will result in an ``InterfaceError`` being raised when the module is imported. For example::
 
-    >>> class BadInterface(PureInterface):
-    >>>     def method_one(self):
-    >>>         print('hello')
+    class BadInterface(PureInterface):
+        def method(self):
+            print('hello')
 
-    InterfaceError: Function "method_one" is not empty
+    InterfaceError: Function "method" is not empty
 
-Instance Checking
------------------
-pure_interface types will fall back to duck-type checking if the instance is not an actual (or registered) subclass.::
+Concrete Implementations
+========================
 
-    class IAnimal(PureInterface):
-        @abstractproperty
+Simply inheriting from a pure interface and writing a concrete class will result in an ``InterfaceError`` exception
+as ``pure_interface`` will assume you are creating a sub-interface. To tell ``pure_interface`` that a type should be
+concrete simply inherit from ``object`` as well (or anything else that isn't a ``PureInterface``).  For example::
+
+    class Animal(object, IAnimal):
+        def __init__(self, height):
+            self._height = height
+
+        @property
         def height(self):
+            return self._height
 
         def speak(self, volume):
+            print('hello')
+
+**Exception:** Mixing a ``PureInterface`` class with an ``abc.ABC`` interface class that only defines abstract methods
+and properties that satisfy the empty method criteria will result in a type that is considered a pure interface.::
+
+    class ABCInterface(abc.ABC):
+        @abstractmethod
+        def foo(self):
             pass
 
-    class Animal2(object):
+    class MyPureInterface(ABCInterface):
+        def bar(self):
+            pass
+
+Concrete implementations may implement interface properties as normal attributes,
+provided that they are all set in the constructor::
+
+    class Animal2(object, IAnimal):
+        def __init__(self, height):
+            self.height = height
+
+        def speak(self, volume):
+            print('hello')
+
+This can simplify implementations greatly when there are lots of properties on an interface.
+
+Method overrides are checked for compatibility with the interface.
+This means that argument names must match exactly and that no new non-optional
+arguments are present in the override.  This enforces that calling the method
+with interface parameters will aways work.
+For example, given the interface method::
+
+  def speak(self, volume):
+
+Then these overrides will all fail the checks and raise an ``InterfaceError``::
+
+   def speak(self):  # too few parameters
+   def speak(self, loudness):  # name does not match
+   def speak(self, volume, language):  # extra required argument
+
+However new optional parameters are permitted::
+
+  def speak(self, volume, language='doggy speak')
+
+Interface Checking
+==================
+
+As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
+An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to duck-type
+checking if the instance is not an actual subclass. The duck-type checking does not check function signatures.::
+
+    class Parrot(object):
         def __init__(self):
             self.height = 43
 
         def speak(self, volume):
             print('hello')
 
-    a = Animal2()
-    isinstance(a, IAnimal) --> True
-
-PureInterface supports the abc ``register`` method to register classes as subtypes of an interface.::
-
-    IAnimal.register(Animal2)
-
-Registering a class in this way will make ``isinstance`` calls faster.
+    p = Parrot()
+    isinstance(p, IAnimal) --> False
+    IAnimal.provided_by(p) --> True
 
 The duck-type checking makes working with data transfer objects (DTO's) much easier.::
 
@@ -120,56 +162,20 @@ The duck-type checking makes working with data transfer objects (DTO's) much eas
 
     d = DTO()
     d.thing = 'hello'
-    isinstance(d, IMyDataType) --> True
+    IMyDataType.provided_by(d) --> True
     e = DTO()
     e.something_else = True
-    isinstance(e, IMyDataType) --> False
-
-For ``PureInterface`` types, ``isinstance(d, IMyDataType)`` means ``d`` provides the interface,
-it does not imply that ``issubclass(type(d), IMyDataType)`` is ``True``.  However this is the case
-with ``ABC`` interfaces already.
-
-Concrete Implementations
-------------------------
-Simply inheriting from a pure interface and writing a concrete class will result in an ``InterfaceError`` exception as
-``pure_interface`` will assume you are creating a sub-interface. To tell ``pure_interface`` that a type should be concrete
-simply inherit from object as well (or anything else that isn't a ``PureInterface``).  For example::
-
-    class MyImplementation(object, MyInterface):
-        def method_one(self):
-            print('hello')
-
-**Exception:** Mixing a PureInterface class with an abc.ABC interface class that only defines abstract methods and properties
-that satisfy the empty method criteria can will result in a type that is considered a pure interface.::
-
-    class ABCInterface(abc.ABC):
-        @abstractmethod
-        def method_one(self):
-            pass
-
-    class MyPureInterface(ABCInterface):
-        def method_two(self):
-            pass
-
-Concrete implementations may implement interface properties as normal attributes,
-provided that they are all set in the constructor::
-
-  class MyInterface(PureInterface)
-      @property
-      def thing(self):
-         pass
-
-  class MyImplementation(MyInterface):
-      def __init__(self, thing):
-          self.thing = thing
-
-This can simplify implementations greatly when there are lots of properties on an interface.
+    IMyDataType.provided_by(e) --> False
 
 Adaption
---------
-Adapters for an interface are registered with the
-``adapts`` decorator or with the ``register_adapter`` function. Take for example an interface ``ISpeaker`` and a class
-``Talker`` and an adapter class ``TalkerToSpeaker``::
+========
+
+Registering Adapters
+--------------------
+
+Adapters for an interface are registered with the ``adapts`` decorator or with
+the ``register_adapter`` function. Take for example an interface ``ISpeaker`` and a
+class ``Talker`` and an adapter class ``TalkerToSpeaker``::
 
     class ISpeaker(PureInterface):
         def speak(self, volume):
@@ -197,120 +203,93 @@ Adapter factory functions can be decorated too::
     def talker_to_speaker(talker):
         return TalkerToSpeaker(talker)
 
-The ``adapt_to_interface`` function will adapt an object to the given interface if possible
-and raise ``ValueError`` if not.::
+The decorated adapter (whether class for function) must be callable with a single parameter - the object to adapt.
 
-    speaker = adapt_to_interface(talker, ISpeaker)
+Adapting Objects
+----------------
 
-Alternatively, you can use the ``adapt`` method on the interface class::
+The ``PureInterface.adapt`` method will adapt an object to the given interface
+such that ``Interface.provided_by(obj)`` is ``True`` or raise ``ValueError`` if no adapter could be found.  For example::
 
     speaker = ISpeaker.adapt(talker)
+    ISpeaker.provided_by(speaker)  --> True
 
 If you want to get ``None`` rather than an exception then use::
 
-    speaker = adapt_to_interface_or_none(talker, ISpeaker)
-
-or::
-
     speaker = ISpeaker.adapt_or_none(talker)
 
-You can filter a list of objects, returning a generator of those that implement an interface using
-``filter_adapt(objects, interface)``::
+You can filter a list of objects, returning a generator of those that provide an interface
+using ``filter_adapt(objects)``::
 
-   list(filter_adapt([None, Talker(), a_speaker, 'text'], ISpeaker) -> [<TalkerToSpeaker>, a_speaker]
+   list(ISpeaker.filter_adapt([None, Talker(), a_speaker, 'text']) --> [TalkerToSpeaker, a_speaker]
 
-Options
--------
-The ``pure_interface`` module has 4 boolean flags which control optional functionality.
-Note that most of these flags must be set before modules using the ``PureInterface`` type
-are imported or else the changes will not have any effect
+By default the adaption functions will return an object which provides ONLY
+the functions and properties specified by the interface.  For example given the
+following implementation of the ``ISpeaker`` interface above::
 
-ADAPT_TO_INTERFACE_ONLY
-    If ``True`` then ``adapt_to_interface`` will return an object which provides ONLY
-    the functions and properties specified by the interface.  For example given the
-    following implementation of the ``ISpeaker`` interface above::
-
-      class TopicSpeaker(ISpeaker):
-          def __init__(self, topic):
-              self.topic = topic
-
-          def speak(self, volume):
-              return 'lets talk about {} very {}'.format(self.topic, volume)
-
-    Then::
-
-      topic_speaker = TopicSpeaker('python')
-      speaker = adapt_to_interface(ts, ISpeaker)
-      speaker is topic_speaker  --> False
-      speaker.topic --> AttributeError("ISpeaker interface has no attribute topic")
-
-    If ``False`` then the object itself, or a registered adapter class is returned::
-
-      topic_speaker = TopicSpeaker('python')
-      speaker = adapt_to_interface(ts, ISpeaker)
-      speaker is topic_speaker  --> True
-      speaker.topic --> 'Python'
-
-    Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
-    of ISpeaker, but this code will likely break at some inconvenient time in the future.
-
-    **Default:** ``not hasattr(sys, 'frozen')`` (``True`` if running from source, ``False`` if bundled into an executable)
-
-ONLY_FUNCTIONS_AND_PROPERTIES
-    If ``True`` this ensures that interface types only contain
-    functions (methods) and properties and no other class attributes.  For example::
-
-      class MyInterface(PureInterface):
-          disallowed = True
-
-    would not be permitted.
-
-    **Default:** ``False``
-
-CHECK_METHOD_SIGNATURES
-    If ``True`` method overrides are checked for compatibility with the interface.
-    This means that argument names must match exactly and that no new non-optional
-    arguments are present in the override.  This enforces that calling the method
-    with interface parameters will aways work.
-    For example, given the method::
+  class TopicSpeaker(ISpeaker):
+      def __init__(self, topic):
+          self.topic = topic
 
       def speak(self, volume):
+          return 'lets talk about {} very {}'.format(self.topic, volume)
 
-    Then these overrides will all fail the checks::
+  topic_speaker = TopicSpeaker('python')
 
-       def speak(self):  # too few parameters
-       def speak(self, loudness):  # name does not match
-       def speak(self, volume, language):  # extra required argument
+Then::
 
-    However new optional parameters are permitted::
+  speaker = ISpeaker.adapt(topic_speaker)
+  speaker is topic_speaker  --> False
+  speaker.topic --> AttributeError("ISpeaker interface has no attribute topic")
 
-      def speak(self, volume, language='doggy speak')
+This is controlled by the optional ``interface_only`` parameter which defaults to ``True``.
+Pass ``interface_only=False`` if you want the actual adapted object rather than a wrapper::
 
-    **Default:** ``not hasattr(sys, 'frozen')`` (``True`` if running from source, ``False`` if bundled into an executable)
+  speaker = ISpeaker.adapt(topic_speaker, interface_only=False)
+  speaker is topic_speaker  --> True
+  speaker.topic --> 'Python'
 
-WARN_ABOUT_UNNCESSARY_DUCK_TYPING
-    If ``True`` then when doing ``isinstance(a, Interface)`` or ``issubclass(A, Interface)``,
-    a warning message is emitted if an unnecessary duck-type check is done.
-    For example::
+Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
+of ISpeaker, but this code will likely break at some inconvenient time in the future.
 
-        class ISpeaker(PureInterface):
-            def speak(self, volume):
-                pass
+Note that objects that implicitly provide an interface by duck-typing may be returned by the adaption functions.
+When this happens a warning is issued informing that the duck-typed object should inherit the interface.
+The warning is only issued once for each class, interface pair.  For example::
 
-        class Speaker(object):
-            def speak(self, volume):
-                return 'speak'
+    a = Animal()
+    s = ISpeaker.adapt(a)
+    UserWarning: Class Animal implements ISpeaker.
+    Consider inheriting ISpeaker or using ISpeaker.register(Animal)
 
-        s = Speaker()
-        isinstance(s, ISpeaker)  --> True
-        UserWarning: Class Speaker implements ISpeaker.
-        Consider inheriting ISpeaker or using ISpeaker.register(Speaker)
+Development Flag
+================
 
-    **Default:** ``not hasattr(sys, 'frozen')`` (``True`` if running from source, ``False`` if bundled into an executable)
+Much of the empty function and other checking is awesome whilst writing your code but
+ultimately slows down production code.
+For this reason the ``pure_interface`` module has an IS_DEVELOPMENT switch.::
+
+    IS_DEVELOPMENT = not hasattr(sys, 'frozen')
+
+IS_DEVELOPMENT defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
+py2exe_, cx_Freeze_ or similar tools.
+
+.. _py2exe: https://pypi.python.org/pypi/py2exe
+
+.. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
+
+
+If you manually change this flag it must be set before modules using the ``PureInterface`` type
+are imported or else the change will not have any effect.
+
+If ``IS_DEVELOPMENT`` if ``False`` then:
+
+    * Signatures of overriding methods are not checked
+    * No warnings are issued by the adaption functions
+    * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
 
 
 PyContracts Integration
------------------------
+=======================
 
 You can use ``pure_interface`` with PyContracts_
 

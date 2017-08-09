@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import unittest
+import six
 
 try:
     import contracts
@@ -39,7 +40,7 @@ class TestPureContracts(unittest.TestCase):
     def test_content_fails(self):
         with self.assertRaises(pure_contracts.InterfaceError):
             class IAnimal(pure_contracts.ContractInterface):
-                @contracts.contract(volume=int)
+                @contracts.contract(volume=int, returns=six.text_type)
                 def speak(self, volume):
                     if volume > 0:
-                        print('hello' + '!'*volume)
+                        return 'hello' + '!'*volume

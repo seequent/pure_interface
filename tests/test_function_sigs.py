@@ -19,7 +19,7 @@ class IPlant(pure_interface.PureInterface):
 class TestFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.CHECK_METHOD_SIGNATURES = True
+        pure_interface.IS_DEVELOPMENT = True
 
     def test_diff_names_fails(self):
         # concrete subclass
@@ -104,7 +104,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
 class TestDisableFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.CHECK_METHOD_SIGNATURES = False
+        pure_interface.IS_DEVELOPMENT = False
 
     def test_too_many_passes(self):
         try:

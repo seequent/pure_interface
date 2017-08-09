@@ -66,7 +66,7 @@ class TestIsInstanceChecks(unittest.TestCase):
             Cat.provided_by(c)
 
     def test_warning_issued_once(self):
-        pure_interface.WARN_ABOUT_UNNCESSARY_DUCK_TYPING = True
+        pure_interface.IS_DEVELOPMENT = True
 
         class Cat2(object):
             def speak(self, volume):
@@ -87,7 +87,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertIn('IAnimal', msg)
 
     def test_warning_not_issued(self):
-        pure_interface.WARN_ABOUT_UNNCESSARY_DUCK_TYPING = False
+        pure_interface.IS_DEVELOPMENT = False
 
         class Cat3(object):
             def speak(self, volume):
