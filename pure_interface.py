@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.7.1'
+__version__ = '1.7.2'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -409,12 +409,17 @@ class PureInterfaceType(abc.ABCMeta):
                           stacklevel=stacklevel)
         return True
 
-    def provided_by(cls, obj):
+    def provided_by(cls, obj, or_adapter=False):
         # (Any) -> bool
-        """ Returns True if obj provides this interface, either by inheritance or duck-typing.  False otherwise """
+        """ Returns True if obj provides this interface, either by inheritance or duck-typing.
+        If or_adapter is True then return True if obj can be adapted to this interface.
+        Returns False otherwise.
+        """
         if not cls._pi_type_is_pure_interface:
             raise ValueError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
+            return True
+        if or_adapter and cls.adapt_or_none(obj) is not None:
             return True
         if cls._class_ducktype_check(type(obj)):
             return True

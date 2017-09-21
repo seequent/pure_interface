@@ -94,6 +94,13 @@ class TestAdaption(unittest.TestCase):
         self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
+    def test_provided_by_or_adapter(self):
+        talker = Talker()
+
+        self.assertFalse(ISpeaker.provided_by(talker))
+        self.assertTrue(ISpeaker.provided_by(talker, or_adapter=True))
+
+
     def test_implicit_adapter_passes(self):
         talker = Talker2()
         s = ISpeaker.adapt(talker, interface_only=False)
