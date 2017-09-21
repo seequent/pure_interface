@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.7.0'
+__version__ = '1.7.1'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -249,7 +249,7 @@ class PureInterfaceType(abc.ABCMeta):
         type_is_interface = all(is_interface for cls, is_interface in base_types)
         if clsname == 'PureInterface' and attributes['__module__'] == 'pure_interface':
             type_is_interface = True
-        elif bases[0] is object:
+        elif len(bases) > 1 and bases[0] is object:
             bases = bases[1:]  # create a consistent MRO order
         interface_method_names = set()
         interface_property_names = set()
