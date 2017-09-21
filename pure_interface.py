@@ -23,8 +23,9 @@ except ImportError:
 
 import abc
 import dis
-import types
 import sys
+import types
+import typing
 import warnings
 import weakref
 
@@ -32,13 +33,14 @@ import six
 
 __version__ = '1.7.2'
 
-
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
 
 if six.PY2:
     _six_ord = ord
 else:
     _six_ord = lambda x: x
+
+T = typing.TypeVar('T')
 
 
 class InterfaceError(Exception):
@@ -50,6 +52,7 @@ class AttributeProperty(object):
         Abstract properties for concrete classes are replaced with these in the type definition to allow
         implementations to use attributes.
     """
+
     def __init__(self, name):
         self.name = name
         super(AttributeProperty, self).__init__()
@@ -171,7 +174,7 @@ def _is_empty_function(func, unwrap=False):
     assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
     instruction = instructions[-2]
     if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
-        return False # return is not None
+        return False  # return is not None
     instructions = instructions[:-2]
     if len(instructions) == 0:
         return True
@@ -277,7 +280,7 @@ class PureInterfaceType(abc.ABCMeta):
             mcs._check_method_signatures(attributes, bases, clsname, interface_method_names)
             for base in bases_to_check:
                 i = bases.index(base)
-                mcs._check_method_signatures(base.__dict__, bases[i+1:], clsname, interface_method_names)
+                mcs._check_method_signatures(base.__dict__, bases[i + 1:], clsname, interface_method_names)
 
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi_type_is_pure_interface = type_is_interface
@@ -426,6 +429,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._ducktype_check(obj)
 
     def interface_only(cls, implementation):
+        # type: (typing.Type[T], typing.Any) -> T
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         if cls._pi_impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
@@ -436,6 +440,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._pi_impl_wrapper_type(implementation, cls)
 
     def adapt(cls, obj, interface_only=None):
+        # type: (typing.Type[T], typing.Any, typing.Optional[bool]) -> T
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj) is True
         and raising ValueError if no adapter is found
         If interface_only is True, obj is wrapped by an object that only provides the methods and properties
@@ -465,6 +470,7 @@ class PureInterfaceType(abc.ABCMeta):
         raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
     def adapt_or_none(cls, obj, interface_only=None):
+        # type: (typing.Type[T], typing.Any, typing.Optional[bool]) -> typing.Optional[T]
         """ Returns True if obj provides this interface, either by inheritance or duck-typing.  False otherwise """
         """ Adapt obj to to_interface or return None if adaption fails """
         try:
@@ -473,6 +479,7 @@ class PureInterfaceType(abc.ABCMeta):
             return None
 
     def filter_adapt(cls, objects, interface_only=None):
+        # type: (typing.Type[T], typing.Iterable[typing.Any], bool) -> typing.Iterable[T]
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
@@ -487,8 +494,12 @@ class PureInterface(abc.ABC if hasattr(abc, 'ABC') else object):
     pass
 
 
+IT = typing.TypeVar('IT', PureInterface)
+
+
 # adaption
 def adapts(from_type, to_interface):
+    # type: (typing.Any, typing.Type[IT]) -> typing.Callable
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, Interface)
@@ -505,7 +516,7 @@ def adapts(from_type, to_interface):
 
 
 def register_adapter(adapter, from_type, to_interface):
-    # types: (from_type) -> to_interface, type, PureInterfaceType
+    # type: (typing.Callable, typing.Any, typing.Type[IT]) -> None
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
