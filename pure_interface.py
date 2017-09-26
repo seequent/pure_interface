@@ -45,6 +45,12 @@ class InterfaceError(Exception):
     pass
 
 
+class _PIAttributes(object):
+    """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
+    def __init__(self):
+        pass
+
+
 class AttributeProperty(object):
     """ Property that stores it's value in the instance dict under the same name.
         Abstract properties for concrete classes are replaced with these in the type definition to allow
@@ -64,21 +70,6 @@ class AttributeProperty(object):
 
     def __set__(self, instance, value):
         instance.__dict__[self.name] = value
-
-
-class DelegateProperty(object):
-    def __init__(self, impl, name):
-        self.impl = impl
-        self.name = name
-        super(DelegateProperty, self).__init__()
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return getattr(type(self.impl), self.name)
-        return getattr(self.impl, self.name)
-
-    def __set__(self, instance, value):
-        setattr(self.impl, self.name, value)
 
 
 class _ImplementationWrapper(object):
@@ -273,7 +264,7 @@ class PureInterfaceType(abc.ABCMeta):
                     raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
-        if IS_DEVELOPMENT and _ImplementationWrapper not in bases:
+        if IS_DEVELOPMENT:
             mcs._check_method_signatures(attributes, bases, clsname, interface_method_names)
             for base in bases_to_check:
                 i = bases.index(base)
@@ -429,10 +420,9 @@ class PureInterfaceType(abc.ABCMeta):
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         if cls._pi_impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
-            attributes = {name: DelegateProperty(implementation, name)
-                          for name in list(cls._pi_interface_method_names) + list(cls._pi_interface_property_names)}
-            attributes['__module__'] = cls.__module__
-            cls._pi_impl_wrapper_type = type(type_name, (_ImplementationWrapper, cls), attributes)
+            attributes = {'__module__': cls.__module__}
+            cls._pi_impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
+            cls.register(cls._pi_impl_wrapper_type)
         return cls._pi_impl_wrapper_type(implementation, cls)
 
     def adapt(cls, obj, interface_only=None):
