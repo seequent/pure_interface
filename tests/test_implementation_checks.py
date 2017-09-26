@@ -51,7 +51,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(object, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -65,7 +65,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(B, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -80,7 +80,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(B, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -104,8 +104,8 @@ class TestImplementationChecks(unittest.TestCase):
         class PIEmptyABC(pure_interface.PureInterface, IABC):
             pass
 
-        self.assertTrue(EmptyABCPI._pi_type_is_pure_interface)
-        self.assertTrue(PIEmptyABC._pi_type_is_pure_interface)
+        self.assertTrue(EmptyABCPI._pi.type_is_pure_interface)
+        self.assertTrue(PIEmptyABC._pi.type_is_pure_interface)
         with self.assertRaises(TypeError):
             EmptyABCPI()
         with self.assertRaises(TypeError):

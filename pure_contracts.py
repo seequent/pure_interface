@@ -26,4 +26,4 @@ except ImportError:
 class ContractInterface(object):
     pass
 
-ContractInterface._pi_type_is_pure_interface = True
+ContractInterface._pi.type_is_pure_interface = True

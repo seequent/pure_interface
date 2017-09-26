@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.7.2'
+__version__ = '1.7.3'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -47,8 +47,14 @@ class InterfaceError(Exception):
 
 class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
-    def __init__(self):
-        pass
+    def __init__(self, type_is_interface, interface_method_names, interface_property_names):
+        self.type_is_pure_interface = type_is_interface
+        self.abstractproperties = frozenset()
+        self.interface_method_names = frozenset(interface_method_names)
+        self.interface_property_names = frozenset(interface_property_names)
+        self.adapters = weakref.WeakKeyDictionary()
+        self.ducktype_subclasses = set()
+        self.impl_wrapper_type = None
 
 
 class AttributeProperty(object):
@@ -76,8 +82,8 @@ class _ImplementationWrapper(object):
     def __init__(self, implementation, interface):
         self.__impl = implementation
         self.__interface = interface
-        self.__method_names = interface._pi_interface_method_names
-        self.__property_names = interface._pi_interface_property_names
+        self.__method_names = interface._pi.interface_method_names
+        self.__property_names = interface._pi.interface_property_names
         self.__interface_name = interface.__name__
 
     def __getattr__(self, attr):
@@ -97,12 +103,18 @@ def _builtin_attrs(name):
                     '_abc_cache', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache')
 
 
+def _get_pi_attribute(cls, attr_name, default=None):
+    if hasattr(cls, '_pi'):
+        return getattr(cls._pi, attr_name)
+    else:
+        return default
+
 def _type_is_pure_interface(cls):
     """ Return True if cls is a pure interface"""
     if cls is object:
         return False
-    if hasattr(cls, '_pi_type_is_pure_interface'):
-        return cls._pi_type_is_pure_interface
+    if hasattr(cls, '_pi'):
+        return cls._pi.type_is_pure_interface
     if issubclass(type(cls), abc.ABCMeta):
         for attr, value in six.iteritems(cls.__dict__):
             if _builtin_attrs(attr):
@@ -233,7 +245,6 @@ class PureInterfaceType(abc.ABCMeta):
         * optionally check overriding method signatures match those on base class.
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
-    _pi_unwrap_decorators = False
 
     def __new__(mcs, clsname, bases, attributes):
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
@@ -249,9 +260,9 @@ class PureInterfaceType(abc.ABCMeta):
             if base is object:
                 continue
             if base_is_interface:
-                base_interface_method_names = getattr(base, '_pi_interface_method_names', set())
+                base_interface_method_names = _get_pi_attribute(base, 'interface_method_names', set())
                 interface_method_names.update(base_interface_method_names)
-                base_interface_property_names = getattr(base, '_pi_interface_property_names', set())
+                base_interface_property_names = _get_pi_attribute(base, 'interface_property_names', set())
                 interface_property_names.update(base_interface_property_names)
             elif not isinstance(base, PureInterfaceType):
                 bases_to_check.append(base)
@@ -260,7 +271,7 @@ class PureInterfaceType(abc.ABCMeta):
             interface_method_names.update(method_names)
             interface_property_names.update(property_names)
             for func in functions:
-                if func is not None and not _is_empty_function(func, mcs._pi_unwrap_decorators):
+                if func is not None and not _is_empty_function(func, getattr(mcs, '_pi_unwrap_decorators', False)):
                     raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
@@ -271,13 +282,7 @@ class PureInterfaceType(abc.ABCMeta):
                 mcs._check_method_signatures(base.__dict__, bases[i+1:], clsname, interface_method_names)
 
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
-        cls._pi_type_is_pure_interface = type_is_interface
-        cls._pi_abstractproperties = frozenset()
-        cls._pi_interface_method_names = frozenset(interface_method_names)
-        cls._pi_interface_property_names = frozenset(interface_property_names)
-        cls._pi_adapters = weakref.WeakKeyDictionary()
-        cls._pi_ducktype_subclasses = set()
-        cls._pi_impl_wrapper_type = None
+        cls._pi = _PIAttributes(type_is_interface, interface_method_names, interface_property_names)
         if not type_is_interface:
             mcs._patch_properties(cls)
         if type_is_interface and not cls.__abstractmethods__:
@@ -294,7 +299,7 @@ class PureInterfaceType(abc.ABCMeta):
                 functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
                 setattr(cls, attr, AttributeProperty(attr))
                 abstract_properties.add(attr)
-        cls._pi_abstractproperties = frozenset(abstract_properties)
+        cls._pi.abstractproperties = frozenset(abstract_properties)
         abstractmethods = set(cls.__abstractmethods__) - abstract_properties
         for func in functions:
             if func is not None and func.__name__ in abstractmethods:
@@ -362,7 +367,7 @@ class PureInterfaceType(abc.ABCMeta):
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
-        for attr in cls._pi_abstractproperties:
+        for attr in cls._pi.abstractproperties:
             if not hasattr(self, attr):
                 raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
         return self
@@ -370,28 +375,28 @@ class PureInterfaceType(abc.ABCMeta):
     # provided_by duck-type checking
     def _ducktype_check(cls, instance):
         subclass = type(instance)
-        for attr in cls._pi_interface_method_names:
+        for attr in cls._pi.interface_method_names:
             subtype_value = getattr(subclass, attr, None)
             if not callable(subtype_value):
                 return False
-        for attr in cls._pi_interface_property_names:
+        for attr in cls._pi.interface_property_names:
             if not hasattr(instance, attr):
                 return False
         return True
 
     def _class_ducktype_check(cls, subclass):
-        if subclass in cls._pi_ducktype_subclasses:
+        if subclass in cls._pi.ducktype_subclasses:
             return True
 
-        for attr in cls._pi_interface_method_names:
+        for attr in cls._pi.interface_method_names:
             subtype_value = getattr(subclass, attr, None)
             if not callable(subtype_value):
                 return False
-        for attr in cls._pi_interface_property_names:
+        for attr in cls._pi.interface_property_names:
             if not hasattr(subclass, attr):
                 return False
 
-        cls._pi_ducktype_subclasses.add(subclass)
+        cls._pi.ducktype_subclasses.add(subclass)
         if IS_DEVELOPMENT:
             stacklevel = 2
             warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
@@ -406,7 +411,7 @@ class PureInterfaceType(abc.ABCMeta):
         If or_adapter is True then return True if obj can be adapted to this interface.
         Returns False otherwise.
         """
-        if not cls._pi_type_is_pure_interface:
+        if not cls._pi.type_is_pure_interface:
             raise ValueError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
             return True
@@ -418,12 +423,12 @@ class PureInterfaceType(abc.ABCMeta):
 
     def interface_only(cls, implementation):
         """ Returns a wrapper around implementation that provides ONLY this interface. """
-        if cls._pi_impl_wrapper_type is None:
+        if cls._pi.impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
             attributes = {'__module__': cls.__module__}
-            cls._pi_impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
-            cls.register(cls._pi_impl_wrapper_type)
-        return cls._pi_impl_wrapper_type(implementation, cls)
+            cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
+            cls.register(cls._pi.impl_wrapper_type)
+        return cls._pi.impl_wrapper_type(implementation, cls)
 
     def adapt(cls, obj, interface_only=None):
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj) is True
@@ -439,7 +444,7 @@ class PureInterfaceType(abc.ABCMeta):
                 adapted = cls.interface_only(adapted)
             return adapted
 
-        adapters = cls._pi_adapters
+        adapters = cls._pi.adapters
         if not adapters:
             raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
@@ -509,8 +514,8 @@ def register_adapter(adapter, from_type, to_interface):
         raise ValueError('{} must be a type'.format(from_type))
     if isinstance(None, from_type):
         raise ValueError('Cannot adapt None type')
-    if not (isinstance(to_interface, type) and getattr(to_interface, '_pi_type_is_pure_interface', False)):
+    if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
         raise ValueError('{} is not an interface'.format(to_interface))
-    if from_type in to_interface._pi_adapters:
+    if from_type in to_interface._pi.adapters:
         raise ValueError('{} already has an adapter to {}'.format(from_type, to_interface))
-    to_interface._pi_adapters[from_type] = weakref.proxy(adapter)
+    to_interface._pi.adapters[from_type] = weakref.proxy(adapter)

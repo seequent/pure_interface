@@ -11,7 +11,7 @@ import pure_interface
 class SomeOtherMetaClass(pure_interface.PureInterfaceType):
     def __new__(mcs, name, bases, clsdict):
         cls = pure_interface.PureInterfaceType.__new__(mcs, name, bases, clsdict)
-        print('New class', name, 'is interface:', cls._pi_type_is_pure_interface)
+        print('New class', name, 'is interface:', cls._pi.type_is_pure_interface)
         return cls
 
 

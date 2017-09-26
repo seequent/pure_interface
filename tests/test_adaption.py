@@ -100,7 +100,6 @@ class TestAdaption(unittest.TestCase):
         self.assertFalse(ISpeaker.provided_by(talker))
         self.assertTrue(ISpeaker.provided_by(talker, or_adapter=True))
 
-
     def test_implicit_adapter_passes(self):
         talker = Talker2()
         s = ISpeaker.adapt(talker, interface_only=False)
@@ -182,11 +181,14 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
     def test_wrapping_works(self):
         topic_speaker = TopicSpeaker('Python')
         s = ITopicSpeaker.adapt(topic_speaker)
+        topic_speaker2 = TopicSpeaker('Interfaces')
+        t = ITopicSpeaker.adapt(topic_speaker2)
 
         self.assertIsInstance(s, pure_interface._ImplementationWrapper)
         self.assertIsInstance(s, ITopicSpeaker)
         self.assertEqual(s.speak(5), 'speak')
         self.assertEqual(s.topic, 'Python')
+        self.assertEqual(t.topic, 'Interfaces')
 
     def test_wrapping_works2(self):
         topic_speaker = TopicSpeaker('Python')
@@ -195,6 +197,8 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         self.assertIsInstance(s, pure_interface._ImplementationWrapper)
         self.assertIsInstance(s, ISpeaker)
         self.assertNotIsInstance(s, ITopicSpeaker)
+        with self.assertRaises(AttributeError):
+            s.topic
 
     def test_implicit_adapter_passes(self):
         talker = Talker2()
