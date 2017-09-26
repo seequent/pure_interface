@@ -100,6 +100,7 @@ def _builtin_attrs(name):
     """ These attributes are ignored when checking ABC types for emptyness.
     """
     return name in ('__doc__', '__module__', '__qualname__', '__abstractmethods__', '__dict__',
+                    '__metaclass__', '__weakref__',
                     '_abc_cache', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache')
 
 
@@ -149,7 +150,11 @@ def _is_empty_function(func, unwrap=False):
         func = property.fget
     if unwrap:
         func = _unwrap_function(func)
-    code_obj = six.get_function_code(func)
+    try:
+        code_obj = six.get_function_code(func)
+    except AttributeError:
+        # This callable is something else - assume it is OK.
+        return True
 
     # quick check
     if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
