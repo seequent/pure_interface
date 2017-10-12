@@ -3,24 +3,24 @@ pure_interface
 
 A Python interface library that disallows function body content on interfaces and supports adaption.
 
-Features:
-    * Prevents implementation code in an interface class
-    * Works just like a python abc abstract classes (to get IDE support)
-    * Allows concrete implementations flexibility to implement abstract properties as attributes.
+Jump to the `Quick Reference`_.
+
+**Features:**
+    * Prevents code in method bodies of an interface class
+    * Ensures that method overrides have compatible signatures
+    * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
+    * Supports interface adaption.
     * Treats abc interfaces that do not include any implementation as a pure interface type.
       This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
       no function body content criteria.
-    * Fallback to duck-type checking for ``Interface.provided_by(a)``
-    * Ensure that method overrides have a the same signature
-    * Warns if ``provided_by`` did a duck-type check when inheritance or registering would work.
-    * Support interface adaption.
-    * Support python 2.7 and 3.5+
+    * Supports optional duck-type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
+    * Warns if ``provided_by`` did a duck-type check when inheritance would work.
+    * Supports python 2.7 and 3.5+
 
 A note on the name
 ------------------
 The phrase *pure interface* applies only to the first design goal - a class that defines only an interface with no
-implementation is a pure interface.  In every other respect the zen of 'practicality beats purity' applies, particularly
-with respect to retrofitting interfaces to existing code.
+implementation is a pure interface.  In every other respect the zen of 'practicality beats purity' applies.
 
 Installation
 ------------
@@ -132,41 +132,6 @@ However new optional parameters are permitted::
 
   def speak(self, volume, language='doggy speak')
 
-Interface Checking
-==================
-
-As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
-An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to duck-type
-checking if the instance is not an actual subclass. The duck-type checking does not check function signatures.::
-
-    class Parrot(object):
-        def __init__(self):
-            self.height = 43
-
-        def speak(self, volume):
-            print('hello')
-
-    p = Parrot()
-    isinstance(p, IAnimal) --> False
-    IAnimal.provided_by(p) --> True
-
-The duck-type checking makes working with data transfer objects (DTO's) much easier.::
-
-    class IMyDataType(PureInterface):
-        @property
-        def thing(self):
-            pass
-
-    class DTO(object):
-        pass
-
-    d = DTO()
-    d.thing = 'hello'
-    IMyDataType.provided_by(d) --> True
-    e = DTO()
-    e.something_else = True
-    IMyDataType.provided_by(e) --> False
-
 Adaption
 ========
 
@@ -209,21 +174,21 @@ Adapting Objects
 ----------------
 
 The ``PureInterface.adapt`` method will adapt an object to the given interface
-such that ``Interface.provided_by(obj)`` is ``True`` or raise ``ValueError`` if no adapter could be found.  For example::
+such that ``Interface.provided_by`` is ``True`` or raise ``ValueError`` if no adapter could be found.  For example::
 
     speaker = ISpeaker.adapt(talker)
-    ISpeaker.provided_by(speaker)  --> True
+    isinstance(speaker, ISpeaker)  --> True
 
 If you want to get ``None`` rather than an exception then use::
 
     speaker = ISpeaker.adapt_or_none(talker)
 
-You can filter a list of objects, returning a generator of those that provide an interface
+You can filter a list of objects returning those objects that provide an interface
 using ``filter_adapt(objects)``::
 
    list(ISpeaker.filter_adapt([None, Talker(), a_speaker, 'text']) --> [TalkerToSpeaker, a_speaker]
 
-By default the adaption functions will return an object which provides ONLY
+By default the adaption functions will return an object which provides **only**
 the functions and properties specified by the interface.  For example given the
 following implementation of the ``ISpeaker`` interface above::
 
@@ -242,7 +207,7 @@ Then::
   speaker is topic_speaker  --> False
   speaker.topic --> AttributeError("ISpeaker interface has no attribute topic")
 
-This is controlled by the optional ``interface_only`` parameter which defaults to ``True``.
+This is controlled by the optional ``interface_only`` parameter to ``adapt`` which defaults to ``True``.
 Pass ``interface_only=False`` if you want the actual adapted object rather than a wrapper::
 
   speaker = ISpeaker.adapt(topic_speaker, interface_only=False)
@@ -252,14 +217,76 @@ Pass ``interface_only=False`` if you want the actual adapted object rather than 
 Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
 of ISpeaker, but this code will likely break at some inconvenient time in the future.
 
-Note that objects that implicitly provide an interface by duck-typing may be returned by the adaption functions.
-When this happens a warning is issued informing that the duck-typed object should inherit the interface.
-The warning is only issued once for each class, interface pair.  For example::
+Duck Type Checking
+==================
 
-    a = Animal()
-    s = ISpeaker.adapt(a)
-    UserWarning: Class Animal implements ISpeaker.
-    Consider inheriting ISpeaker or using ISpeaker.register(Animal)
+As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
+An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to duck-type
+checking if the instance is not an actual subclass.  This can be controlled by the ``allow_implicit`` parameter which defaults to ``True``.
+The duck-type checking does not check function signatures.::
+
+    class Parrot(object):
+        def __init__(self):
+            self._height = 43
+
+        @property
+        def height(self):
+            return self._height
+
+        def speak(self, volume):
+            print('hello')
+
+    p = Parrot()
+    isinstance(p, IAnimal) --> False
+    IAnimal.provided_by(p) --> True
+    IAnimal.provided_by(p, allow_implicit=False) --> False
+
+The duck-type checking makes working with data transfer objects (DTO's) much easier.::
+
+    class IMyDataType(PureInterface):
+        @property
+        def thing(self):
+            pass
+
+    class DTO(object):
+        pass
+
+    d = DTO()
+    d.thing = 'hello'
+    IMyDataType.provided_by(d) --> True
+    e = DTO()
+    e.something_else = True
+    IMyDataType.provided_by(e) --> False
+
+Adaption also supports duck typing by passing ``allow_implicit=True`` (but this is not the default)::
+
+    speaker = ISpeaker.adapt(Parrot(), allow_implicit=True)
+    ISpeaker.provided_by(speaker)  --> True
+
+When using ``provided_by()`` or ``adapt()`` with ``allow_implicit=True``, a warning may be issued informing you that
+the duck-typed object should inherit the interface.  The warning is only issued if the interface is implemented by the
+class (and not by instance attributes as in the DTO case above) and the warning is only issued once for each
+class, interface pair.  For example::
+
+    s = ISpeaker.adapt(Parrot())
+    UserWarning: Class Parrot implements ISpeaker.
+    Consider inheriting ISpeaker or using ISpeaker.register(Parrot)
+
+Interface Type Information
+==========================
+The ``pure_interface`` module provides 3 functions for returning information about interface types.
+
+type_is_pure_interface(cls)
+    Return True if cls is a pure interface, False otherwise or if cls is not a class.
+
+get_interface_method_names(interface)
+    Returns a frozen set of names of methods defined by the interface.
+    If ``type_is_pure_interface(interface)`` returns ``False`` then an empty set is returned.
+
+get_interface_property_names(interface)
+    Returns a frozen set of names of properties defined by the interface.
+    If ``type_is_pure_interface(interface)`` returns ``False`` then an empty set is returned.
+
 
 Development Flag
 ================
@@ -307,3 +334,58 @@ For example::
         def speak(self, volume):
             pass
 
+
+Quick Reference
+===============
+Classes
+-------
+
+**PureInterfaceType**
+    Metaclass for defining pure interfaces.
+
+    Classes created with a metaclass of ``PureInterfaceType`` will have the following methods:
+
+    **adapt** *(obj, allow_implicit=False, interface_only=None)*
+        Adapts obj to this interface, possibly permitting implicit implementations.  By default an object that provides
+        the properties and methods defined by the interface and nothing else is returned.
+        Raises ``ValueError`` if no adaption is possible
+
+    **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
+        As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
+
+    **can_adapt** *(obj, allow_implicit=False)*
+        Returns True if adapt(obj, allow_implicit) will succeed
+
+    **filter_adapt** *(objects, allow_implicit=False, interface_only=None)*
+        Generates adaptions of each item in *objects* that provide this interface.
+
+    **interface_only** *(implementation)*
+        Returns a wrapper around *implementation* that provides the properties and methods defined by the interface and nothing else.
+
+    **provided_by** *(obj, allow_implicit=True)*
+        Returns ``True`` if *obj* provides this interface, possibly implicitly.
+        Raises ``ValueError`` is the class is a concrete type.
+
+**PureInterface**
+    Base class for defining interfaces.
+
+
+Functions
+---------
+**adapts***(from_type, to_interface)*
+    Class or function decorator for declaring an adapter from *from_type* to *to_interface*.
+
+**register_adapter** *(adapter, from_type, to_interface)*
+    Registers an adapter to convert instances of *from_type* to objects that provide *to_interface*
+    for the *to_interface.adapt()* method.
+
+**type_is_pure_interface** *(cls)*
+    Return True if *cls* is a pure interface
+
+**get_interface_method_names** *(cls)*
+    Returns a frozen set of names of methods defined by the interface.
+    If *cls* is not a interface type then an empty set is returned.
+
+**get_interface_property_names** *(cls)*
+    Returns a frozen set of names of properties defined by the interface
+    If *cls* is not a interface type then an empty set is returned.

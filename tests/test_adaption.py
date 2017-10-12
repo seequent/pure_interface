@@ -91,27 +91,23 @@ class TestAdaption(unittest.TestCase):
         talker = Talker()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s))
+        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
         self.assertEqual(s.speak(5), 'talk')
 
-    def test_provided_by_or_adapter(self):
-        talker = Talker()
-
-        self.assertFalse(ISpeaker.provided_by(talker))
-        self.assertTrue(ISpeaker.provided_by(talker, or_adapter=True))
-
-    def test_implicit_adapter_passes(self):
+    def test_implicit_adapter(self):
         talker = Talker2()
-        s = ISpeaker.adapt(talker, interface_only=False)
+        s = ISpeaker.adapt_or_none(talker, interface_only=False)
+        self.assertIsNone(s)
 
-        self.assertTrue(ISpeaker.provided_by(s))
+        s = ISpeaker.adapt_or_none(talker, allow_implicit=True, interface_only=False)
+        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=True))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_callable_adapter_passes(self):
         talker = Talker3()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s))
+        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_adapter_call_check(self):
@@ -156,7 +152,7 @@ class TestAdaption(unittest.TestCase):
         talker = Talker()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s))
+        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
         self.assertEqual(s.speak(4), 'talk')
 
     def test_filter_adapt(self):
@@ -165,6 +161,18 @@ class TestAdaption(unittest.TestCase):
         input = [None, Talker4(), a_talker, a_speaker, 'text']
         # act
         output = list(ISpeaker.filter_adapt(input, interface_only=False))
+        # assert
+        self.assertEqual(len(output), 1)
+        speaker = output[0]
+        self.assertIsInstance(speaker, TalkerToSpeaker)
+        self.assertIs(speaker._talker, a_talker)
+
+    def test_implicit_filter_adapt(self):
+        a_speaker = Speaker()
+        a_talker = Talker()
+        input = [None, Talker4(), a_talker, a_speaker, 'text']
+        # act
+        output = list(ISpeaker.filter_adapt(input, allow_implicit=True, interface_only=False))
         # assert
         self.assertEqual(len(output), 2)
         self.assertIs(output[1], a_speaker)
@@ -202,7 +210,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
 
     def test_implicit_adapter_passes(self):
         talker = Talker2()
-        s = ISpeaker.adapt(talker)
+        s = ISpeaker.adapt(talker, allow_implicit=True)
 
         self.assertIsInstance(s, pure_interface._ImplementationWrapper)
         self.assertIsInstance(s, ISpeaker)
@@ -226,6 +234,15 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         input_list = [None, Talker4(), a_talker, a_speaker, 'text']
         # act
         output = list(ISpeaker.filter_adapt(input_list))
+        # assert
+        self.assertEqual(len(output), 1)
+
+    def test_implicit_filter_adapt(self):
+        a_speaker = Speaker()
+        a_talker = Talker()
+        input_list = [None, Talker4(), a_talker, a_speaker, 'text']
+        # act
+        output = list(ISpeaker.filter_adapt(input_list, allow_implicit=True))
         # assert
         self.assertEqual(len(output), 2)
         wrapped_speaker = output[1]

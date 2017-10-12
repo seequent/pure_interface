@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.7.4'
+__version__ = '1.8.0'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -110,8 +110,9 @@ def _get_pi_attribute(cls, attr_name, default=None):
     else:
         return default
 
+
 def _type_is_pure_interface(cls):
-    """ Return True if cls is a pure interface"""
+    """ Return True if cls is a pure interface or an empty ABC class"""
     if cls is object:
         return False
     if hasattr(cls, '_pi'):
@@ -410,18 +411,18 @@ class PureInterfaceType(abc.ABCMeta):
                           stacklevel=stacklevel)
         return True
 
-    def provided_by(cls, obj, or_adapter=False):
-        # (Any) -> bool
-        """ Returns True if obj provides this interface, either by inheritance or duck-typing.
-        If or_adapter is True then return True if obj can be adapted to this interface.
+    def provided_by(cls, obj, allow_implicit=True):
+        """ Returns True if obj provides this interface.
+        provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
+        If allow_implicit is True then returns True if interface duck-type check passes.
         Returns False otherwise.
         """
         if not cls._pi.type_is_pure_interface:
             raise ValueError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
             return True
-        if or_adapter and cls.adapt_or_none(obj) is not None:
-            return True
+        if not allow_implicit:
+            return False
         if cls._class_ducktype_check(type(obj)):
             return True
         return cls._ducktype_check(obj)
@@ -435,15 +436,15 @@ class PureInterfaceType(abc.ABCMeta):
             cls.register(cls._pi.impl_wrapper_type)
         return cls._pi.impl_wrapper_type(implementation, cls)
 
-    def adapt(cls, obj, interface_only=None):
-        """ Adapts obj to interface, returning obj if to_interface.provided_by(obj) is True
+    def adapt(cls, obj, allow_implicit=False, interface_only=None):
+        """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
-        If interface_only is True, obj is wrapped by an object that only provides the methods and properties
-        defined by to_interface.
+        If interface_only is True, or interface_only is None and IS_DEVELOPMENT is True then the
+        returned object is wrapped by an object that only provides the methods and properties defined by to_interface.
         """
         if interface_only is None:
             interface_only = IS_DEVELOPMENT
-        if cls.provided_by(obj):
+        if cls.provided_by(obj, allow_implicit=allow_implicit):
             adapted = obj
             if interface_only:
                 adapted = cls.interface_only(adapted)
@@ -457,29 +458,38 @@ class PureInterfaceType(abc.ABCMeta):
             if obj_class in adapters:
                 factory = adapters[obj_class]
                 adapted = factory(obj)
-                if not cls.provided_by(adapted):
+                if not cls.provided_by(adapted, allow_implicit):
                     raise ValueError('Adapter {} does not implement interface {}'.format(factory, cls.__name__))
                 if interface_only:
                     adapted = cls.interface_only(adapted)
                 return adapted
         raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
-    def adapt_or_none(cls, obj, interface_only=None):
-        """ Returns True if obj provides this interface, either by inheritance or duck-typing.  False otherwise """
+    def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
         """ Adapt obj to to_interface or return None if adaption fails """
         try:
-            return cls.adapt(obj, interface_only=interface_only)
+            return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
         except ValueError:
             return None
 
-    def filter_adapt(cls, objects, interface_only=None):
+    def can_adapt(cls, obj, allow_implicit=False):
+        """ Returns True if adapt(obj, allow_implicit) will succeed."""
+        try:
+            cls.adapt(obj, allow_implicit=allow_implicit)
+        except ValueError:
+            return False
+        return True
+
+    def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
         for obj in objects:
-            f = cls.adapt_or_none(obj, interface_only=interface_only)
-            if f is not None:
-                yield f
+            try:
+                f = cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
+            except ValueError:
+                continue
+            yield f
 
 
 @six.add_metaclass(PureInterfaceType)
@@ -521,6 +531,37 @@ def register_adapter(adapter, from_type, to_interface):
         raise ValueError('Cannot adapt None type')
     if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
         raise ValueError('{} is not an interface'.format(to_interface))
-    if from_type in to_interface._pi.adapters:
+    adapters = _get_pi_attribute(to_interface, 'adapters')
+    if from_type in adapters:
         raise ValueError('{} already has an adapter to {}'.format(from_type, to_interface))
-    to_interface._pi.adapters[from_type] = weakref.proxy(adapter)
+    adapters[from_type] = weakref.proxy(adapter)
+
+
+def type_is_pure_interface(cls):
+    """ Return True if cls is a pure interface"""
+    try:
+        if not issubclass(cls, PureInterface):
+            return False
+    except TypeError:  # handle non-classes
+        return False
+    return _get_pi_attribute(cls, 'type_is_pure_interface', False)
+
+
+def get_interface_method_names(interface):
+    """ returns a frozen set of names of methods defined by the interface.
+    if interface is not a PureInterface subtype then an empty set is returned
+    """
+    if type_is_pure_interface(interface):
+        return _get_pi_attribute(interface, 'interface_method_names')
+    else:
+        return frozenset()
+
+
+def get_interface_property_names(interface):
+    """ returns a frozen set of names of properties defined by the interface
+    if interface is not a PureInterface subtype then an empty set is returned
+    """
+    if type_is_pure_interface(interface):
+        return _get_pi_attribute(interface, 'interface_property_names')
+    else:
+        return frozenset()
