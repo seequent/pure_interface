@@ -22,6 +22,7 @@ except ImportError:
             super(abstractstaticmethod, self).__init__(callable)
 
 import abc
+import collections
 import dis
 import types
 import sys
@@ -163,6 +164,34 @@ def _is_empty_function(func, unwrap=False):
     if code_obj.co_code == b'd\x01\x00S' and code_obj.co_consts[1] is None:
         return True
     # convert bytes to instructions
+    instructions = _get_instructions(code_obj)
+    if len(instructions) < 2:
+        return True  # this never happens as there is always the implicit return None which is 2 instructions
+    assert instructions[-1].opname == 'RETURN_VALUE'  # returns TOS (top of stack)
+    instruction = instructions[-2]
+    if not (instruction.opname == 'LOAD_CONST' and code_obj.co_consts[instruction.arg] is None):  # TOS is None
+        return False  # return is not None
+    instructions = instructions[:-2]
+    if len(instructions) == 0:
+        return True
+    # look for raise NotImplementedError
+    if instructions[-1].opname == 'RAISE_VARARGS':
+        # the thing we are raising should be the result of __call__  (instantiating exception object)
+        if instructions[-2].opname == 'CALL_FUNCTION':
+            for instr in instructions[:-2]:
+                if instr.opname == 'LOAD_GLOBAL' and code_obj.co_names[instr.arg] == 'NotImplementedError':
+                    return True
+
+    return False
+
+
+_Instruction = collections.namedtuple('_Instruction', ('opcode', 'opname', 'arg', 'argval'))
+
+
+def _get_instructions(code_obj):
+    if hasattr(dis, 'get_instructions'):
+        return list(dis.get_instructions(code_obj))
+
     instructions = []
     instruction = None
     for byte in code_obj.co_code:
@@ -172,27 +201,15 @@ def _is_empty_function(func, unwrap=False):
         else:
             instruction.append(byte)
         if instruction[0] < dis.HAVE_ARGUMENT or len(instruction) == 3:
-            instruction[0] = dis.opname[instruction[0]]
-            instructions.append(tuple(instruction))
+            op_code = instruction[0]
+            op_name = dis.opname[op_code]
+            if instruction[0] < dis.HAVE_ARGUMENT:
+                instructions.append(_Instruction(op_code, op_name, None, None))
+            else:
+                arg = instruction[1]
+                instructions.append(_Instruction(op_code, op_name, arg, arg))
             instruction = None
-    if len(instructions) < 2:
-        return True  # this never happens as there is always the implicit return None which is 2 instructions
-    assert instructions[-1] == ('RETURN_VALUE',)  # returns TOS (top of stack)
-    instruction = instructions[-2]
-    if not (instruction[0] == 'LOAD_CONST' and code_obj.co_consts[instruction[1]] is None):  # TOS is None
-        return False # return is not None
-    instructions = instructions[:-2]
-    if len(instructions) == 0:
-        return True
-    # look for raise NotImplementedError
-    if instructions[-1] == ('RAISE_VARARGS', 1, 0):
-        # the thing we are raising should be the result of __call__  (instantiating exception object)
-        if instructions[-2][0] == 'CALL_FUNCTION':
-            for instr in instructions[:-2]:
-                if instr[0] == 'LOAD_GLOBAL' and code_obj.co_names[instr[1]] == 'NotImplementedError':
-                    return True
-
-    return False
+    return instructions
 
 
 def _get_function_signature(function):
