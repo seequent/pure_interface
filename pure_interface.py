@@ -31,7 +31,7 @@ import weakref
 
 import six
 
-__version__ = '1.8.0'
+__version__ = '1.9.0'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -262,6 +262,85 @@ def _signatures_are_consistent(func_sig, base_sig):
             )
 
 
+def _ensure_everything_is_abstract(attributes):
+    # all methods and properties are abstract on a pure interface
+    namespace = {}
+    functions = []
+    interface_method_signatures = {}
+    interface_property_names = set()
+    for name, value in six.iteritems(attributes):
+        if _builtin_attrs(name):
+            pass  # shortcut
+        elif getattr(value, '__isabstractmethod__', False):
+            if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
+                if isinstance(value, (staticmethod, classmethod)):
+                    func = six.get_method_function(value)
+                else:
+                    func = value
+                functions.append(func)
+                interface_method_signatures[name] = _get_function_signature(func)
+            elif isinstance(value, property):
+                interface_property_names.add(name)
+        elif isinstance(value, staticmethod):
+            func = six.get_method_function(value)
+            functions.append(func)
+            interface_method_signatures[name] = _get_function_signature(func)
+            value = abstractstaticmethod(func)
+        elif isinstance(value, classmethod):
+            func = six.get_method_function(value)
+            interface_method_signatures[name] = _get_function_signature(func)
+            functions.append(func)
+            value = abstractclassmethod(func)
+        elif isinstance(value, types.FunctionType):
+            functions.append(value)
+            interface_method_signatures[name] = _get_function_signature(value)
+            value = abstractmethod(value)
+        elif isinstance(value, property):
+            interface_property_names.add(name)
+            functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
+            value = abstractproperty(value.fget, value.fset, value.fdel)
+        namespace[name] = value
+    return namespace, functions, interface_method_signatures, interface_property_names
+
+
+def _check_method_signatures(attributes, clsname, interface_method_signatures):
+    """ Scan attributes dict for interface method overrides and check the function signatures are consistent """
+    for name, base_sig in interface_method_signatures.items():
+        if name not in attributes:
+            continue
+        value = attributes[name]
+        if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
+            raise InterfaceError('Interface method over-ridden with non-method')
+        if isinstance(value, (staticmethod, classmethod)):
+            func = six.get_method_function(value)
+        else:
+            func = value
+        func_sig = _get_function_signature(func)
+        if not _signatures_are_consistent(func_sig, base_sig):
+            msg = '{module}.{clsname}.{name} argments does not match base class'.format(
+                module=attributes['__module__'], clsname=clsname, name=name)
+            raise InterfaceError(msg)
+
+
+def _patch_properties(cls):
+    """ Create an AttributeProperty for interface properties not provided by an implementation.
+    """
+    abstract_properties = set()
+    functions = []
+    for attr in cls.__abstractmethods__:
+        value = getattr(cls, attr)
+        if isinstance(value, abstractproperty):
+            functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
+            setattr(cls, attr, AttributeProperty(attr))
+            abstract_properties.add(attr)
+    cls._pi.abstractproperties = frozenset(abstract_properties)
+    abstractmethods = set(cls.__abstractmethods__) - abstract_properties
+    for func in functions:
+        if func is not None and func.__name__ in abstractmethods:
+            abstractmethods.discard(func.__name__)
+    cls.__abstractmethods__ = frozenset(abstractmethods)
+
+
 class PureInterfaceType(abc.ABCMeta):
     """
     Meta-Class for PureInterface.
@@ -297,13 +376,13 @@ class PureInterfaceType(abc.ABCMeta):
                 interface_method_signatures.update(method_signatures)
                 interface_property_names.update(property_names)
             elif not issubclass(base, PureInterface) and IS_DEVELOPMENT:
-                mcs._check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
+                _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
 
         if IS_DEVELOPMENT:
-            mcs._check_method_signatures(attributes, clsname, interface_method_signatures)
+            _check_method_signatures(attributes, clsname, interface_method_signatures)
 
         if type_is_interface:
-            namespace, functions, method_signatures, property_names = mcs._ensure_everything_is_abstract(attributes)
+            namespace, functions, method_signatures, property_names = _ensure_everything_is_abstract(attributes)
             interface_method_signatures.update(method_signatures)
             interface_property_names.update(property_names)
             unwrap = getattr(mcs, '_pi_unwrap_decorators', False)
@@ -318,86 +397,10 @@ class PureInterfaceType(abc.ABCMeta):
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi = _PIAttributes(type_is_interface, interface_method_signatures, interface_property_names)
         if not type_is_interface:
-            mcs._patch_properties(cls)
+            _patch_properties(cls)
         if type_is_interface and not cls.__abstractmethods__:
             cls.__abstractmethods__ = frozenset({''})  # empty interfaces still should not be instantiated
         return cls
-
-    @staticmethod
-    def _patch_properties(cls):
-        abstract_properties = set()
-        functions = []
-        for attr in cls.__abstractmethods__:
-            value = getattr(cls, attr)
-            if isinstance(value, abstractproperty):
-                functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
-                setattr(cls, attr, AttributeProperty(attr))
-                abstract_properties.add(attr)
-        cls._pi.abstractproperties = frozenset(abstract_properties)
-        abstractmethods = set(cls.__abstractmethods__) - abstract_properties
-        for func in functions:
-            if func is not None and func.__name__ in abstractmethods:
-                abstractmethods.discard(func.__name__)
-        cls.__abstractmethods__ = frozenset(abstractmethods)
-
-    @staticmethod
-    def _check_method_signatures(attributes, clsname, interface_method_signatures):
-        for name, base_sig in interface_method_signatures.items():
-            if name not in attributes:
-                continue
-            value = attributes[name]
-            if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
-                raise InterfaceError('Interface method over-ridden with non-method')
-            if isinstance(value, (staticmethod, classmethod)):
-                func = six.get_method_function(value)
-            else:
-                func = value
-            func_sig = _get_function_signature(func)
-            if not _signatures_are_consistent(func_sig, base_sig):
-                msg = '{module}.{clsname}.{name} argments does not match base class'.format(
-                    module=attributes['__module__'], clsname=clsname, name=name)
-                raise InterfaceError(msg)
-
-    @staticmethod
-    def _ensure_everything_is_abstract(attributes):
-        # all methods and properties are abstract
-        namespace = {}
-        functions = []
-        interface_method_signatures = {}
-        interface_property_names = set()
-        for name, value in six.iteritems(attributes):
-            if _builtin_attrs(name):
-                pass  # shortcut
-            elif getattr(value, '__isabstractmethod__', False):
-                if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
-                    if isinstance(value, (staticmethod, classmethod)):
-                        func = six.get_method_function(value)
-                    else:
-                        func = value
-                    functions.append(func)
-                    interface_method_signatures[name] = _get_function_signature(func)
-                elif isinstance(value, property):
-                    interface_property_names.add(name)
-            elif isinstance(value, staticmethod):
-                func = six.get_method_function(value)
-                functions.append(func)
-                interface_method_signatures[name] = _get_function_signature(func)
-                value = abstractstaticmethod(func)
-            elif isinstance(value, classmethod):
-                func = six.get_method_function(value)
-                interface_method_signatures[name] = _get_function_signature(func)
-                functions.append(func)
-                value = abstractclassmethod(func)
-            elif isinstance(value, types.FunctionType):
-                functions.append(value)
-                interface_method_signatures[name] = _get_function_signature(value)
-                value = abstractmethod(value)
-            elif isinstance(value, property):
-                interface_property_names.add(name)
-                functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
-                value = abstractproperty(value.fget, value.fset, value.fdel)
-            namespace[name] = value
-        return namespace, functions, interface_method_signatures, interface_property_names
 
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
