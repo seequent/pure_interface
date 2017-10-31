@@ -106,6 +106,11 @@ class TestImplementationChecks(unittest.TestCase):
 
         self.assertTrue(EmptyABCPI._pi.type_is_pure_interface)
         self.assertTrue(PIEmptyABC._pi.type_is_pure_interface)
+        if six.PY3:
+            self.assertTrue('foo' in EmptyABCPI._pi.interface_method_names)
+            self.assertTrue('bar' in EmptyABCPI._pi.interface_property_names)
+        self.assertTrue('foo' in PIEmptyABC._pi.interface_method_names)
+        self.assertTrue('bar' in PIEmptyABC._pi.interface_property_names)
         with self.assertRaises(TypeError):
             EmptyABCPI()
         with self.assertRaises(TypeError):
