@@ -8,7 +8,6 @@ except ImportError:
         __isabstractmethod__ = True
 
         def __init__(self, callable):
-            self.im_func = callable
             callable.__isabstractmethod__ = True
             super(abstractclassmethod, self).__init__(callable)
 
@@ -17,7 +16,6 @@ except ImportError:
         __isabstractmethod__ = True
 
         def __init__(self, callable):
-            self.im_func = callable
             callable.__isabstractmethod__ = True
             super(abstractstaticmethod, self).__init__(callable)
 
@@ -31,7 +29,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.0'
+__version__ = '1.9.1'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -274,7 +272,7 @@ def _ensure_everything_is_abstract(attributes):
         elif getattr(value, '__isabstractmethod__', False):
             if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
                 if isinstance(value, (staticmethod, classmethod)):
-                    func = six.get_method_function(value)
+                    func = value.__func__
                 else:
                     func = value
                 functions.append(func)
@@ -282,12 +280,12 @@ def _ensure_everything_is_abstract(attributes):
             elif isinstance(value, property):
                 interface_property_names.add(name)
         elif isinstance(value, staticmethod):
-            func = six.get_method_function(value)
+            func = value.__func__
             functions.append(func)
             interface_method_signatures[name] = _get_function_signature(func)
             value = abstractstaticmethod(func)
         elif isinstance(value, classmethod):
-            func = six.get_method_function(value)
+            func = value.__func__
             interface_method_signatures[name] = _get_function_signature(func)
             functions.append(func)
             value = abstractclassmethod(func)
@@ -312,7 +310,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
         if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
             raise InterfaceError('Interface method over-ridden with non-method')
         if isinstance(value, (staticmethod, classmethod)):
-            func = six.get_method_function(value)
+            func = value.__func__
         else:
             func = value
         func_sig = _get_function_signature(func)
