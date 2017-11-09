@@ -38,6 +38,24 @@ class IGrowingPlant(pure_interface.PureInterface):
         pass
 
 
+class IFunkyMethods(pure_interface.PureInterface):
+    @pure_interface.abstractclassmethod
+    def acm(cls):
+        return None
+
+    @classmethod
+    def cm(cls):
+        return None
+
+    @pure_interface.abstractstaticmethod
+    def asm():
+        return None
+
+    @staticmethod
+    def sm():
+        return None
+
+
 class TestImplementationChecks(unittest.TestCase):
     def test_instantiation_fails(self):
         with self.assertRaises(TypeError):
@@ -238,3 +256,21 @@ class TestPropertyImplementations(unittest.TestCase):
 
         a = Plant()
         self.assertEqual(a.height, 10)
+
+    def test_class_and_static_methods(self):
+        class Concrete(object, IFunkyMethods):
+            @classmethod
+            def acm(cls):
+                return 1
+
+            @classmethod
+            def cm(cls):
+                return 2
+
+            @staticmethod
+            def asm():
+                return 3
+
+            @staticmethod
+            def sm():
+                return 4
