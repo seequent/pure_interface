@@ -29,7 +29,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.1'
+__version__ = '1.9.2'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
