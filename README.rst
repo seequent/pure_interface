@@ -372,7 +372,7 @@ Classes
 
 Functions
 ---------
-**adapts***(from_type, to_interface)*
+**adapts** *(from_type, to_interface)*
     Class or function decorator for declaring an adapter from *from_type* to *to_interface*.
 
 **register_adapter** *(adapter, from_type, to_interface)*
