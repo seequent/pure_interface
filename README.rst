@@ -374,18 +374,21 @@ Functions
 ---------
 **adapts** *(from_type, to_interface)*
     Class or function decorator for declaring an adapter from *from_type* to *to_interface*.
+    The class or function being decorated must take a single argument (an instance of *from_type*) and
+    provide (or return and object providing) *to_interface*.
 
 **register_adapter** *(adapter, from_type, to_interface)*
     Registers an adapter to convert instances of *from_type* to objects that provide *to_interface*
-    for the *to_interface.adapt()* method.
+    for the *to_interface.adapt()* method. *adapter* must be a callable that takes a single argument
+    (an instance of *from_type*) and returns and object providing *to_interface*.
 
 **type_is_pure_interface** *(cls)*
-    Return True if *cls* is a pure interface
+    Return ``True`` if *cls* is a pure interface and ``False`` otherwise
 
 **get_interface_method_names** *(cls)*
-    Returns a frozen set of names of methods defined by the interface.
+    Returns a ``frozenset`` of names of methods defined by the interface.
     If *cls* is not a interface type then an empty set is returned.
 
 **get_interface_property_names** *(cls)*
-    Returns a frozen set of names of properties defined by the interface
+    Returns a ``frozenset`` of names of properties defined by the interface
     If *cls* is not a interface type then an empty set is returned.
