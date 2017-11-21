@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.3'
+__version__ = '1.9.4'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -411,7 +411,7 @@ class PureInterfaceType(abc.ABCMeta):
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
             if not hasattr(self, attr):
-                raise TypeError('__init__ does not create required attribute "{}"'.format(attr))
+                raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
     # provided_by duck-type checking
@@ -531,23 +531,44 @@ class PureInterfaceType(abc.ABCMeta):
             yield f
 
 
+ABC = abc.ABC if hasattr(abc, 'ABC') else object
+
+
 @six.add_metaclass(PureInterfaceType)
-class PureInterface(abc.ABC if hasattr(abc, 'ABC') else object):
+class PureInterface(ABC):
     pass
 
 
 # adaption
-def adapts(from_type, to_interface):
+def adapts(from_type, to_interface=None):
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
-        @adapts(MyClass, Interface)
-        class MyClassToInterfaceAdapter(object):
+        @adapts(MyClass, MyInterface)
+        def interface_factory(obj):
+            ....
+
+    If decorating a class to_interface may be None to use the first interface in the class's MRO.
+    E.g.
+        @adapts(MyClass)
+        class MyClassToInterfaceAdapter(object, MyInterface):
             def __init__(self, obj):
                 ....
+            ....
+        will adapt MyClass to MyInterface using MyClassToInterfaceAdapter
     """
 
     def decorator(cls):
-        register_adapter(cls, from_type, to_interface)
+        if to_interface is None:
+            interfaces = get_type_interfaces(cls)
+            if interfaces:
+                interface = interfaces[0]
+            elif isinstance(cls, type):
+                raise InterfaceError('Class {} does not provide any interfaces'.format(cls.__name__))
+            else:
+                raise InterfaceError('to_interface must be specified when decorating non-classes')
+        else:
+            interface = to_interface
+        register_adapter(cls, from_type, interface)
         return cls
 
     return decorator
@@ -584,6 +605,15 @@ def type_is_pure_interface(cls):
     except TypeError:  # handle non-classes
         return False
     return _get_pi_attribute(cls, 'type_is_pure_interface', False)
+
+
+def get_type_interfaces(cls):
+    """ Returns all interfaces in the cls mro including cls itself if it is an interface """
+    try:
+        bases = cls.mro()
+    except AttributeError:  # handle non-classes
+        return []
+    return [base for base in bases if type_is_pure_interface(base) and base is not PureInterface]
 
 
 def get_interface_method_names(interface):

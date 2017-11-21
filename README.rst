@@ -1,3 +1,4 @@
+
 pure_interface
 ==============
 
@@ -155,7 +156,7 @@ class ``Talker`` and an adapter class ``TalkerToSpeaker``::
         def talk(self):
             return 'talk'
 
-    @adapts(Talker, ISpeaker)
+    @adapts(Talker)
     class TalkerToSpeaker(object, ISpeaker):
         def __init__(self, talker):
             self._talker = talker
@@ -167,7 +168,10 @@ The ``adapts`` decorator call above is equivalent to::
 
     register_adapter(TalkerToSpeaker, Talker, ISpeaker)
 
-Adapter factory functions can be decorated too::
+The ``ISpeaker`` parameter passed to ``register_adapter`` is the first interface in the MRO of the class being decorated (``TalkerToSpeaker``).
+If there are no interface types in the MRO of the decorated class an ``InterfaceError`` exception is raised.
+
+Adapter factory functions can be decorated too, in which case the interface being adapted to needs to be specified::
 
     @adapts(Talker, ISpeaker)
     def talker_to_speaker(talker):
@@ -220,7 +224,7 @@ Pass ``interface_only=False`` if you want the actual adapted object rather than 
   speaker.topic --> 'Python'
 
 Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
-of ISpeaker, but this code will likely break at some inconvenient time in the future.
+of ``ISpeaker``, but this code will likely break at some inconvenient time in the future.
 
 Duck Type Checking
 ==================
@@ -279,10 +283,13 @@ class, interface pair.  For example::
 
 Interface Type Information
 ==========================
-The ``pure_interface`` module provides 3 functions for returning information about interface types.
+The ``pure_interface`` module provides 4 functions for returning information about interface types.
 
 type_is_pure_interface(cls)
     Return True if cls is a pure interface, False otherwise or if cls is not a class.
+
+get_type_interfaces(cls)
+    Returns all interfaces in the cls mro including cls itself if it is an interface
 
 get_interface_method_names(interface)
     Returns a frozen set of names of methods defined by the interface.
@@ -377,10 +384,11 @@ Classes
 
 Functions
 ---------
-**adapts** *(from_type, to_interface)*
+**adapts** *(from_type, to_interface=None)*
     Class or function decorator for declaring an adapter from *from_type* to *to_interface*.
     The class or function being decorated must take a single argument (an instance of *from_type*) and
     provide (or return and object providing) *to_interface*.
+    If decorating a class, *to_interface* may be ``None`` to use the first interface in the class's MRO.
 
 **register_adapter** *(adapter, from_type, to_interface)*
     Registers an adapter to convert instances of *from_type* to objects that provide *to_interface*
@@ -389,6 +397,9 @@ Functions
 
 **type_is_pure_interface** *(cls)*
     Return ``True`` if *cls* is a pure interface and ``False`` otherwise
+
+**get_type_interfaces** *(cls)*
+    Returns all interfaces in the *cls* mro including cls itself if it is an interface
 
 **get_interface_method_names** *(cls)*
     Returns a ``frozenset`` of names of methods defined by the interface.

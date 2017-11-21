@@ -21,7 +21,7 @@ class Talker(object):
         return 'talk'
 
 
-@pure_interface.adapts(Talker, ISpeaker)
+@pure_interface.adapts(Talker)
 class TalkerToSpeaker(object, ISpeaker):
     def __init__(self, talker):
         self._talker = talker
@@ -147,6 +147,12 @@ class TestAdaption(unittest.TestCase):
     def test_adapt_to_interface_or_none(self):
         self.assertIsNone(ISpeaker.adapt_or_none(None, interface_only=False))
         self.assertIsNone(ISpeaker.adapt_or_none(Talker4(), interface_only=False))
+
+    def test_no_interface_on_class_raises(self):
+        with self.assertRaises(pure_interface.InterfaceError):
+            @pure_interface.adapts(ISpeaker)
+            class NoInterface(object):
+                pass
 
     def test_adapt_on_class_works(self):
         talker = Talker()
