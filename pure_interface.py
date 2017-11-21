@@ -22,6 +22,7 @@ except ImportError:
 import abc
 import collections
 import dis
+import inspect
 import types
 import sys
 import warnings
@@ -440,6 +441,9 @@ class PureInterfaceType(abc.ABCMeta):
         cls._pi.ducktype_subclasses.add(subclass)
         if IS_DEVELOPMENT:
             stacklevel = 2
+            stack = inspect.stack()
+            while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+                stacklevel += 1
             warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                           'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
                           .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
