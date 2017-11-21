@@ -24,8 +24,13 @@ implementation is a pure interface.  In every other respect the zen of 'practica
 
 Installation
 ------------
+pure_interface depends on the six_ module which needs to be installed first.
+
+.. _six: https://pypi.python.org/pypi/six
+
 You can install released versions of pure_interface using pip::
 
+    pip install six
     pip install pure_interface
 
 or you can grab the source code from GitHub_.
