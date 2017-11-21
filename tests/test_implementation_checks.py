@@ -246,6 +246,27 @@ class TestPropertyImplementations(unittest.TestCase):
         with self.assertRaises(TypeError):
             Plant()
 
+    def test_missing_property_subclass_fails(self):
+        class PlantBase(object, IPlant):
+            pass
+
+        class Potato(PlantBase):
+            pass
+
+        with self.assertRaises(TypeError):
+            Potato()
+
+    def test_abstract_property_is_cleared(self):
+        class PlantBase(object, IPlant):
+            pass
+
+        class Potato(PlantBase):
+            @property
+            def height(self):
+                return 23
+
+        self.assertEqual(Potato._pi.abstractproperties, set())
+
     def test_getattr_property_passes(self):
         class Plant(object, IPlant):
             def __getattr__(self, item):

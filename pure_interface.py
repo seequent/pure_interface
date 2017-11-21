@@ -29,7 +29,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.2'
+__version__ = '1.9.3'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -48,7 +48,7 @@ class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
     def __init__(self, type_is_interface, interface_method_signatures, interface_property_names):
         self.type_is_pure_interface = type_is_interface
-        self.abstractproperties = frozenset()
+        self.abstractproperties = frozenset()  # properties that must be provided by instances
         self.interface_method_names = frozenset(interface_method_signatures.keys())
         self.interface_property_names = frozenset(interface_property_names)
         self.interface_method_signatures = interface_method_signatures
@@ -320,7 +320,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             raise InterfaceError(msg)
 
 
-def _patch_properties(cls):
+def _patch_properties(cls, base_abstract_properties):
     """ Create an AttributeProperty for interface properties not provided by an implementation.
     """
     abstract_properties = set()
@@ -331,7 +331,7 @@ def _patch_properties(cls):
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
             setattr(cls, attr, AttributeProperty(attr))
             abstract_properties.add(attr)
-    cls._pi.abstractproperties = frozenset(abstract_properties)
+    cls._pi.abstractproperties = frozenset(abstract_properties | base_abstract_properties)
     abstractmethods = set(cls.__abstractmethods__) - abstract_properties
     for func in functions:
         if func is not None and func.__name__ in abstractmethods:
@@ -361,10 +361,13 @@ class PureInterfaceType(abc.ABCMeta):
             base_types = base_types[1:]
         interface_method_signatures = dict()
         interface_property_names = set()
+        base_abstract_properties = set()
         for i in range(len(bases)-1, -1, -1):  # start at back end
             base, base_is_interface = base_types[i]
             if base is object:
                 continue
+            abstract_properties = _get_pi_attribute(base, 'abstractproperties', set())
+            base_abstract_properties.update(abstract_properties)
             if base_is_interface:
                 if hasattr(base, '_pi'):
                     method_signatures = _get_pi_attribute(base, 'interface_method_signatures', {})
@@ -388,14 +391,16 @@ class PureInterfaceType(abc.ABCMeta):
                 if func is None:
                     continue
                 if not _is_empty_function(func, unwrap):
-                    raise InterfaceError('Function "{}" is not empty'.format(func.__name__))
+                    raise InterfaceError('Function "{}" is not empty.\nDid you forget to inherit from object to make the class concrete?'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
 
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi = _PIAttributes(type_is_interface, interface_method_signatures, interface_property_names)
         if not type_is_interface:
-            _patch_properties(cls)
+            class_properties = set(k for k, v in namespace.items() if isinstance(v, property))
+            base_abstract_properties.difference_update(class_properties)
+            _patch_properties(cls, base_abstract_properties)
         if type_is_interface and not cls.__abstractmethods__:
             cls.__abstractmethods__ = frozenset({''})  # empty interfaces still should not be instantiated
         return cls
