@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.5'
+__version__ = '1.9.6'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -587,8 +587,6 @@ def register_adapter(adapter, from_type, to_interface):
         raise ValueError('adapter must be callable')
     if not isinstance(from_type, type):
         raise ValueError('{} must be a type'.format(from_type))
-    if isinstance(None, from_type):
-        raise ValueError('Cannot adapt None type')
     if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
         raise ValueError('{} is not an interface'.format(to_interface))
     adapters = _get_pi_attribute(to_interface, 'adapters')
