@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.6'
+__version__ = '1.9.7'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -239,6 +239,10 @@ def _get_function_signature(function):
     return args, len(function.__defaults__) if function.__defaults__ is not None else 0
 
 
+def _is_descriptor(obj):
+    return hasattr(obj, '__get__') or hasattr(obj, '__set__') or hasattr(obj, '__delete__')
+
+
 def _signatures_are_consistent(func_sig, base_sig):
     """
     :param func_sig: (args, num_default) tuple for overriding function
@@ -309,7 +313,10 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             continue
         value = attributes[name]
         if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
-            raise InterfaceError('Interface method over-ridden with non-method')
+            if _is_descriptor(value):
+                return
+            else:
+                raise InterfaceError('Interface method over-ridden with non-method')
         if isinstance(value, (staticmethod, classmethod)):
             func = value.__func__
         else:
@@ -408,6 +415,8 @@ class PureInterfaceType(abc.ABCMeta):
 
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
+        if cls._pi.type_is_pure_interface:
+            raise TypeError('Interfaces cannot be instantiated')
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
             if not hasattr(self, attr):

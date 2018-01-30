@@ -56,12 +56,18 @@ class IFunkyMethods(pure_interface.PureInterface):
         return None
 
 
+class ISimple(pure_interface.PureInterface):
+    def foo(self):
+        pass
+
+
 class TestImplementationChecks(unittest.TestCase):
     def test_instantiation_fails(self):
         with self.assertRaises(TypeError):
             pure_interface.PureInterface()
-        with self.assertRaises(TypeError):
+        with self.assertRaises(TypeError) as exc:
             IPlant()
+        assert 'Interfaces cannot be instantiated' in str(exc.exception)
         with self.assertRaises(TypeError):
             IAnimal()
 
@@ -153,6 +159,27 @@ class TestImplementationChecks(unittest.TestCase):
                 @d
                 def foo(self):
                     pass
+
+    def test_can_override_func_with_descriptor(self):
+        try:
+            class MyDescriptor(object):
+                def __init__(self, function):
+                    self.__function = function
+
+                def __get__(self, model, cls=None):
+                    if model is None:
+                        return self
+                    else:
+                        return self.__function
+
+            class Simple(object, ISimple):
+                @MyDescriptor
+                def foo():
+                    return 1
+        except:
+            self.fail('Overriding function with descriptor failed')
+        s = Simple()
+        self.assertEqual(s.foo(), 1)
 
 
 class TestPropertyImplementations(unittest.TestCase):
