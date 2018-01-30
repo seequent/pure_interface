@@ -60,10 +60,12 @@ As ``PureInterface`` is a subtype of ``abc.ABC`` the ``abstractmethod`` and ``ab
 For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and
 on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
 
-However these decorators are optional as **ALL** methods and properties on a pure interface are abstract ::
+However these decorators are optional as **ALL** methods and properties on a pure interface are abstract.  In the
+example above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
+Because of this, interface classes cannot be instantiated ::
 
     IAnimal()
-    TypeError: Can't instantiate abstract class IAnimal with abstract methods height, speak
+    TypeError: Interfaces cannot be instantiated.
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
@@ -77,6 +79,7 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
             print('hello')
 
     InterfaceError: Function "method" is not empty
+    Did you forget to inherit from object to make the class concrete?
 
 Concrete Implementations
 ========================
