@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '1.9.7'
+__version__ = '1.9.8'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -314,7 +314,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
         value = attributes[name]
         if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
             if _is_descriptor(value):
-                return
+                continue
             else:
                 raise InterfaceError('Interface method over-ridden with non-method')
         if isinstance(value, (staticmethod, classmethod)):
