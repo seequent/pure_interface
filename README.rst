@@ -141,6 +141,38 @@ However new optional parameters are permitted::
 
   def speak(self, volume, language='doggy speak')
 
+Implementation Warnings
+-----------------------
+
+As with ``abc.ABC``, the interface checking for a class is done when an object is instantiated.
+However it is useful to know about missing methods sooner than that.  For this reason ``pure_interface`` will issue
+a warning during module import when methods are missing from a concrete subclass.  For example::
+
+    class SilentAnimal(object, IAnimal):
+        def __init__(self, height):
+            self._height = height
+
+will issue this warning::
+
+    readme.py:28: UserWarning: Incomplete Implementation: SilentAnimal does not implement speak
+    class SilentAnimal(object, IAnimal):
+
+Trying to create a ``SilentAnimal`` will fail in the standard abc way::
+
+    SilentAnimal()
+    TypeError: Can't instantiate abstract class SilentAnimal with abstract methods speak
+
+The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
+filters (but only if ``IS_DEVELOPEMNT`` is ``True``).  This provides an alternative to raising warnings as errors.
+When all your imports are complete you can check if this list is empty.::
+
+    if pure_iterface.missing_method_warnings:
+        for warning in pure_iterface.missing_method_warnings:
+            print(warning)
+        exit(1)
+
+Note that missing properties are NOT checked for as they may be provided by instance attributes.
+
 Adaption
 ========
 
@@ -411,3 +443,12 @@ Functions
 **get_interface_property_names** *(cls)*
     Returns a ``frozenset`` of names of properties defined by the interface
     If *cls* is not a interface type then an empty set is returned.
+
+Module Attributes
+-----------------
+**IS_DEVELOPMENT**
+    Set to ``True`` to enable all checks and warnings.  Set to ``False`` to disable some checks and all warnings.
+
+**missing_method_warnings**
+    The list of warning messages for concrete classes with missing interface (abstract) method overrides.
+    Note that missing properties are NOT checked for as they may be provided by instance attributes.

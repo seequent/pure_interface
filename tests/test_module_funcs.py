@@ -31,6 +31,17 @@ class Cat(object, IAnimal):
 
 
 class Dog(object, ILandAnimal):
+    def num_legs(self):
+        return 4
+
+    @property
+    def height(self):
+        return 89
+
+    @property
+    def weight(self):
+        return 6.4
+
     def speak(self, volume):
         pass
 

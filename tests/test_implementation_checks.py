@@ -181,6 +181,16 @@ class TestImplementationChecks(unittest.TestCase):
         s = Simple()
         self.assertEqual(s.foo(), 1)
 
+    def test_missing_methods(self):
+        class SimpleSimon(object, ISimple):
+            pass
+        for msg in pure_interface.missing_method_warnings:
+            if 'SimpleSimon' in msg:
+                self.assertIn('foo', msg)
+                break
+        else:
+            self.fail('No missing method message for SimpleSimon.foo')
+
 
 class TestPropertyImplementations(unittest.TestCase):
     def test_abstract_property_override_passes(self):
