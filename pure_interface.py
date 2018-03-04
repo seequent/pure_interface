@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import division, print_function, absolute_import
+
 try:
     from abc import abstractmethod, abstractproperty, abstractclassmethod, abstractstaticmethod
 except ImportError:
@@ -24,7 +27,7 @@ import collections
 import dis
 import inspect
 import types
-import typing
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar
 import sys
 import warnings
 import weakref
@@ -41,7 +44,7 @@ if six.PY2:
 else:
     _six_ord = lambda x: x
 
-T = typing.TypeVar('T')
+T = TypeVar('T')
 
 
 class InterfaceError(Exception):
@@ -53,8 +56,8 @@ class _PIAttributes(object):
     def __init__(self, type_is_interface, interface_method_signatures, interface_property_names):
         self.type_is_pure_interface = type_is_interface
         self.abstractproperties = frozenset()  # properties that must be provided by instances
-        self.interface_method_names = frozenset(interface_method_signatures.keys())
-        self.interface_property_names = frozenset(interface_property_names)
+        self.interface_method_names = frozenset(interface_method_signatures.keys())  # type: FrozenSet[str]
+        self.interface_property_names = frozenset(interface_property_names)  # type: FrozenSet[str]
         self.interface_method_signatures = interface_method_signatures
         self.adapters = weakref.WeakKeyDictionary()
         self.ducktype_subclasses = set()
@@ -474,6 +477,7 @@ class PureInterfaceType(abc.ABCMeta):
         return True
 
     def provided_by(cls, obj, allow_implicit=True):
+        # type: (Any, bool) -> bool
         """ Returns True if obj provides this interface.
         provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
         If allow_implicit is True then returns True if interface duck-type check passes.
@@ -490,7 +494,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._ducktype_check(obj)
 
     def interface_only(cls, implementation):
-        # type: (typing.Type[T], typing.Any) -> T
+        # type: (T) -> T
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         if cls._pi.impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
@@ -500,7 +504,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._pi.impl_wrapper_type(implementation, cls)
 
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (typing.Type[T], typing.Any, typing.Optional[bool]) -> T
+        # type: (Any, bool, Optional[bool]) -> T
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
         If interface_only is True, or interface_only is None and IS_DEVELOPMENT is True then the
@@ -521,7 +525,7 @@ class PureInterfaceType(abc.ABCMeta):
         for obj_class in type(obj).__mro__:
             if obj_class in adapters:
                 factory = adapters[obj_class]
-                adapted = factory(obj)
+                adapted = factory(obj)  # type: T
                 if not cls.provided_by(adapted, allow_implicit):
                     raise ValueError('Adapter {} does not implement interface {}'.format(factory, cls.__name__))
                 if interface_only:
@@ -530,7 +534,7 @@ class PureInterfaceType(abc.ABCMeta):
         raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (typing.Type[T], typing.Any, typing.Optional[bool]) -> typing.Optional[T]
+        # type: (Any, bool, Optional[bool]) -> Optional[T]
         """ Adapt obj to to_interface or return None if adaption fails """
         try:
             return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
@@ -538,6 +542,7 @@ class PureInterfaceType(abc.ABCMeta):
             return None
 
     def can_adapt(cls, obj, allow_implicit=False):
+        # type: (Any, bool) -> bool
         """ Returns True if adapt(obj, allow_implicit) will succeed."""
         try:
             cls.adapt(obj, allow_implicit=allow_implicit)
@@ -546,7 +551,7 @@ class PureInterfaceType(abc.ABCMeta):
         return True
 
     def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
-        # type: (typing.Type[T], typing.Iterable[typing.Any], bool) -> typing.Iterable[T]
+        # type: (Iterable[Any], bool, Optional[bool]) -> Iterable[T]
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
@@ -558,7 +563,12 @@ class PureInterfaceType(abc.ABCMeta):
             yield f
 
 
-ABC = abc.ABC if hasattr(abc, 'ABC') else object
+if hasattr(abc, 'ABC'):
+    ABC = abc.ABC
+else:
+    @six.add_metaclass(abc.ABCMeta)
+    class ABC(object):
+        pass
 
 
 @six.add_metaclass(PureInterfaceType)
@@ -566,12 +576,9 @@ class PureInterface(ABC):
     pass
 
 
-IT = typing.TypeVar('IT', PureInterface)
-
-
 # adaption
 def adapts(from_type, to_interface=None):
-    # type: (typing.Any, typing.Type[IT]) -> typing.Callable
+    # type: (Any, PureInterface) -> Callable
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
@@ -606,7 +613,7 @@ def adapts(from_type, to_interface=None):
 
 
 def register_adapter(adapter, from_type, to_interface):
-    # type: (typing.Callable, typing.Any, typing.Type[IT]) -> None
+    # type: (Callable, Any, Type[PureInterface]) -> None
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
@@ -627,6 +634,7 @@ def register_adapter(adapter, from_type, to_interface):
 
 
 def type_is_pure_interface(cls):
+    # type: (Type[Any]) -> bool
     """ Return True if cls is a pure interface"""
     try:
         if not issubclass(cls, PureInterface):
@@ -637,6 +645,7 @@ def type_is_pure_interface(cls):
 
 
 def get_type_interfaces(cls):
+    # type: (Type[Any]) -> List[Type[Any]]
     """ Returns all interfaces in the cls mro including cls itself if it is an interface """
     try:
         bases = cls.mro()
@@ -646,6 +655,7 @@ def get_type_interfaces(cls):
 
 
 def get_interface_method_names(interface):
+    # type: (Type[PureInterface]) -> FrozenSet[str]
     """ returns a frozen set of names of methods defined by the interface.
     if interface is not a PureInterface subtype then an empty set is returned
     """
@@ -656,6 +666,7 @@ def get_interface_method_names(interface):
 
 
 def get_interface_property_names(interface):
+    # type: (Type[PureInterface]) -> FrozenSet[str]
     """ returns a frozen set of names of properties defined by the interface
     if interface is not a PureInterface subtype then an empty set is returned
     """
