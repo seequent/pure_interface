@@ -16,6 +16,11 @@ class IPlant(pure_interface.PureInterface):
         pass
 
 
+class ADescriptor(object):
+    def __get__(self, instance, owner):
+        return None
+
+
 class TestFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -52,6 +57,18 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         with self.assertRaises(pure_interface.InterfaceError):
             class Animal(object, IAnimal):
                 def speak(self, volume, msg):
+                    pass
+
+    def test_all_functions_checked(self):  # issue #7
+        class IWalkingAnimal(IAnimal):
+            def walk(self, distance):
+                pass
+
+        with self.assertRaises(pure_interface.InterfaceError):
+            class Animal(object, IWalkingAnimal):
+                speak = ADescriptor()
+
+                def walk(self, volume):
                     pass
 
         # abstract subclass

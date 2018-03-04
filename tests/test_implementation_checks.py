@@ -38,12 +38,36 @@ class IGrowingPlant(pure_interface.PureInterface):
         pass
 
 
+class IFunkyMethods(pure_interface.PureInterface):
+    @pure_interface.abstractclassmethod
+    def acm(cls):
+        return None
+
+    @classmethod
+    def cm(cls):
+        return None
+
+    @pure_interface.abstractstaticmethod
+    def asm():
+        return None
+
+    @staticmethod
+    def sm():
+        return None
+
+
+class ISimple(pure_interface.PureInterface):
+    def foo(self):
+        pass
+
+
 class TestImplementationChecks(unittest.TestCase):
     def test_instantiation_fails(self):
         with self.assertRaises(TypeError):
             pure_interface.PureInterface()
-        with self.assertRaises(TypeError):
+        with self.assertRaises(TypeError) as exc:
             IPlant()
+        assert 'Interfaces cannot be instantiated' in str(exc.exception)
         with self.assertRaises(TypeError):
             IAnimal()
 
@@ -51,7 +75,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(object, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -65,7 +89,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(B, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -80,7 +104,7 @@ class TestImplementationChecks(unittest.TestCase):
         class Concrete(B, pure_interface.PureInterface):
             pass
 
-        self.assertFalse(Concrete._pi_type_is_pure_interface)
+        self.assertFalse(Concrete._pi.type_is_pure_interface)
         try:
             c = Concrete()
         except Exception as exc:
@@ -104,8 +128,13 @@ class TestImplementationChecks(unittest.TestCase):
         class PIEmptyABC(pure_interface.PureInterface, IABC):
             pass
 
-        self.assertTrue(EmptyABCPI._pi_type_is_pure_interface)
-        self.assertTrue(PIEmptyABC._pi_type_is_pure_interface)
+        self.assertTrue(EmptyABCPI._pi.type_is_pure_interface)
+        self.assertTrue(PIEmptyABC._pi.type_is_pure_interface)
+        if six.PY3:
+            self.assertTrue('foo' in EmptyABCPI._pi.interface_method_names)
+            self.assertTrue('bar' in EmptyABCPI._pi.interface_property_names)
+        self.assertTrue('foo' in PIEmptyABC._pi.interface_method_names)
+        self.assertTrue('bar' in PIEmptyABC._pi.interface_property_names)
         with self.assertRaises(TypeError):
             EmptyABCPI()
         with self.assertRaises(TypeError):
@@ -130,6 +159,37 @@ class TestImplementationChecks(unittest.TestCase):
                 @d
                 def foo(self):
                     pass
+
+    def test_can_override_func_with_descriptor(self):
+        try:
+            class MyDescriptor(object):
+                def __init__(self, function):
+                    self.__function = function
+
+                def __get__(self, model, cls=None):
+                    if model is None:
+                        return self
+                    else:
+                        return self.__function
+
+            class Simple(object, ISimple):
+                @MyDescriptor
+                def foo():
+                    return 1
+        except:
+            self.fail('Overriding function with descriptor failed')
+        s = Simple()
+        self.assertEqual(s.foo(), 1)
+
+    def test_missing_methods(self):
+        class SimpleSimon(object, ISimple):
+            pass
+        for msg in pure_interface.missing_method_warnings:
+            if 'SimpleSimon' in msg:
+                self.assertIn('foo', msg)
+                break
+        else:
+            self.fail('No missing method message for SimpleSimon.foo')
 
 
 class TestPropertyImplementations(unittest.TestCase):
@@ -223,6 +283,27 @@ class TestPropertyImplementations(unittest.TestCase):
         with self.assertRaises(TypeError):
             Plant()
 
+    def test_missing_property_subclass_fails(self):
+        class PlantBase(object, IPlant):
+            pass
+
+        class Potato(PlantBase):
+            pass
+
+        with self.assertRaises(TypeError):
+            Potato()
+
+    def test_abstract_property_is_cleared(self):
+        class PlantBase(object, IPlant):
+            pass
+
+        class Potato(PlantBase):
+            @property
+            def height(self):
+                return 23
+
+        self.assertEqual(Potato._pi.abstractproperties, set())
+
     def test_getattr_property_passes(self):
         class Plant(object, IPlant):
             def __getattr__(self, item):
@@ -233,3 +314,21 @@ class TestPropertyImplementations(unittest.TestCase):
 
         a = Plant()
         self.assertEqual(a.height, 10)
+
+    def test_class_and_static_methods(self):
+        class Concrete(object, IFunkyMethods):
+            @classmethod
+            def acm(cls):
+                return 1
+
+            @classmethod
+            def cm(cls):
+                return 2
+
+            @staticmethod
+            def asm():
+                return 3
+
+            @staticmethod
+            def sm():
+                return 4
