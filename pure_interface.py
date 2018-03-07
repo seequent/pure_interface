@@ -44,8 +44,6 @@ if six.PY2:
 else:
     _six_ord = lambda x: x
 
-T = TypeVar('T')
-
 
 class InterfaceError(Exception):
     pass
@@ -477,7 +475,7 @@ class PureInterfaceType(abc.ABCMeta):
         return True
 
     def provided_by(cls, obj, allow_implicit=True):
-        # type: (Any, bool) -> bool
+        # type: ('PureInterfaceType', Any, bool) -> bool
         """ Returns True if obj provides this interface.
         provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
         If allow_implicit is True then returns True if interface duck-type check passes.
@@ -494,7 +492,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._ducktype_check(obj)
 
     def interface_only(cls, implementation):
-        # type: (T) -> T
+        # type: ('PureInterfaceType', 'PureInterface') -> 'PureInterface'
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         if cls._pi.impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
@@ -504,7 +502,7 @@ class PureInterfaceType(abc.ABCMeta):
         return cls._pi.impl_wrapper_type(implementation, cls)
 
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Any, bool, Optional[bool]) -> T
+        # type: ('PureInterfaceType', Any, bool, Optional[bool]) -> 'PureInterface'
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
         If interface_only is True, or interface_only is None and IS_DEVELOPMENT is True then the
@@ -525,7 +523,7 @@ class PureInterfaceType(abc.ABCMeta):
         for obj_class in type(obj).__mro__:
             if obj_class in adapters:
                 factory = adapters[obj_class]
-                adapted = factory(obj)  # type: T
+                adapted = factory(obj)
                 if not cls.provided_by(adapted, allow_implicit):
                     raise ValueError('Adapter {} does not implement interface {}'.format(factory, cls.__name__))
                 if interface_only:
@@ -534,7 +532,7 @@ class PureInterfaceType(abc.ABCMeta):
         raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Any, bool, Optional[bool]) -> Optional[T]
+        # type: ('PureInterfaceType', Any, bool, Optional[bool]) -> Optional['PureInterface']
         """ Adapt obj to to_interface or return None if adaption fails """
         try:
             return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
@@ -542,7 +540,7 @@ class PureInterfaceType(abc.ABCMeta):
             return None
 
     def can_adapt(cls, obj, allow_implicit=False):
-        # type: (Any, bool) -> bool
+        # type: ('PureInterfaceType', Any, bool) -> bool
         """ Returns True if adapt(obj, allow_implicit) will succeed."""
         try:
             cls.adapt(obj, allow_implicit=allow_implicit)
@@ -551,7 +549,7 @@ class PureInterfaceType(abc.ABCMeta):
         return True
 
     def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
-        # type: (Iterable[Any], bool, Optional[bool]) -> Iterable[T]
+        # type: ('PureInterfaceType', Iterable[Any], bool, Optional[bool]) -> Iterable['PureInterface']
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
@@ -645,7 +643,7 @@ def type_is_pure_interface(cls):
 
 
 def get_type_interfaces(cls):
-    # type: (Type[Any]) -> List[Type[Any]]
+    # type: (Type[Any]) -> List[Type[PureInterface]]
     """ Returns all interfaces in the cls mro including cls itself if it is an interface """
     try:
         bases = cls.mro()
