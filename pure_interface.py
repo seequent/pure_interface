@@ -30,7 +30,7 @@ import weakref
 
 import six
 
-__version__ = '2.2.0'
+__version__ = '2.2.1'
 
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
@@ -440,7 +440,9 @@ class PureInterfaceType(abc.ABCMeta):
 
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi = _PIAttributes(type_is_interface, interface_method_signatures, interface_property_names)
-        if not type_is_interface:
+        if not type_is_interface and PureInterface in cls.mro():
+            # Don't interfere if meta class is only included to permit interface inheritance,
+            # but no actual interface is being used.
             class_properties = set(k for k, v in namespace.items() if isinstance(v, property))
             base_abstract_properties.difference_update(class_properties)
             _patch_properties(cls, base_abstract_properties)
@@ -449,6 +451,11 @@ class PureInterfaceType(abc.ABCMeta):
                 stack = inspect.stack()
                 while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
                     stacklevel += 1
+                stack.pop(0)
+                while stack and stack[0][0].f_code.co_name == '__new__':
+                    stacklevel += 1
+                    stack.pop(0)
+
                 for method_name in cls.__abstractmethods__:
                     message = 'Incomplete Implementation: {clsname} does not implement {method_name}'
                     message = message.format(clsname=clsname, method_name=method_name)
