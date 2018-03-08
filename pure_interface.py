@@ -34,15 +34,24 @@ import weakref
 
 import six
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 
 IS_DEVELOPMENT = not hasattr(sys, 'frozen')
 missing_method_warnings = []
 
 if six.PY2:
     _six_ord = ord
+    ArgSpec = inspect.ArgSpec
+    getargspec = inspect.getargspec
 else:
     _six_ord = lambda x: x
+    ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
+
+    def getargspec(func):
+        # getargspec is deprecated, but getfullargspec is not a drop-in replacement as advertised
+        # as the keywords attribute has been renamed
+        full_spec = inspect.getfullargspec(func)
+        return ArgSpec(*full_spec[:4])
 
 
 class InterfaceError(Exception):
@@ -150,9 +159,9 @@ def _get_abc_interface_props_and_funcs(cls):
         value = getattr(cls, name)
         if isinstance(value, (staticmethod, classmethod, types.MethodType)):
             func = six.get_method_function(value)
-            function_sigs[name] = _get_function_signature(func)
+            function_sigs[name] = getargspec(func)
         elif isinstance(value, types.FunctionType):
-            function_sigs[name] = _get_function_signature(value)
+            function_sigs[name] = getargspec(value)
         elif isinstance(value, property):
             properties.add(name)
 
@@ -237,37 +246,57 @@ def _get_instructions(code_obj):
     return instructions
 
 
-def _get_function_signature(function):
-    """ Returns a list of argument names and the number of default arguments """
-    code_obj = function.__code__
-    args = code_obj.co_varnames[:code_obj.co_argcount]
-    return args, len(function.__defaults__) if function.__defaults__ is not None else 0
-
-
 def _is_descriptor(obj):
     return hasattr(obj, '__get__') or hasattr(obj, '__set__') or hasattr(obj, '__delete__')
 
 
+def _signature_info(arg_spec):
+    # type: (ArgSpec) -> (List[str], int, int, int, bool, bool)
+    """ returns (req_args, def_args, has_varargs, has_keywords)"""
+    if arg_spec.defaults:
+        n_defaults = len(arg_spec.defaults)
+        def_args = arg_spec.args[-n_defaults:]
+        req_args = arg_spec.args[:-n_defaults]
+    else:
+        req_args = arg_spec.args
+        def_args = []
+    return req_args, def_args, bool(arg_spec.varargs), bool(arg_spec.keywords)
+
+
 def _signatures_are_consistent(func_sig, base_sig):
     """
-    :param func_sig: (args, num_default) tuple for overriding function
-    :param base_sig: (args, num_default) tuple for base class function
+    :param func_sig: ArgSpec named tuple for overriding function
+    :param base_sig: ArgSpec named tuple for base class function
     :return: True if signatures are consistent.
     2 function signatures are consistent if:
         * The argument names match
         * new arguments in func_sig have defaults
-        * The number of arguments without defaults does not increase
     """
-    func_args, func_num_defaults = func_sig
-    base_args, base_num_defaults = base_sig
-    base_num_args = len(base_args)
-    func_num_args = len(func_args)
-    func_num_required = func_num_args - func_num_defaults
-    base_num_required = base_num_args - base_num_defaults
-    return (func_args[:base_num_args] == base_args and  # parameter names match
-            func_num_args - base_num_args <= func_num_defaults and  # new args have defaults
-            func_num_required <= base_num_required  # number of required args does not increase
-            )
+    base_required_args, base_default_args, base_varargs, base_keywords = _signature_info(base_sig)
+    func_required_args, func_default_args, func_varargs, func_keywords = _signature_info(func_sig)
+    if func_varargs:
+        shortest_len = min(len(base_required_args), len(func_required_args))
+        req_names_match = func_required_args[:shortest_len] == base_required_args[:shortest_len]
+    else:
+        # (a, b, c) can be overridden with (a, b, c=0) so need to check entire args sequence here
+        req_names_match = func_sig.args[:len(base_required_args)] == base_required_args
+    no_new_required_args = len(func_required_args) <= len(base_required_args)
+    if func_keywords:
+        def_names_match = True
+    else:
+        def_names_match = func_default_args[:len(base_default_args)] == base_default_args
+    if base_default_args and func_varargs:
+        # need to check that we don't have multiple values for keyword arguments
+        # e.g. base(a, b, c=None)  func(a, c=4, *args)
+        # base can be called with (a, b, c) but func cannot.
+        for arg in func_default_args:
+            if arg in base_sig.args:
+                base_index = base_sig.args.index(arg)
+                func_index = func_sig.args.index(arg)
+                if base_index != func_index:
+                    def_names_match = False
+                    break
+    return req_names_match and def_names_match and no_new_required_args
 
 
 def _ensure_everything_is_abstract(attributes):
@@ -286,22 +315,22 @@ def _ensure_everything_is_abstract(attributes):
                 else:
                     func = value
                 functions.append(func)
-                interface_method_signatures[name] = _get_function_signature(func)
+                interface_method_signatures[name] = getargspec(func)
             elif isinstance(value, property):
                 interface_property_names.add(name)
         elif isinstance(value, staticmethod):
             func = value.__func__
             functions.append(func)
-            interface_method_signatures[name] = _get_function_signature(func)
+            interface_method_signatures[name] = getargspec(func)
             value = abstractstaticmethod(func)
         elif isinstance(value, classmethod):
             func = value.__func__
-            interface_method_signatures[name] = _get_function_signature(func)
+            interface_method_signatures[name] = getargspec(func)
             functions.append(func)
             value = abstractclassmethod(func)
         elif isinstance(value, types.FunctionType):
             functions.append(value)
-            interface_method_signatures[name] = _get_function_signature(value)
+            interface_method_signatures[name] = getargspec(value)
             value = abstractmethod(value)
         elif isinstance(value, property):
             interface_property_names.add(name)
@@ -326,7 +355,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             func = value.__func__
         else:
             func = value
-        func_sig = _get_function_signature(func)
+        func_sig = getargspec(func)
         if not _signatures_are_consistent(func_sig, base_sig):
             msg = '{module}.{clsname}.{name} argments does not match base class'.format(
                 module=attributes['__module__'], clsname=clsname, name=name)
