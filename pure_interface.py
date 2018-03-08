@@ -292,7 +292,12 @@ def _signatures_are_consistent(func_sig, base_sig):
                 if base_index != func_index:
                     def_names_match = False
                     break
-    return req_names_match and def_names_match and no_new_required_args
+    varargs_ok = True
+    if base_varargs:
+        varargs_ok = func_varargs
+    if base_keywords:
+        varargs_ok &= func_keywords
+    return req_names_match and def_names_match and no_new_required_args and varargs_ok
 
 
 def _ensure_everything_is_abstract(attributes):

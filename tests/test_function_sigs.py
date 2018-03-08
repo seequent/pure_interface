@@ -39,6 +39,34 @@ def func4():
     pass
 
 
+def func5(a, *args):
+    pass
+
+
+def func6(a, **kwargs):
+    pass
+
+
+def func7(a, b=3, *args):
+    pass
+
+
+def func8(*args):
+    pass
+
+
+def func9(**kwargs):
+    pass
+
+
+def func10(*args, **kwargs):
+    pass
+
+
+def func11(a=4, **kwargs):
+    pass
+
+
 def test_call(func, arg_spec):
     # type: (types.FunctionType, inspect.ArgSpec) -> bool
     if arg_spec.defaults:
@@ -56,6 +84,23 @@ def test_call(func, arg_spec):
         func(*args)
     except TypeError:
         return False
+    if arg_spec.varargs:
+        try:
+            func(*(args + ['more', 'random', 'arguments']), **kwargs)
+        except TypeError:
+            return False
+        try:
+            func(*(args + ['more', 'random', 'arguments']))
+        except TypeError:
+            return False
+    if arg_spec.keywords:
+        kwargs['more'] = 1
+        kwargs['random'] = 1
+        kwargs['kewords'] = 1
+        try:
+            func(*args, **kwargs)
+        except TypeError:
+            return False
     return True
 
 
@@ -86,53 +131,52 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.check_signatures(func4, func3, True)
 
     def test_varargs(self):
-        def varargs(*args):
-            pass
-
-        self.check_signatures(func1, varargs, True)
-        self.check_signatures(func2, varargs, False)
-        self.check_signatures(func3, varargs, False)
-        self.check_signatures(func4, varargs, True)
+        self.check_signatures(func1, func8, True)
+        self.check_signatures(func2, func8, False)
+        self.check_signatures(func3, func8, False)
+        self.check_signatures(func4, func8, True)
+        self.check_signatures(func5, func8, True)
+        self.check_signatures(func9, func8, False)
 
     def test_pos_varargs(self):
-        def pos_varargs(a, *args):
-            pass
-
-        self.check_signatures(func1, pos_varargs, True)
-        self.check_signatures(func2, pos_varargs, False)
-        self.check_signatures(func3, pos_varargs, False)
-        self.check_signatures(func4, pos_varargs, False)
+        self.check_signatures(func1, func5, True)
+        self.check_signatures(func2, func5, False)
+        self.check_signatures(func3, func5, False)
+        self.check_signatures(func4, func5, False)
+        self.check_signatures(func6, func5, False)
+        self.check_signatures(func7, func5, False)
+        self.check_signatures(func8, func5, False)
 
     def test_keywords(self):
-        def keywords(**kwargs):
-            pass
-
-        self.check_signatures(func1, keywords, False)
-        self.check_signatures(func2, keywords, False)
-        self.check_signatures(func3, keywords, True)
-        self.check_signatures(func4, keywords, True)
+        self.check_signatures(func1, func9, False)
+        self.check_signatures(func2, func9, False)
+        self.check_signatures(func3, func9, True)
+        self.check_signatures(func4, func9, True)
+        self.check_signatures(func6, func9, False)
+        self.check_signatures(func8, func9, False)
 
     def test_def_keywords(self):
         def kwarg_keywords(c=4, **kwargs):
             pass
 
-        def kwarg_keywords2(a=4, **kwargs):
-            pass
-
         self.check_signatures(func1, kwarg_keywords, False)
         self.check_signatures(func2, kwarg_keywords, False)
         self.check_signatures(func3, kwarg_keywords, True)
-        self.check_signatures(func3, kwarg_keywords, True)
         self.check_signatures(func4, kwarg_keywords, True)
+        self.check_signatures(func3, func11, True)
+        self.check_signatures(func6, func11, True)
 
     def test_vararg_keywords(self):
-        def vararg_keywords(*args, **kwargs):
-            pass
-
-        self.check_signatures(func1, vararg_keywords, True)
-        self.check_signatures(func2, vararg_keywords, True)
-        self.check_signatures(func3, vararg_keywords, True)
-        self.check_signatures(func4, vararg_keywords, True)
+        self.check_signatures(func1, func10, True)
+        self.check_signatures(func2, func10, True)
+        self.check_signatures(func3, func10, True)
+        self.check_signatures(func4, func10, True)
+        self.check_signatures(func5, func10, True)
+        self.check_signatures(func6, func10, True)
+        self.check_signatures(func7, func10, True)
+        self.check_signatures(func8, func10, True)
+        self.check_signatures(func9, func10, True)
+        self.check_signatures(func11, func10, True)
 
     def test_pos_kwarg_vararg(self):
         def pos_kwarg_vararg(a, c=4, *args):
@@ -151,6 +195,21 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.check_signatures(func2, all, False)
         self.check_signatures(func3, all, False)
         self.check_signatures(func4, all, False)
+        self.check_signatures(func6, all, True)
+        self.check_signatures(func7, all, True)
+        self.check_signatures(func11, all, False)
+
+    def test_some_more(self):
+        self.check_signatures(func1, func5, True)
+        self.check_signatures(func2, func7, False)
+        self.check_signatures(func5, func5, True)
+        self.check_signatures(func5, func8, True)
+        self.check_signatures(func5, func11, False)
+        self.check_signatures(func6, func11, True)
+        self.check_signatures(func7, func11, False)
+        self.check_signatures(func8, func5, False)
+        self.check_signatures(func9, func11, True)
+        self.check_signatures(func11, func9, True)
 
     def test_diff_names_fails(self):
         # concrete subclass
