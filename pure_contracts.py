@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import warnings
 
 import pure_interface
-from pure_interface import InterfaceError
+from pure_interface import InterfaceError  # alias for convenience
 import six
 
 try:
@@ -23,7 +23,5 @@ except ImportError:
 
 
 @six.add_metaclass(PureContractType)
-class ContractInterface(object):
+class ContractInterface(pure_interface.PureInterface):
     pass
-
-ContractInterface._pi.type_is_pure_interface = True

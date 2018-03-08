@@ -40,6 +40,9 @@ if six.PY2:
     _six_ord = ord
     ArgSpec = inspect.ArgSpec
     getargspec = inspect.getargspec
+    @six.add_metaclass(abc.ABCMeta)
+    class ABC(object):
+        pass
 else:
     _six_ord = lambda x: x
     ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
@@ -49,6 +52,7 @@ else:
         # as the keywords attribute has been renamed
         full_spec = inspect.getfullargspec(func)
         return ArgSpec(*full_spec[:4])
+    ABC = abc.ABC
 
 
 class InterfaceError(Exception):
@@ -395,13 +399,22 @@ class PureInterfaceType(abc.ABCMeta):
     """
 
     def __new__(mcs, clsname, bases, attributes):
+        # PureInterface is not in globals() when we are constructing the PureInterface class itself.
+        has_interface = any(PureInterface in base.mro() for base in bases) if 'PureInterface' in globals() else True
+        if not has_interface:
+            # Don't interfere if meta class is only included to permit interface inheritance,
+            # but no actual interface is being used.
+            cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, attributes)
+            cls._pi = _PIAttributes(False, {}, ())
+            return cls
+
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
         type_is_interface = all(is_interface for cls, is_interface in base_types)
-        if clsname == 'PureInterface' and attributes['__module__'] == 'pure_interface':
-            type_is_interface = True
-        elif len(bases) > 1 and bases[0] is object:
+        # type_is_interface is True for the PureInterface class because it inherits from ABC and is empty.
+        if len(bases) > 1 and bases[0] is object:
             bases = bases[1:]  # create a consistent MRO order
             base_types = base_types[1:]
+
         interface_method_signatures = dict()
         interface_property_names = set()
         base_abstract_properties = set()
@@ -440,9 +453,7 @@ class PureInterfaceType(abc.ABCMeta):
 
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi = _PIAttributes(type_is_interface, interface_method_signatures, interface_property_names)
-        if not type_is_interface and PureInterface in cls.mro():
-            # Don't interfere if meta class is only included to permit interface inheritance,
-            # but no actual interface is being used.
+        if not type_is_interface:
             class_properties = set(k for k, v in namespace.items() if isinstance(v, property))
             base_abstract_properties.difference_update(class_properties)
             _patch_properties(cls, base_abstract_properties)
@@ -590,9 +601,6 @@ class PureInterfaceType(abc.ABCMeta):
             except ValueError:
                 continue
             yield f
-
-
-ABC = abc.ABC if hasattr(abc, 'ABC') else object
 
 
 @six.add_metaclass(PureInterfaceType)

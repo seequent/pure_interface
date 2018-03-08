@@ -20,6 +20,25 @@ class InnocentBystander(object):
         pass
 
 
+@six.add_metaclass(SomeOtherMetaClass)
+class InnocentBystanderWithABC(object):
+    @pure_interface.abstractmethod
+    def method(self):
+        pass
+
+    @pure_interface.abstractproperty
+    def prop(self):
+        pass
+
+
+class ABCImpl(InnocentBystanderWithABC):
+    def __init__(self):
+        self.prop = 3
+
+    def method(self):
+        pass
+
+
 class MyInterface(pure_interface.PureInterface):
     def method2(self):
         pass
@@ -41,3 +60,8 @@ class TestMetaClassMixingChecks(unittest.TestCase):
     def test_submeta_class_with_interface(self):
         with self.assertRaises(TypeError):
             SubclassWithInterface()
+
+    def test_bystander(self):
+        # check that property patching is not done to classes that do not inherit an interface
+        with self.assertRaises(TypeError):
+            ABCImpl()
