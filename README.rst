@@ -388,7 +388,9 @@ Classes
 -------
 
 **PureInterfaceType**
-    Metaclass for defining pure interfaces.
+    Metaclass for checking interface and implementation classes.
+    Adding PureInterfaceType as a meta-class to a class will not make that class an interface, you need to
+    inherit from ``PureInterface`` class to define an interface.
 
     Classes created with a metaclass of ``PureInterfaceType`` will have the following methods:
 
@@ -401,7 +403,8 @@ Classes
         As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
 
     **can_adapt** *(obj, allow_implicit=False)*
-        Returns True if adapt(obj, allow_implicit) will succeed
+        Returns True if adapt(obj, allow_implicit) will succeed.  Short-cut for
+        ``adapt_or_none(obj) is not None``
 
     **filter_adapt** *(objects, allow_implicit=False, interface_only=None)*
         Generates adaptions of each item in *objects* that provide this interface.
@@ -412,6 +415,11 @@ Classes
     **provided_by** *(obj, allow_implicit=True)*
         Returns ``True`` if *obj* provides this interface, possibly implicitly.
         Raises ``ValueError`` is the class is a concrete type.
+
+    Classes created with a metaclass of ``PureInterfaceType`` will have the following property:
+
+    **_pi** Information about the class that is used by this meta-class
+
 
 **PureInterface**
     Base class for defining interfaces.
