@@ -264,13 +264,11 @@ def _signature_info(arg_spec):
 
 
 def _signatures_are_consistent(func_sig, base_sig):
+    # type: (ArgSpec, ArgSpec) -> bool
     """
     :param func_sig: ArgSpec named tuple for overriding function
     :param base_sig: ArgSpec named tuple for base class function
     :return: True if signatures are consistent.
-    2 function signatures are consistent if:
-        * The argument names match
-        * new arguments in func_sig have defaults
     """
     base_required_args, base_default_args, base_varargs, base_keywords = _signature_info(base_sig)
     func_required_args, func_default_args, func_varargs, func_keywords = _signature_info(func_sig)
