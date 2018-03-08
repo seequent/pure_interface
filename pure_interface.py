@@ -247,7 +247,7 @@ def _is_descriptor(obj):
 
 
 def _signature_info(arg_spec):
-    # type: (inspect.ArgSpec) -> (List[str], int, int, int, bool, bool)
+    # type: (ArgSpec) -> (List[str], int, int, int, bool, bool)
     """ returns (req_args, def_args, has_varargs, has_keywords)"""
     if arg_spec.defaults:
         n_defaults = len(arg_spec.defaults)
