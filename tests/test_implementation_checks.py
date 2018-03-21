@@ -1,6 +1,7 @@
 import pure_interface
 
 import abc
+import mock
 import unittest
 
 import six
@@ -181,15 +182,51 @@ class TestImplementationChecks(unittest.TestCase):
         s = Simple()
         self.assertEqual(s.foo(), 1)
 
-    def test_missing_methods(self):
+    def test_missing_methods_warning(self):
+        # assemble
+        pure_interface.is_development = True
+        pure_interface.missing_method_warnings = []
+        # act
+
         class SimpleSimon(object, ISimple):
             pass
-        for msg in pure_interface.missing_method_warnings:
-            if 'SimpleSimon' in msg:
-                self.assertIn('foo', msg)
-                break
-        else:
-            self.fail('No missing method message for SimpleSimon.foo')
+
+        # assert
+        self.assertEqual(len(pure_interface.missing_method_warnings), 1)
+        msg = pure_interface.missing_method_warnings[0]
+        self.assertIn('SimpleSimon', msg)
+        self.assertIn('foo', msg)
+
+    def test_is_development_flag_stops_warnings(self):
+        pure_interface.is_development = False
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            class SimpleSimon(object, ISimple):
+                pass
+
+        warn.assert_not_called()
+
+    def test_partial_implementation_attribute(self):
+        pure_interface.is_development = True
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            class SimpleSimon(object, ISimple):
+                pi_partial_implementation = True
+
+        warn.assert_not_called()
+
+    def test_partial_implementation_warning(self):
+        pure_interface.is_development = True
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            class SimpleSimon(object, ISimple):
+                pi_partial_implementation = False
+
+        self.assertEqual(warn.call_count, 1)
+        self.assertTrue(warn.call_args[0][0].startswith('Partial implmentation is indicated'))
 
 
 class TestPropertyImplementations(unittest.TestCase):

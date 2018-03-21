@@ -107,7 +107,7 @@ def test_call(func, arg_spec):
 class TestFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.IS_DEVELOPMENT = True
+        pure_interface.is_development = True
 
     def check_signatures(self, int_func, impl_func, expected_result):
         interface_sig = pure_interface.getargspec(int_func)
@@ -306,7 +306,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
 class TestDisableFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.IS_DEVELOPMENT = False
+        pure_interface.is_development = False
 
     def test_too_many_passes(self):
         try:
