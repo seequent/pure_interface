@@ -90,7 +90,7 @@ class TopicSpeaker(Speaker, ITopicSpeaker):
 class TestAdaption(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.IS_DEVELOPMENT = True
+        pure_interface.is_development = True
 
     def test_adaption_passes(self):
         talker = Talker()
@@ -193,7 +193,7 @@ class TestAdaption(unittest.TestCase):
 class TestAdaptionToInterfaceOnly(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.IS_DEVELOPMENT = True
+        pure_interface.is_development = True
 
     def test_wrapping_works(self):
         topic_speaker = TopicSpeaker('Python')

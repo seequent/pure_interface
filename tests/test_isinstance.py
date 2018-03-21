@@ -67,7 +67,7 @@ class TestIsInstanceChecks(unittest.TestCase):
             Cat.provided_by(c, allow_implicit=False)
 
     def test_warning_issued_once(self):
-        pure_interface.IS_DEVELOPMENT = True
+        pure_interface.is_development = True
 
         class Cat2(object):
             def speak(self, volume):
@@ -88,7 +88,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertIn('IAnimal', msg)
 
     def test_warning_not_issued(self):
-        pure_interface.IS_DEVELOPMENT = False
+        pure_interface.is_development = False
 
         class Cat3(object):
             def speak(self, volume):
