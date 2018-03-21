@@ -1,10 +1,11 @@
 
+
 pure_interface
 ==============
 
 A Python interface library that disallows function body content on interfaces and supports adaption.
 
-Jump to the `Quick Reference`_.
+Jump to the `Reference`_.
 
 **Features:**
     * Prevents code in method bodies of an interface class
@@ -14,8 +15,8 @@ Jump to the `Quick Reference`_.
     * Treats abc interfaces that do not include any implementation as a pure interface type.
       This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
       no function body content criteria.
-    * Supports optional duck-type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
-    * Warns if ``provided_by`` did a duck-type check when inheritance would work.
+    * Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
+    * Warns if ``provided_by`` did a structural type check when inheritance would work.
     * Supports python 2.7 and 3.5+
 
 A note on the name
@@ -137,9 +138,10 @@ Then these overrides will all fail the checks and raise an ``InterfaceError``::
    def speak(self, loudness):  # name does not match
    def speak(self, volume, language):  # extra required argument
 
-However new optional parameters are permitted::
+However new optional parameters are permitted, as are ``*args`` and ``**kwargs``::
 
   def speak(self, volume, language='doggy speak')
+  def speak(self, *args)
 
 Implementation Warnings
 -----------------------
@@ -150,7 +152,7 @@ a warning during module import when methods are missing from a concrete subclass
 
     class SilentAnimal(object, IAnimal):
         def __init__(self, height):
-            self._height = height
+            self.height = height
 
 will issue this warning::
 
@@ -162,8 +164,20 @@ Trying to create a ``SilentAnimal`` will fail in the standard abc way::
     SilentAnimal()
     TypeError: Can't instantiate abstract class SilentAnimal with abstract methods speak
 
+If you have a mixin class that implements part of an interface you can suppress the warnings by adding an class attribute
+called ``pi_partial_implementation``.  The value of the attribute is ignored, and the attribute itself is removed from
+the class.  For example::
+
+    class HeightMixin(object, IAnimal):
+        pi_partial_implementation = True
+
+        def __init__(self, height):
+            self.height = height
+
+will not issue any warnings.
+
 The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
-filters (but only if ``IS_DEVELOPEMNT`` is ``True``).  This provides an alternative to raising warnings as errors.
+filters (but only if ``is_development`` is ``True``).  This provides an alternative to raising warnings as errors.
 When all your imports are complete you can check if this list is empty.::
 
     if pure_iterface.missing_method_warnings:
@@ -261,13 +275,17 @@ Pass ``interface_only=False`` if you want the actual adapted object rather than 
 Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
 of ``ISpeaker``, but this code will likely break at some inconvenient time in the future.
 
-Duck Type Checking
-==================
+Structural Type Checking
+========================
+
+Structural_ type checking checks if an object has the attributes and methods defined by the interface.
+
+.. _Structural: https://en.wikipedia.org/wiki/Structural_type_system
 
 As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
-An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to duck-type
+An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to structural type
 checking if the instance is not an actual subclass.  This can be controlled by the ``allow_implicit`` parameter which defaults to ``True``.
-The duck-type checking does not check function signatures.::
+The structural type-checking does not check function signatures.::
 
     class Parrot(object):
         def __init__(self):
@@ -285,7 +303,7 @@ The duck-type checking does not check function signatures.::
     IAnimal.provided_by(p) --> True
     IAnimal.provided_by(p, allow_implicit=False) --> False
 
-The duck-type checking makes working with data transfer objects (DTO's) much easier.::
+The structural type checking makes working with data transfer objects (DTO's) much easier.::
 
     class IMyDataType(PureInterface):
         @property
@@ -302,13 +320,13 @@ The duck-type checking makes working with data transfer objects (DTO's) much eas
     e.something_else = True
     IMyDataType.provided_by(e) --> False
 
-Adaption also supports duck typing by passing ``allow_implicit=True`` (but this is not the default)::
+Adaption also supports structural typing by passing ``allow_implicit=True`` (but this is not the default)::
 
     speaker = ISpeaker.adapt(Parrot(), allow_implicit=True)
     ISpeaker.provided_by(speaker)  --> True
 
 When using ``provided_by()`` or ``adapt()`` with ``allow_implicit=True``, a warning may be issued informing you that
-the duck-typed object should inherit the interface.  The warning is only issued if the interface is implemented by the
+the structurally typed object should inherit the interface.  The warning is only issued if the interface is implemented by the
 class (and not by instance attributes as in the DTO case above) and the warning is only issued once for each
 class, interface pair.  For example::
 
@@ -340,11 +358,11 @@ Development Flag
 
 Much of the empty function and other checking is awesome whilst writing your code but
 ultimately slows down production code.
-For this reason the ``pure_interface`` module has an IS_DEVELOPMENT switch.::
+For this reason the ``pure_interface`` module has an ``is_development`` switch.::
 
-    IS_DEVELOPMENT = not hasattr(sys, 'frozen')
+    is_development = not hasattr(sys, 'frozen')
 
-IS_DEVELOPMENT defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
+``is_development`` defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
 py2exe_, cx_Freeze_ or similar tools.
 
 .. _py2exe: https://pypi.python.org/pypi/py2exe
@@ -355,10 +373,11 @@ py2exe_, cx_Freeze_ or similar tools.
 If you manually change this flag it must be set before modules using the ``PureInterface`` type
 are imported or else the change will not have any effect.
 
-If ``IS_DEVELOPMENT`` if ``False`` then:
+If ``is_development`` if ``False`` then:
 
     * Signatures of overriding methods are not checked
     * No warnings are issued by the adaption functions
+    * No incomplete implementation warnings are issued
     * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
 
 
@@ -382,13 +401,15 @@ For example::
             pass
 
 
-Quick Reference
-===============
+Reference
+=========
 Classes
 -------
 
 **PureInterfaceType**
-    Metaclass for defining pure interfaces.
+    Metaclass for checking interface and implementation classes.
+    Adding PureInterfaceType as a meta-class to a class will not make that class an interface, you need to
+    inherit from ``PureInterface`` class to define an interface.
 
     Classes created with a metaclass of ``PureInterfaceType`` will have the following methods:
 
@@ -401,7 +422,8 @@ Classes
         As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
 
     **can_adapt** *(obj, allow_implicit=False)*
-        Returns True if adapt(obj, allow_implicit) will succeed
+        Returns True if adapt(obj, allow_implicit) will succeed.  Short-cut for
+        ``adapt_or_none(obj) is not None``
 
     **filter_adapt** *(objects, allow_implicit=False, interface_only=None)*
         Generates adaptions of each item in *objects* that provide this interface.
@@ -412,6 +434,11 @@ Classes
     **provided_by** *(obj, allow_implicit=True)*
         Returns ``True`` if *obj* provides this interface, possibly implicitly.
         Raises ``ValueError`` is the class is a concrete type.
+
+    Classes created with a metaclass of ``PureInterfaceType`` will have the following property:
+
+    **_pi** Information about the class that is used by this meta-class
+
 
 **PureInterface**
     Base class for defining interfaces.
@@ -446,7 +473,7 @@ Functions
 
 Module Attributes
 -----------------
-**IS_DEVELOPMENT**
+**is_development**
     Set to ``True`` to enable all checks and warnings.  Set to ``False`` to disable some checks and all warnings.
 
 **missing_method_warnings**

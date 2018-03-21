@@ -28,7 +28,7 @@ class Plant(object, IPlant):
 class TestPureContracts(unittest.TestCase):
     def test_base_class_is_interface(self):
         with self.assertRaises(TypeError):
-            p = IPlant()
+            IPlant()
 
     def test_contracts_honoured(self):
         p = Plant()

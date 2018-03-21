@@ -34,15 +34,19 @@ import weakref
 
 import six
 
-__version__ = '2.1.0'
+__version__ = '2.2.1'
 
-IS_DEVELOPMENT = not hasattr(sys, 'frozen')
+
+is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
 
 if six.PY2:
     _six_ord = ord
     ArgSpec = inspect.ArgSpec
     getargspec = inspect.getargspec
+    @six.add_metaclass(abc.ABCMeta)
+    class ABC(object):
+        pass
 else:
     _six_ord = lambda x: x
     ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
@@ -52,6 +56,7 @@ else:
         # as the keywords attribute has been renamed
         full_spec = inspect.getfullargspec(func)
         return ArgSpec(*full_spec[:4])
+    ABC = abc.ABC
 
 
 class InterfaceError(Exception):
@@ -294,7 +299,12 @@ def _signatures_are_consistent(func_sig, base_sig):
                 if base_index != func_index:
                     def_names_match = False
                     break
-    return req_names_match and def_names_match and no_new_required_args
+    varargs_ok = True
+    if base_varargs:
+        varargs_ok = func_varargs
+    if base_keywords:
+        varargs_ok &= func_keywords
+    return req_names_match and def_names_match and no_new_required_args and varargs_ok
 
 
 def _ensure_everything_is_abstract(attributes):
@@ -392,13 +402,22 @@ class PureInterfaceType(abc.ABCMeta):
     """
 
     def __new__(mcs, clsname, bases, attributes):
+        # PureInterface is not in globals() when we are constructing the PureInterface class itself.
+        has_interface = any(PureInterface in base.mro() for base in bases) if 'PureInterface' in globals() else True
+        if not has_interface:
+            # Don't interfere if meta class is only included to permit interface inheritance,
+            # but no actual interface is being used.
+            cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, attributes)
+            cls._pi = _PIAttributes(False, {}, ())
+            return cls
+
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
         type_is_interface = all(is_interface for cls, is_interface in base_types)
-        if clsname == 'PureInterface' and attributes['__module__'] == 'pure_interface':
-            type_is_interface = True
-        elif len(bases) > 1 and bases[0] is object:
+        # type_is_interface is True for the PureInterface class because it inherits from ABC and is empty.
+        if len(bases) > 1 and bases[0] is object:
             bases = bases[1:]  # create a consistent MRO order
             base_types = base_types[1:]
+
         interface_method_signatures = dict()
         interface_property_names = set()
         base_abstract_properties = set()
@@ -416,14 +435,15 @@ class PureInterfaceType(abc.ABCMeta):
                     property_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
                 interface_property_names.update(property_names)
-            elif not issubclass(base, PureInterface) and IS_DEVELOPMENT:
+            elif not issubclass(base, PureInterface) and is_development:
                 _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
 
-        if IS_DEVELOPMENT:
+        if is_development:
             _check_method_signatures(attributes, clsname, interface_method_signatures)
 
         if type_is_interface:
             namespace, functions, method_signatures, property_names = _ensure_everything_is_abstract(attributes)
+            partial_implementation = False
             interface_method_signatures.update(method_signatures)
             interface_property_names.update(property_names)
             unwrap = getattr(mcs, '_pi_unwrap_decorators', False)
@@ -431,26 +451,42 @@ class PureInterfaceType(abc.ABCMeta):
                 if func is None:
                     continue
                 if not _is_empty_function(func, unwrap):
-                    raise InterfaceError('Function "{}" is not empty.\nDid you forget to inherit from object to make the class concrete?'.format(func.__name__))
+                    raise InterfaceError('Function "{}" is not empty.\n'
+                                         'Did you forget to inherit from object to make the class concrete?'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
-
+            partial_implementation = 'pi_partial_implementation' in namespace
+            if partial_implementation:
+                value = namespace.pop('pi_partial_implementation')
+                if not value:
+                    warnings.warn('Partial implmentation is indicated by presence of '
+                                  'pi_partial_implementation attribute, not it''s value')
+        # create class
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
         cls._pi = _PIAttributes(type_is_interface, interface_method_signatures, interface_property_names)
+
         if not type_is_interface:
             class_properties = set(k for k, v in namespace.items() if isinstance(v, property))
             base_abstract_properties.difference_update(class_properties)
             _patch_properties(cls, base_abstract_properties)
-            if IS_DEVELOPMENT and cls.__abstractmethods__:
+            if is_development and cls.__abstractmethods__ and not partial_implementation:
                 stacklevel = 2
                 stack = inspect.stack()
+                # walk up stack until we get out of pure_interface module
                 while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
                     stacklevel += 1
+                # add extra levels for sub-meta-classes
+                stack.pop(0)
+                while stack and stack[0][0].f_code.co_name == '__new__':
+                    stacklevel += 1
+                    stack.pop(0)
+
                 for method_name in cls.__abstractmethods__:
                     message = 'Incomplete Implementation: {clsname} does not implement {method_name}'
                     message = message.format(clsname=clsname, method_name=method_name)
                     missing_method_warnings.append(message)
                     warnings.warn(message, stacklevel=stacklevel)
+
         if type_is_interface and not cls.__abstractmethods__:
             cls.__abstractmethods__ = frozenset({''})  # empty interfaces still should not be instantiated
         return cls
@@ -490,7 +526,7 @@ class PureInterfaceType(abc.ABCMeta):
                 return False
 
         cls._pi.ducktype_subclasses.add(subclass)
-        if IS_DEVELOPMENT:
+        if is_development:
             stacklevel = 2
             stack = inspect.stack()
             while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
@@ -532,11 +568,11 @@ class PureInterfaceType(abc.ABCMeta):
         # type: ('PureInterfaceType', Any, bool, Optional[bool]) -> 'PureInterface'
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
-        If interface_only is True, or interface_only is None and IS_DEVELOPMENT is True then the
+        If interface_only is True, or interface_only is None and is_development is True then the
         returned object is wrapped by an object that only provides the methods and properties defined by to_interface.
         """
         if interface_only is None:
-            interface_only = IS_DEVELOPMENT
+            interface_only = is_development
         if cls.provided_by(obj, allow_implicit=allow_implicit):
             adapted = obj
             if interface_only:
@@ -586,14 +622,6 @@ class PureInterfaceType(abc.ABCMeta):
             except ValueError:
                 continue
             yield f
-
-
-if hasattr(abc, 'ABC'):
-    ABC = abc.ABC
-else:
-    @six.add_metaclass(abc.ABCMeta)
-    class ABC(object):
-        pass
 
 
 @six.add_metaclass(PureInterfaceType)
