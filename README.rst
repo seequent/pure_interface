@@ -1,5 +1,6 @@
 
 
+
 pure_interface
 ==============
 
@@ -411,37 +412,42 @@ Classes
     Adding PureInterfaceType as a meta-class to a class will not make that class an interface, you need to
     inherit from ``PureInterface`` class to define an interface.
 
-    Classes created with a metaclass of ``PureInterfaceType`` will have the following methods:
-
-    **adapt** *(obj, allow_implicit=False, interface_only=None)*
-        Adapts obj to this interface, possibly permitting implicit implementations.  By default an object that provides
-        the properties and methods defined by the interface and nothing else is returned.
-        Raises ``ValueError`` if no adaption is possible
-
-    **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
-        As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
-
-    **can_adapt** *(obj, allow_implicit=False)*
-        Returns True if adapt(obj, allow_implicit) will succeed.  Short-cut for
-        ``adapt_or_none(obj) is not None``
-
-    **filter_adapt** *(objects, allow_implicit=False, interface_only=None)*
-        Generates adaptions of each item in *objects* that provide this interface.
-
-    **interface_only** *(implementation)*
-        Returns a wrapper around *implementation* that provides the properties and methods defined by the interface and nothing else.
-
-    **provided_by** *(obj, allow_implicit=True)*
-        Returns ``True`` if *obj* provides this interface, possibly implicitly.
-        Raises ``ValueError`` is the class is a concrete type.
-
     Classes created with a metaclass of ``PureInterfaceType`` will have the following property:
 
     **_pi** Information about the class that is used by this meta-class
 
 
 **PureInterface**
-    Base class for defining interfaces.
+    Base class for defining interfaces.  The following methods are provided:
+
+    **adapt** *(obj, allow_implicit=False, interface_only=None)*
+        Adapts ``obj`` to this interface. If ``allow_implicit`` is ``True`` permit structural adaptions.
+        If ``interface_only`` is ``None`` the it is set to the value of ``is_development``.
+        If ``interface_only`` resolves to ``True`` a wrapper object that provides
+        the properties and methods defined by the interface and nothing else is returned.
+        Raises ``ValueError`` if no adaption is possible or a registered adapter returns an object not providing
+        this interface.
+
+    **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
+        As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
+
+    **can_adapt** *(obj, allow_implicit=False)*
+        Returns ``True`` if ``adapt(obj, allow_implicit)`` will succeed.  Short-cut for
+        ``adapt_or_none(obj) is not None``
+
+    **filter_adapt** *(objects, allow_implicit=False, interface_only=None)*
+        Generates adaptions of each item in *objects* that provide this interface.
+        *allow_implicit* and *interface_only* are as for **adapt**.
+        Objects that cannot be adapted to this interface are silently skipped.
+
+    **interface_only** *(implementation)*
+        Returns a wrapper around *implementation* that provides the properties and methods defined by
+        the interface and nothing else.
+
+    **provided_by** *(obj, allow_implicit=True)*
+        Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
+        return ``True`` for objects that provide the interface structure but do not inherit from it.
+        Raises ``ValueError`` is the class is a concrete type.
 
 
 Functions
@@ -449,7 +455,8 @@ Functions
 **adapts** *(from_type, to_interface=None)*
     Class or function decorator for declaring an adapter from *from_type* to *to_interface*.
     The class or function being decorated must take a single argument (an instance of *from_type*) and
-    provide (or return and object providing) *to_interface*.
+    provide (or return and object providing) *to_interface*.  The adapter may return an object that provides
+    the interface structurally only, however ``adapt`` must be called with ``allow_implicit=True`` for this to work.
     If decorating a class, *to_interface* may be ``None`` to use the first interface in the class's MRO.
 
 **register_adapter** *(adapter, from_type, to_interface)*
@@ -474,7 +481,14 @@ Functions
 Module Attributes
 -----------------
 **is_development**
-    Set to ``True`` to enable all checks and warnings.  Set to ``False`` to disable some checks and all warnings.
+    Set to ``True`` to enable all checks and warnings.
+    If set to ``False`` then:
+
+        * Signatures of overriding methods are not checked
+        * No warnings are issued by the adaption functions
+        * No incomplete implementation warnings are issued
+        * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
+
 
 **missing_method_warnings**
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.

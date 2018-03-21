@@ -11,6 +11,8 @@ try:
     import contracts  # https://pypi.python.org/pypi/PyContracts
 
     class PureContractType(pure_interface.PureInterfaceType, contracts.ContractsMeta):
+        # we need to unwrap the decorators because otherwise we fail the empty function body test
+        # inspecting the wrapper.
         _pi_unwrap_decorators = True
         pass
 

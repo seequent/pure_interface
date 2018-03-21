@@ -39,7 +39,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertFalse(isinstance(a, IAnimal))
         self.assertFalse(IAnimal.provided_by(a, allow_implicit=False))
         self.assertTrue(IAnimal.provided_by(a, allow_implicit=True))
-        self.assertIn(Animal2, IAnimal._pi.ducktype_subclasses)
+        self.assertIn(Animal2, IAnimal._pi.structural_subclasses)
 
     def test_duck_type_fallback_can_fail(self):
         class Animal2(object):
