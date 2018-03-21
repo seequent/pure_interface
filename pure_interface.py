@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
+"""
+pure_interface enforces empty functions and properties on interfaces and provides adaption and structural type checking.
+"""
 from __future__ import division, print_function, absolute_import
 
-try:
+import abc
+import collections
+import dis
+import inspect
+import types
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Tuple
+import sys
+import warnings
+import weakref
+
+import six
+
+if six.PY3:
     from abc import abstractmethod, abstractproperty, abstractclassmethod, abstractstaticmethod
-except ImportError:
+else:
     from abc import abstractmethod, abstractproperty
 
 
@@ -22,17 +37,6 @@ except ImportError:
             callable.__isabstractmethod__ = True
             super(abstractstaticmethod, self).__init__(callable)
 
-import abc
-import collections
-import dis
-import inspect
-import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar
-import sys
-import warnings
-import weakref
-
-import six
 
 __version__ = '2.2.1'
 
@@ -44,6 +48,7 @@ if six.PY2:
     _six_ord = ord
     ArgSpec = inspect.ArgSpec
     getargspec = inspect.getargspec
+
     @six.add_metaclass(abc.ABCMeta)
     class ABC(object):
         pass
@@ -72,7 +77,7 @@ class _PIAttributes(object):
         self.interface_property_names = frozenset(interface_property_names)  # type: FrozenSet[str]
         self.interface_method_signatures = interface_method_signatures
         self.adapters = weakref.WeakKeyDictionary()
-        self.ducktype_subclasses = set()
+        self.structural_subclasses = set()
         self.impl_wrapper_type = None
 
 
@@ -256,7 +261,7 @@ def _is_descriptor(obj):
 
 
 def _signature_info(arg_spec):
-    # type: (ArgSpec) -> (List[str], int, int, int, bool, bool)
+    # type: (ArgSpec) -> Tuple[List[str], List[str], bool, bool]
     """ returns (req_args, def_args, has_varargs, has_keywords)"""
     if arg_spec.defaults:
         n_defaults = len(arg_spec.defaults)
@@ -413,7 +418,9 @@ class PureInterfaceType(abc.ABCMeta):
 
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
         type_is_interface = all(is_interface for cls, is_interface in base_types)
-        # type_is_interface is True for the PureInterface class because it inherits from ABC and is empty.
+
+        if clsname == 'PureInterface' and attributes.get('__module__', '') == 'pure_interface':
+            type_is_interface = True
         if len(bases) > 1 and bases[0] is object:
             bases = bases[1:]  # create a consistent MRO order
             base_types = base_types[1:]
@@ -442,7 +449,13 @@ class PureInterfaceType(abc.ABCMeta):
             _check_method_signatures(attributes, clsname, interface_method_signatures)
 
         if type_is_interface:
-            namespace, functions, method_signatures, property_names = _ensure_everything_is_abstract(attributes)
+            if clsname == 'PureInterface' and attributes.get('__module__', '') == 'pure_interface':
+                namespace = attributes
+                functions = []
+                method_signatures = {}
+                property_names = set()
+            else:
+                namespace, functions, method_signatures, property_names = _ensure_everything_is_abstract(attributes)
             partial_implementation = False
             interface_method_signatures.update(method_signatures)
             interface_property_names.update(property_names)
@@ -501,8 +514,16 @@ class PureInterfaceType(abc.ABCMeta):
                 raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
-    # provided_by duck-type checking
-    def _ducktype_check(cls, instance):
+
+PI = TypeVar('PI', bound='PureInterface')
+
+
+@six.add_metaclass(PureInterfaceType)
+class PureInterface(ABC):
+    _pi = _PIAttributes(True, {}, ())
+
+    @classmethod
+    def _structural_type_check(cls, instance):
         subclass = type(instance)
         for attr in cls._pi.interface_method_names:
             subtype_value = getattr(subclass, attr, None)
@@ -513,8 +534,9 @@ class PureInterfaceType(abc.ABCMeta):
                 return False
         return True
 
-    def _class_ducktype_check(cls, subclass):
-        if subclass in cls._pi.ducktype_subclasses:
+    @classmethod
+    def _class_structural_type_check(cls, subclass):
+        if subclass in cls._pi.structural_subclasses:
             return True
 
         for attr in cls._pi.interface_method_names:
@@ -525,7 +547,7 @@ class PureInterfaceType(abc.ABCMeta):
             if not hasattr(subclass, attr):
                 return False
 
-        cls._pi.ducktype_subclasses.add(subclass)
+        cls._pi.structural_subclasses.add(subclass)
         if is_development:
             stacklevel = 2
             stack = inspect.stack()
@@ -537,8 +559,9 @@ class PureInterfaceType(abc.ABCMeta):
                           stacklevel=stacklevel)
         return True
 
+    @classmethod
     def provided_by(cls, obj, allow_implicit=True):
-        # type: ('PureInterfaceType', Any, bool) -> bool
+        # type: (Any, bool) -> bool
         """ Returns True if obj provides this interface.
         provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
         If allow_implicit is True then returns True if interface duck-type check passes.
@@ -550,12 +573,13 @@ class PureInterfaceType(abc.ABCMeta):
             return True
         if not allow_implicit:
             return False
-        if cls._class_ducktype_check(type(obj)):
+        if cls._class_structural_type_check(type(obj)):
             return True
-        return cls._ducktype_check(obj)
+        return cls._structural_type_check(obj)
 
+    @classmethod
     def interface_only(cls, implementation):
-        # type: ('PureInterfaceType', 'PureInterface') -> 'PureInterface'
+        # type: (Type[PI], Any) -> PI
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         if cls._pi.impl_wrapper_type is None:
             type_name = cls.__name__ + 'Only'
@@ -564,8 +588,9 @@ class PureInterfaceType(abc.ABCMeta):
             cls.register(cls._pi.impl_wrapper_type)
         return cls._pi.impl_wrapper_type(implementation, cls)
 
+    @classmethod
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: ('PureInterfaceType', Any, bool, Optional[bool]) -> 'PureInterface'
+        # type: (Type[PI], Any, bool, Optional[bool]) -> PI
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
         If interface_only is True, or interface_only is None and is_development is True then the
@@ -594,16 +619,18 @@ class PureInterfaceType(abc.ABCMeta):
                 return adapted
         raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
+    @classmethod
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
-        # type: ('PureInterfaceType', Any, bool, Optional[bool]) -> Optional['PureInterface']
+        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
         """ Adapt obj to to_interface or return None if adaption fails """
         try:
             return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
         except ValueError:
             return None
 
+    @classmethod
     def can_adapt(cls, obj, allow_implicit=False):
-        # type: ('PureInterfaceType', Any, bool) -> bool
+        # type: (Any, bool) -> bool
         """ Returns True if adapt(obj, allow_implicit) will succeed."""
         try:
             cls.adapt(obj, allow_implicit=allow_implicit)
@@ -611,8 +638,9 @@ class PureInterfaceType(abc.ABCMeta):
             return False
         return True
 
+    @classmethod
     def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
-        # type: ('PureInterfaceType', Iterable[Any], bool, Optional[bool]) -> Iterable['PureInterface']
+        # type: (Type[PI], Iterable[Any], bool, Optional[bool]) -> Iterable[PI]
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
@@ -624,14 +652,9 @@ class PureInterfaceType(abc.ABCMeta):
             yield f
 
 
-@six.add_metaclass(PureInterfaceType)
-class PureInterface(ABC):
-    pass
-
-
 # adaption
 def adapts(from_type, to_interface=None):
-    # type: (Any, PureInterface) -> Callable
+    # type: (Any, Type[PureInterface]) -> Callable
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
