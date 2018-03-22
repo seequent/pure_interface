@@ -353,19 +353,83 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_class_and_static_methods(self):
-        class Concrete(object, IFunkyMethods):
-            @classmethod
-            def acm(cls):
-                return 1
+        try:
+            class Concrete(object, IFunkyMethods):
+                @classmethod
+                def acm(cls):
+                    return 1
 
-            @classmethod
-            def cm(cls):
+                @classmethod
+                def cm(cls):
+                    return 2
+
+                @staticmethod
+                def asm():
+                    return 3
+
+                @staticmethod
+                def sm():
+                    return 4
+        except Exception as exc:
+            self.fail(str(exc))
+
+
+class IAttribute(pure_interface.PureInterface):
+    a = None
+
+
+class TestAttributeImplementations(unittest.TestCase):
+    def test_class_attribute_in_interface(self):
+        self.assertIn('a', pure_interface.get_interface_attribute_names(IAttribute))
+
+    def test_class_attribute_must_be_none(self):
+        with self.assertRaises(ValueError):
+            class IAttribute2(pure_interface.PureInterface):
+                a = False
+
+    def test_class_attribute_is_removed(self):
+        with self.assertRaises(AttributeError):
+            b = IAttribute.a
+
+    def test_class_attribute_is_required(self):
+        class A(object, IAttribute):
+            pass
+
+        with self.assertRaises(TypeError):
+            a = A()
+
+    def test_instance_attribute_passes(self):
+        class A(object, IAttribute):
+            def __init__(self):
+                self.a = 2
+
+        try:
+            a = A()
+        except Exception as exc:
+            self.fail(str(exc))
+
+        self.assertEqual(a.a, 2)
+
+    def test_class_attribute_passes(self):
+        class A(object, IAttribute):
+            a = 2
+
+        try:
+            a = A()
+        except Exception as exc:
+            self.fail(str(exc))
+
+        self.assertEqual(a.a, 2)
+
+    def test_property_passes(self):
+        class A(object, IAttribute):
+            @property
+            def a(self):
                 return 2
 
-            @staticmethod
-            def asm():
-                return 3
+        try:
+            a = A()
+        except Exception as exc:
+            self.fail(str(exc))
 
-            @staticmethod
-            def sm():
-                return 4
+        self.assertEqual(a.a, 2)
