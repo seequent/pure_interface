@@ -24,16 +24,13 @@ implementation is a pure interface.  In every other respect the zen of 'practica
 
 Installation
 ------------
-pure_interface depends on the six_ and typing_ modules which needs to be installed first
-(typing is included in python 3.5 and later).
+pure_interface depends on the six_ and typing_ modules (typing is included in python 3.5 and later).
 
 .. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
 
 You can install released versions of pure_interface using pip::
 
-    pip install six
-    pip install typing
     pip install pure_interface
 
 or you can grab the source code from GitHub_.
