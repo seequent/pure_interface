@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import warnings
 
 import pure_interface
-from pure_interface import InterfaceError  # alias for convenience
+from pure_interface import InterfaceError, Concrete  # alias for convenience
 import six
 
 try:

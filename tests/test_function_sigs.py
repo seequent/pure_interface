@@ -6,6 +6,7 @@ import pure_interface
 import unittest
 import inspect
 import types
+from typing import Dict, Any
 
 
 class IAnimal(pure_interface.PureInterface):
@@ -71,7 +72,7 @@ def test_call(func, arg_spec):
     # type: (types.FunctionType, inspect.ArgSpec) -> bool
     if arg_spec.defaults:
         n_defaults = len(arg_spec.defaults)
-        kwargs = {a: a for a in arg_spec.args[-n_defaults:]}
+        kwargs = {a: a for a in arg_spec.args[-n_defaults:]}  # type: Dict[str, Any]
         args = arg_spec.args[:-n_defaults]
     else:
         args = arg_spec.args

@@ -22,7 +22,7 @@ class Talker(object):
 
 
 @pure_interface.adapts(Talker)
-class TalkerToSpeaker(object, ISpeaker):
+class TalkerToSpeaker(pure_interface.Concrete, ISpeaker):
     def __init__(self, talker):
         self._talker = talker
 

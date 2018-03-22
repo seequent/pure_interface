@@ -72,12 +72,3 @@ class TestNoContentChecks(unittest.TestCase):
                 @property
                 def height(self):
                     return self
-
-    def test_non_function_callable_passes(self):
-        class IAnimal(pure_interface.PureInterface):
-            x = list
-
-            @property
-            def height(self):
-                pass
-

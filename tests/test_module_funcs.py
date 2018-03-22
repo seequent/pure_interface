@@ -25,12 +25,12 @@ class ILandAnimal(IAnimal):
         pass
 
 
-class Cat(object, IAnimal):
+class Cat(Concrete, IAnimal):
     def speak(self, volume):
         pass
 
 
-class Dog(object, ILandAnimal):
+class Dog(Concrete, ILandAnimal):
     def num_legs(self):
         return 4
 
