@@ -156,9 +156,6 @@ You can also implement interface class attributes as properties if desired.
 The astute reader will notice that the ``Animal2`` bases list makes an inconsistent method resolution order.
 This is handled by the ``PureInterfaceType`` meta-class by removing ``object`` from the front of the bases list.
 However static checkers such as mypy_ will complain.  To get around this, ``pure_interface`` includes an empty
-
-.. _mypy: http://mypy-lang.org/
-
 ``Concrete`` class which you can use to keep mypy happy::
 
     class Concrete(object):
@@ -170,6 +167,8 @@ However static checkers such as mypy_ will complain.  To get around this, ``pure
 
         def speak(self, volume):
             print('hello')
+
+.. _mypy: http://mypy-lang.org/
 
 Method Signatures
 -----------------
