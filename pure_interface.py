@@ -330,6 +330,8 @@ def _ensure_everything_is_abstract(attributes):
     for name, value in six.iteritems(attributes):
         if _builtin_attrs(name):
             pass  # shortcut
+        elif name == '__annotations__':
+            interface_attribute_names.update(value.keys())
         elif value is None:
             interface_attribute_names.add(name)
             continue  # do not add to class namespace
@@ -676,6 +678,16 @@ class PureInterface(ABC):
                 continue
             yield f
 
+
+class Concrete(object):
+    """
+    Inheriting from object to define an implementation technically creates an inconsistent MRO.  This is handled by
+    the PureInterfaceType meta-class by removing object from the front of the bases list.
+    However static checkers such as mypy will complain.  To get around this, use this class instead
+
+        class Implemenation(Concrete, Interface):
+    """
+    pass
 
 # adaption
 def adapts(from_type, to_interface=None):

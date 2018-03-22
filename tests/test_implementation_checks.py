@@ -2,6 +2,7 @@ import pure_interface
 
 import abc
 import mock
+import sys
 import unittest
 
 import six
@@ -20,7 +21,7 @@ class IGrowingAnimal(pure_interface.PureInterface):
     def set_height(self, height):
         pass
 
-    height = pure_interface.abstractproperty(get_height, set_height)
+    height = abc.abstractproperty(get_height, set_height)
 
 
 class IPlant(pure_interface.PureInterface):
@@ -433,3 +434,26 @@ class TestAttributeImplementations(unittest.TestCase):
             self.fail(str(exc))
 
         self.assertEqual(a.a, 2)
+
+    def test_annotations(self):
+        if sys.version_info >= (3, 6):
+            exec(py_36_tests)
+
+
+py_36_tests = """
+def test_annotations(self):
+    class IAnnotation(pure_interface.PureInterface):
+        a: int
+    self.assertIn('a', pure_interface.get_interface_attribute_names(IAnnotation))
+
+def test_annotations2(self):
+    class IAnnotation(pure_interface.PureInterface):
+        a: int
+        b = None
+
+    self.assertIn('a', pure_interface.get_interface_attribute_names(IAnnotation))
+    self.assertIn('b', pure_interface.get_interface_attribute_names(IAnnotation))
+
+test_annotations(self)
+test_annotations2(self)
+"""

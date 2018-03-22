@@ -1,6 +1,3 @@
-
-
-
 pure_interface
 ==============
 
@@ -27,13 +24,16 @@ implementation is a pure interface.  In every other respect the zen of 'practica
 
 Installation
 ------------
-pure_interface depends on the six_ module which needs to be installed first.
+pure_interface depends on the six_ and typing_ modules which needs to be installed first
+(typing is included in python 3.5 and later).
 
 .. _six: https://pypi.python.org/pypi/six
+.. _typing: https://pypi.python.org/pypi/typing
 
 You can install released versions of pure_interface using pip::
 
     pip install six
+    pip install typing
     pip install pure_interface
 
 or you can grab the source code from GitHub_.
@@ -83,6 +83,36 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
     InterfaceError: Function "method" is not empty
     Did you forget to inherit from object to make the class concrete?
 
+Inspired by PEP-544_ ``pure_interface`` also allows using class attributes to specify required interface attributes.
+
+.. _PEP-544: https://www.python.org/dev/peps/pep-0544/
+
+The use of class attribute or ``@property`` to define a class attribute are interchangable. This interface is equivalent
+to the one above::
+
+    class IAnimal(PureInterface):
+        height = None
+
+        def speak(self, volume):
+            pass
+
+The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary.::
+
+    >>> IAnimal.height
+    AttributeError: 'IAnimal' object has no attribute 'height'
+
+This is because ``IAnimal`` is an interface definition and not an implementation.  Of course, concrete implementations
+may use class attributes as normal.
+
+In Python 3.6 and later type annotations can also be used to define interface properties::
+
+    class IAnimal(PureInterface):
+        height: float
+
+        def speak(self, volume):
+            pass
+
+
 Concrete Implementations
 ========================
 
@@ -124,7 +154,28 @@ provided that they are all set in the constructor::
             print('hello')
 
 This can simplify implementations greatly when there are lots of properties on an interface.
+You can also implement interface class attributes as properties if desired.
 
+The astute reader will notice that the ``Animal2`` bases list makes an inconsistent method resolution order.
+This is handled by the ``PureInterfaceType`` meta-class by removing ``object`` from the front of the bases list.
+However static checkers such as mypy_ will complain.  To get around this, ``pure_interface`` includes an empty
+
+.. _mypy: http://mypy-lang.org/
+
+``Concrete`` class which you can use to keep mypy happy::
+
+    class Concrete(object):
+        pass
+
+    class Animal2(Concrete, IAnimal):
+        def __init__(self, height):
+            self.height = height
+
+        def speak(self, volume):
+            print('hello')
+
+Method Signatures
+-----------------
 Method overrides are checked for compatibility with the interface.
 This means that argument names must match exactly and that no new non-optional
 arguments are present in the override.  This enforces that calling the method
@@ -147,7 +198,7 @@ However new optional parameters are permitted, as are ``*args`` and ``**kwargs``
 Implementation Warnings
 -----------------------
 
-As with ``abc.ABC``, the interface checking for a class is done when an object is instantiated.
+As with ``abc.ABC``, the abstract method checking for a class is done when an object is instantiated.
 However it is useful to know about missing methods sooner than that.  For this reason ``pure_interface`` will issue
 a warning during module import when methods are missing from a concrete subclass.  For example::
 
@@ -178,7 +229,7 @@ the class.  For example::
 will not issue any warnings.
 
 The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
-filters (but only if ``is_development`` is ``True``).  This provides an alternative to raising warnings as errors.
+filters (but only if ``is_development=True``).  This provides an alternative to raising warnings as errors.
 When all your imports are complete you can check if this list is empty.::
 
     if pure_iterface.missing_method_warnings:
@@ -450,6 +501,10 @@ Classes
         Raises ``ValueError`` is the class is a concrete type.
 
 
+**Concrete**
+    Empty class to create a consistent MRO in implementation classes.
+
+
 Functions
 ---------
 **adapts** *(from_type, to_interface=None)*
@@ -477,6 +532,15 @@ Functions
 **get_interface_property_names** *(cls)*
     Returns a ``frozenset`` of names of properties defined by the interface
     If *cls* is not a interface type then an empty set is returned.
+
+**get_interface_attribute_names** *(cls)*
+    Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
+    If *cls* is not a interface type then an empty set is returned.
+
+**get_interface_properties_and_attribute_names** *(cls)*
+    Returns a ``frozenset`` of names of properties, attributes and annotations defined by the interface
+    If *cls* is not a interface type then an empty set is returned.
+
 
 Module Attributes
 -----------------
