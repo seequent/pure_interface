@@ -110,6 +110,13 @@ In Python 3.6 and later type annotations can also be used to define interface pr
             pass
 
 
+The ``dir()`` function will include all interface attributes so that ``mock.Mock(spec=IAnimal)`` will work as expected::
+
+    >>> dir(IAnimal)
+    ['__abstractmethods__', '__doc__', ..., 'height', 'speak']
+
+
+
 Concrete Implementations
 ========================
 

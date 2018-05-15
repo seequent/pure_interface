@@ -399,6 +399,9 @@ class TestAttributeImplementations(unittest.TestCase):
         with self.assertRaises(TypeError):
             a = A()
 
+    def test_class_attribute_in_dir(self):
+        self.assertIn('a', dir(IAttribute))
+
     def test_instance_attribute_passes(self):
         class A(object, IAttribute):
             def __init__(self):
@@ -439,12 +442,21 @@ class TestAttributeImplementations(unittest.TestCase):
         if sys.version_info >= (3, 6):
             exec(py_36_tests)
 
+    def test_mock_spec_includes_attrs(self):
+        m = mock.MagicMock(spec=IAttribute)
+        try:
+            x = m.a
+        except AttributeError:
+            self.fail("class attribute not mocked")
+
 
 py_36_tests = """
 def test_annotations(self):
     class IAnnotation(pure_interface.PureInterface):
         a: int
+    
     self.assertIn('a', pure_interface.get_interface_attribute_names(IAnnotation))
+    self.assertIn('a', dir(IAnnotation))
 
 def test_annotations2(self):
     class IAnnotation(pure_interface.PureInterface):

@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -541,6 +541,11 @@ class PureInterfaceType(abc.ABCMeta):
                 raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
+    def __dir__(cls):
+        listing = list(cls.__dict__.keys()) + list(cls._pi.interface_attribute_names)
+        listing.sort()
+        return listing
+
 
 PI = TypeVar('PI', bound='PureInterface')
 
@@ -689,9 +694,10 @@ class Concrete(object):
     """
     pass
 
+
 # adaption
 def adapts(from_type, to_interface=None):
-    # type: (Any, Type[PureInterface]) -> Callable
+    # type: (Any, Type[PI]) -> Callable
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
