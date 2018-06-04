@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -542,8 +542,10 @@ class PureInterfaceType(abc.ABCMeta):
         return self
 
     def __dir__(cls):
-        listing = list(cls.__dict__.keys()) + list(cls._pi.interface_attribute_names)
-        listing.sort()
+        listing = set(cls._pi.interface_attribute_names)
+        for base in cls.__bases__:
+            listing.update(base.__dict__.keys())
+        listing = sorted(listing)
         return listing
 
 

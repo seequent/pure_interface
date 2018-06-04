@@ -65,3 +65,8 @@ class TestMetaClassMixingChecks(unittest.TestCase):
         # check that property patching is not done to classes that do not inherit an interface
         with self.assertRaises(TypeError):
             ABCImpl()
+
+    def test_dir_subclass(self):
+        listing = dir(SubclassWithInterface)
+        self.assertIn('method2', listing)
+        self.assertIn('method', listing)
