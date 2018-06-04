@@ -49,6 +49,16 @@ class SubclassWithInterface(InnocentBystander, MyInterface):
         pass
 
 
+class SubSubclassWithInterface(SubclassWithInterface):
+    def foo(self):
+        pass
+
+
+class SubSubSubclassWithInterface(SubSubclassWithInterface):
+    def bar(self):
+        pass
+
+
 class TestMetaClassMixingChecks(unittest.TestCase):
     def test_submeta_class(self):
         try:
@@ -70,3 +80,16 @@ class TestMetaClassMixingChecks(unittest.TestCase):
         listing = dir(SubclassWithInterface)
         self.assertIn('method2', listing)
         self.assertIn('method', listing)
+
+    def test_dir_subsubclass(self):
+        listing = dir(SubSubclassWithInterface)
+        self.assertIn('method2', listing)
+        self.assertIn('method', listing)
+        self.assertIn('foo', listing)
+
+    def test_dir_subsubsubclass(self):
+        listing = dir(SubSubSubclassWithInterface)
+        self.assertIn('method2', listing)
+        self.assertIn('method', listing)
+        self.assertIn('foo', listing)
+        self.assertIn('bar', listing)
