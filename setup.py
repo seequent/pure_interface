@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='pure_interface',
-    version='3.0.3',
+    version='3.0.4',
     py_modules=['pure_interface', 'pure_contracts'],
     url='https://github.com/aranzgeo/pure_interface',
     install_requires=['six', 'typing'],
@@ -32,6 +32,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     keywords="abc interface adapt adaption mapper structural typing",
     description='A Python interface library that disallows function body content on interfaces and supports adaption.',
