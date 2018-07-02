@@ -133,7 +133,7 @@ def _builtin_attrs(name):
     """
     return name in ('__doc__', '__module__', '__qualname__', '__abstractmethods__', '__dict__',
                     '__metaclass__', '__weakref__',
-                    '_abc_cache', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache',
+                    '_abc_cache', '_abc_impl', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache',
                     '_pi', '_pi_unwrap_decorators')
 
 
