@@ -1,6 +1,9 @@
 pure_interface
 ==============
 
+.. image:: https://travis-ci.com/seequent/pure_interface.svg?branch=master
+    :target: https://travis-ci.com/seequent/pure_interface
+
 A Python interface library that disallows function body content on interfaces and supports adaption.
 
 Jump to the `Reference`_.
