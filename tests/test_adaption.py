@@ -11,6 +11,10 @@ class ISpeaker(pure_interface.PureInterface):
         pass
 
 
+class ISleepTalker(ISpeaker):
+    is_asleep = None
+
+
 class Speaker(object):
     def speak(self, volume):
         return 'speak'
@@ -85,6 +89,20 @@ class ITopicSpeaker(ISpeaker):
 class TopicSpeaker(Speaker, ITopicSpeaker):
     def __init__(self, topic):
         self.topic = topic
+
+
+class Sleeper(object):
+    is_asleep = True
+
+
+@pure_interface.adapts(Sleeper)
+class SleepTalker(pure_interface.Concrete, ISleepTalker):
+    def __init__(self, sleeper):
+        self._sleeper = sleeper
+        self.is_asleep = sleeper.is_asleep
+
+    def speak(self, volume):
+        super().speak(volume)
 
 
 class TestAdaption(unittest.TestCase):
@@ -262,3 +280,9 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         speaker = wrapped_speaker._ImplementationWrapper__impl
         self.assertIsInstance(speaker, TalkerToSpeaker)
         self.assertIs(speaker._talker, a_talker)
+
+    def test_adapter_to_sub_interface_used(self):
+        a_sleeper = Sleeper()
+        speaker = ISpeaker.adapt_or_none(a_sleeper)
+        self.assertIsNotNone(speaker)
+        self.assertTrue(hasattr(speaker, 'speak'))

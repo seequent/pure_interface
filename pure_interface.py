@@ -638,7 +638,12 @@ class PureInterface(ABC):
                 adapted = cls.interface_only(adapted)
             return adapted
 
-        adapters = cls._pi.adapters
+        adapters = {}
+        candidate_interfaces = [cls] + cls.__subclasses__()
+        candidate_interfaces.reverse()  # prefer this class over sub-class adapters
+        for subcls in candidate_interfaces:
+            if type_is_pure_interface(subcls):
+                adapters.update(subcls._pi.adapters)
         if not adapters:
             raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 

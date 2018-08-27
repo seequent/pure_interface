@@ -333,6 +333,22 @@ Pass ``interface_only=False`` if you want the actual adapted object rather than 
 Accessing the ``topic`` attribute on an ``ISpeaker`` may work for all current implementations
 of ``ISpeaker``, but this code will likely break at some inconvenient time in the future.
 
+Adapters from sub-interfaces may be used to perform adaption if necessary. For example::
+
+    class IA(PureInterface):
+       foo = None
+
+    class IB(IA):
+        bar = None
+
+    @adapts(int):
+    class IntToB(object, IB):
+        def __init__(self, x):
+            self.foo = self.bar = x
+
+Then  ``IA.adapt(4)`` will use the ``IntToB`` adapter to adapt ``4`` to ``IA`` (unless there is already an adapter
+from ``int`` to ``IA``)
+
 Structural Type Checking
 ========================
 
