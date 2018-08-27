@@ -283,6 +283,30 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
 
     def test_adapter_to_sub_interface_used(self):
         a_sleeper = Sleeper()
-        speaker = ISpeaker.adapt_or_none(a_sleeper)
-        self.assertIsNotNone(speaker)
-        self.assertTrue(hasattr(speaker, 'speak'))
+        speaker = ISpeaker.adapt_or_none(a_sleeper, interface_only=False)
+        self.assertIsInstance(speaker, SleepTalker)
+
+    def test_adapter_preference(self):
+        """ adapt should prefer interface adapter over sub-interface adapter """
+        class IA(pure_interface.PureInterface):
+            foo = None
+
+        class IB(IA):
+            bar = None
+
+        @pure_interface.adapts(int)
+        class IntToB(pure_interface.Concrete, IB):
+            def __init__(self, x):
+                self.foo = self.bar = x
+
+        a = IA.adapt_or_none(4, interface_only=False)
+        self.assertIsInstance(a, IntToB)
+
+        @pure_interface.adapts(int)
+        class IntToA(pure_interface.Concrete, IA):
+            def __init__(self, x):
+                self.foo = x
+
+        a = IA.adapt_or_none(4, interface_only=False)
+        self.assertIsInstance(a, IntToA)
+
