@@ -627,13 +627,10 @@ class PureInterface(ABC):
         return cls._pi.impl_wrapper_type(implementation, cls)
 
     @classmethod
-    def _get_adapter(cls, obj, allow_implicit=False):
-        # type: (Type[PI], Any, bool) -> Optional[Callable]
-        """ Returns a callable adapter that adapts obj to this interface or None if none exist.
+    def _get_adapter(cls, obj_type):
+        # type: (Type[PI], Type[Any]) -> Optional[Callable]
+        """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
         """
-        if cls.provided_by(obj, allow_implicit=allow_implicit):
-            return no_adaption
-
         adapters = {}
         candidate_interfaces = [cls] + cls.__subclasses__()
         candidate_interfaces.reverse()  # prefer this class over sub-class adapters
@@ -643,7 +640,7 @@ class PureInterface(ABC):
         if not adapters:
             return None
 
-        for obj_class in type(obj).__mro__:
+        for obj_class in obj_type.__mro__:
             try:
                 return adapters[obj_class]
             except KeyError:
@@ -660,9 +657,12 @@ class PureInterface(ABC):
         """
         if interface_only is None:
             interface_only = is_development
-        adapter = cls._get_adapter(obj, allow_implicit)
-        if adapter is None:
-            raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
+        if cls.provided_by(obj, allow_implicit=allow_implicit):
+            adapter = no_adaption
+        else:
+            adapter = cls._get_adapter(type(obj))
+            if adapter is None:
+                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
         adapted = adapter(obj)
         if not cls.provided_by(adapted, allow_implicit):
