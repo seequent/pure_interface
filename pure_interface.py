@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.1.0'
+__version__ = '3.1.1'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -66,6 +66,10 @@ else:
 
 class InterfaceError(Exception):
     pass
+
+
+def no_adaption(obj):
+    return obj
 
 
 class _PIAttributes(object):
@@ -623,6 +627,27 @@ class PureInterface(ABC):
         return cls._pi.impl_wrapper_type(implementation, cls)
 
     @classmethod
+    def _get_adapter(cls, obj_type):
+        # type: (Type[PI], Type[Any]) -> Optional[Callable]
+        """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
+        """
+        adapters = {}
+        candidate_interfaces = [cls] + cls.__subclasses__()
+        candidate_interfaces.reverse()  # prefer this class over sub-class adapters
+        for subcls in candidate_interfaces:
+            if type_is_pure_interface(subcls):
+                adapters.update(subcls._pi.adapters)
+        if not adapters:
+            return None
+
+        for obj_class in obj_type.__mro__:
+            try:
+                return adapters[obj_class]
+            except KeyError:
+                continue
+        return None
+
+    @classmethod
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
         # type: (Type[PI], Any, bool, Optional[bool]) -> PI
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
@@ -633,30 +658,18 @@ class PureInterface(ABC):
         if interface_only is None:
             interface_only = is_development
         if cls.provided_by(obj, allow_implicit=allow_implicit):
-            adapted = obj
-            if interface_only:
-                adapted = cls.interface_only(adapted)
-            return adapted
+            adapter = no_adaption
+        else:
+            adapter = cls._get_adapter(type(obj))
+            if adapter is None:
+                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
-        adapters = {}
-        candidate_interfaces = [cls] + cls.__subclasses__()
-        candidate_interfaces.reverse()  # prefer this class over sub-class adapters
-        for subcls in candidate_interfaces:
-            if type_is_pure_interface(subcls):
-                adapters.update(subcls._pi.adapters)
-        if not adapters:
-            raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
-
-        for obj_class in type(obj).__mro__:
-            if obj_class in adapters:
-                factory = adapters[obj_class]
-                adapted = factory(obj)
-                if not cls.provided_by(adapted, allow_implicit):
-                    raise ValueError('Adapter {} does not implement interface {}'.format(factory, cls.__name__))
-                if interface_only:
-                    adapted = cls.interface_only(adapted)
-                return adapted
-        raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
+        adapted = adapter(obj)
+        if not cls.provided_by(adapted, allow_implicit):
+            raise ValueError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
+        if interface_only:
+            adapted = cls.interface_only(adapted)
+        return adapted
 
     @classmethod
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
