@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.1.1'
+__version__ = '3.2.0'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -74,13 +74,12 @@ def no_adaption(obj):
 
 class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
-    def __init__(self, type_is_interface, interface_method_signatures, interface_property_names,
-                 interface_attribute_names):
+    def __init__(self, type_is_interface, abstract_properties, interface_method_signatures, interface_attribute_names):
         self.type_is_pure_interface = type_is_interface
-        # abstractproperties are checked for at instantiation
-        self.abstractproperties = frozenset(interface_attribute_names)
+        # abstractproperties are checked for at instantiation.
+        # When concrete classes use a @property then they are removed from this set
+        self.abstractproperties = frozenset(abstract_properties)
         self.interface_method_names = frozenset(interface_method_signatures.keys())  # type: FrozenSet[str]
-        self.interface_property_names = frozenset(interface_property_names)  # type: FrozenSet[str]
         self.interface_attribute_names = frozenset(interface_attribute_names)  # type: FrozenSet[str]
         self.interface_method_signatures = interface_method_signatures
         self.adapters = weakref.WeakKeyDictionary()
@@ -89,11 +88,7 @@ class _PIAttributes(object):
 
     @property
     def interface_names(self):
-        return self.interface_method_names.union(self.interface_attribute_names).union(self.interface_property_names)
-
-    @property
-    def props_and_attrs(self):
-        return self.interface_attribute_names.union(self.interface_property_names)
+        return self.interface_method_names.union(self.interface_attribute_names)
 
 
 class AttributeProperty(object):
@@ -330,7 +325,6 @@ def _ensure_everything_is_abstract(attributes):
     namespace = {}
     functions = []
     interface_method_signatures = {}
-    interface_property_names = set()
     interface_attribute_names = set()
     for name, value in six.iteritems(attributes):
         if _builtin_attrs(name):
@@ -349,7 +343,8 @@ def _ensure_everything_is_abstract(attributes):
                 functions.append(func)
                 interface_method_signatures[name] = getargspec(func)
             elif isinstance(value, property):
-                interface_property_names.add(name)
+                interface_attribute_names.add(name)
+                continue  # do not add to class namespace
         elif isinstance(value, staticmethod):
             func = value.__func__
             functions.append(func)
@@ -365,13 +360,13 @@ def _ensure_everything_is_abstract(attributes):
             interface_method_signatures[name] = getargspec(value)
             value = abstractmethod(value)
         elif isinstance(value, property):
-            interface_property_names.add(name)
+            interface_attribute_names.add(name)
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
-            value = abstractproperty(value.fget, value.fset, value.fdel)
+            continue  # do not add to class namespace
         else:
             raise ValueError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
         namespace[name] = value
-    return namespace, functions, interface_method_signatures, interface_property_names, interface_attribute_names
+    return namespace, functions, interface_method_signatures, interface_attribute_names
 
 
 def _check_method_signatures(attributes, clsname, interface_method_signatures):
@@ -396,23 +391,22 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             raise InterfaceError(msg)
 
 
-def _patch_properties(cls, base_abstract_properties):
-    """ Create an AttributeProperty for interface properties not provided by an implementation.
-    """
-    abstract_properties = set()
-    functions = []
-    for attr in cls.__abstractmethods__:
-        value = getattr(cls, attr)
-        if isinstance(value, abstractproperty):
-            functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
-            setattr(cls, attr, AttributeProperty(attr))
-            abstract_properties.add(attr)
-    cls._pi.abstractproperties = frozenset(abstract_properties | base_abstract_properties)
-    abstractmethods = set(cls.__abstractmethods__) - abstract_properties
-    for func in functions:
-        if func is not None and func.__name__ in abstractmethods:
-            abstractmethods.discard(func.__name__)
-    cls.__abstractmethods__ = frozenset(abstractmethods)
+def _do_missing_impl_warnings(cls, clsname):
+    stacklevel = 2
+    stack = inspect.stack()
+    # walk up stack until we get out of pure_interface module
+    while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+        stacklevel += 1
+    # add extra levels for sub-meta-classes
+    stack.pop(0)
+    while stack and stack[0][0].f_code.co_name == '__new__':
+        stacklevel += 1
+        stack.pop(0)
+    for method_name in cls.__abstractmethods__:
+        message = 'Incomplete Implementation: {clsname} does not implement {method_name}'
+        message = message.format(clsname=clsname, method_name=method_name)
+        missing_method_warnings.append(message)
+        warnings.warn(message, stacklevel=stacklevel)
 
 
 class PureInterfaceType(abc.ABCMeta):
@@ -434,7 +428,7 @@ class PureInterfaceType(abc.ABCMeta):
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
             cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, attributes)
-            cls._pi = _PIAttributes(False, {}, (), ())
+            cls._pi = _PIAttributes(False, (), {}, ())
             return cls
 
         base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
@@ -447,25 +441,21 @@ class PureInterfaceType(abc.ABCMeta):
             base_types = base_types[1:]
 
         interface_method_signatures = dict()
-        interface_property_names = set()
         interface_attribute_names = set()
-        base_abstract_properties = set()
+        abstract_properties = set()
         for i in range(len(bases)-1, -1, -1):  # start at back end
             base, base_is_interface = base_types[i]
             if base is object:
                 continue
-            abstract_properties = _get_pi_attribute(base, 'abstractproperties', set())
-            base_abstract_properties.update(abstract_properties)
+            base_abstract_properties = _get_pi_attribute(base, 'abstractproperties', set())
+            abstract_properties.update(base_abstract_properties)
             if base_is_interface:
                 if hasattr(base, '_pi'):
                     method_signatures = _get_pi_attribute(base, 'interface_method_signatures', {})
-                    property_names = _get_pi_attribute(base, 'interface_property_names', set())
                     attribute_names = _get_pi_attribute(base, 'interface_attribute_names', set())
                 else:
-                    property_names, method_signatures = _get_abc_interface_props_and_funcs(base)
-                    attribute_names = set()
+                    attribute_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
-                interface_property_names.update(property_names)
                 interface_attribute_names.update(attribute_names)
             elif not issubclass(base, PureInterface) and is_development:
                 _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
@@ -478,15 +468,13 @@ class PureInterfaceType(abc.ABCMeta):
                 namespace = attributes
                 functions = []
                 method_signatures = {}
-                property_names = set()
                 attribute_names = set()
             else:
-                r = _ensure_everything_is_abstract(attributes)
-                namespace, functions, method_signatures, property_names, attribute_names = r
+                namespace, functions, method_signatures, attribute_names = _ensure_everything_is_abstract(attributes)
             partial_implementation = False
             interface_method_signatures.update(method_signatures)
-            interface_property_names.update(property_names)
             interface_attribute_names.update(attribute_names)
+            abstract_properties.update(interface_attribute_names)
             unwrap = getattr(mcs, '_pi_unwrap_decorators', False)
             for func in functions:
                 if func is None:
@@ -496,38 +484,23 @@ class PureInterfaceType(abc.ABCMeta):
                                          'Did you forget to inherit from object to make the class concrete?'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
+            class_properties = set(k for k, v in namespace.items() if _is_descriptor(v))
+            abstract_properties.difference_update(class_properties)
             partial_implementation = 'pi_partial_implementation' in namespace
             if partial_implementation:
                 value = namespace.pop('pi_partial_implementation')
                 if not value:
                     warnings.warn('Partial implmentation is indicated by presence of '
                                   'pi_partial_implementation attribute, not it''s value')
+
         # create class
         cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
-        cls._pi = _PIAttributes(type_is_interface, interface_method_signatures,
-                                interface_property_names, interface_attribute_names)
+        cls._pi = _PIAttributes(type_is_interface, abstract_properties,
+                                interface_method_signatures, interface_attribute_names)
 
-        if not type_is_interface:
-            class_properties = set(k for k, v in namespace.items() if _is_descriptor(v))
-            base_abstract_properties.difference_update(class_properties)
-            _patch_properties(cls, base_abstract_properties)
-            if is_development and cls.__abstractmethods__ and not partial_implementation:
-                stacklevel = 2
-                stack = inspect.stack()
-                # walk up stack until we get out of pure_interface module
-                while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
-                    stacklevel += 1
-                # add extra levels for sub-meta-classes
-                stack.pop(0)
-                while stack and stack[0][0].f_code.co_name == '__new__':
-                    stacklevel += 1
-                    stack.pop(0)
-
-                for method_name in cls.__abstractmethods__:
-                    message = 'Incomplete Implementation: {clsname} does not implement {method_name}'
-                    message = message.format(clsname=clsname, method_name=method_name)
-                    missing_method_warnings.append(message)
-                    warnings.warn(message, stacklevel=stacklevel)
+        # warnings
+        if not type_is_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
+            _do_missing_impl_warnings(cls, clsname)
 
         return cls
 
@@ -554,8 +527,6 @@ PI = TypeVar('PI', bound='PureInterface')
 
 @six.add_metaclass(PureInterfaceType)
 class PureInterface(ABC):
-    _pi = _PIAttributes(True, {}, (), ())
-
     @classmethod
     def _structural_type_check(cls, instance):
         subclass = type(instance)
@@ -563,7 +534,7 @@ class PureInterface(ABC):
             subtype_value = getattr(subclass, attr, None)
             if not callable(subtype_value):
                 return False
-        for attr in cls._pi.props_and_attrs:
+        for attr in cls._pi.interface_attribute_names:
             if not hasattr(instance, attr):
                 return False
         return True
@@ -577,7 +548,7 @@ class PureInterface(ABC):
             subtype_value = getattr(subclass, attr, None)
             if not callable(subtype_value):
                 return False
-        for attr in cls._pi.props_and_attrs:
+        for attr in cls._pi.interface_attribute_names:
             if not hasattr(subclass, attr):
                 return False
 
@@ -800,17 +771,6 @@ def get_interface_method_names(interface):
         return frozenset()
 
 
-def get_interface_property_names(interface):
-    # type: (Type[PureInterface]) -> FrozenSet[str]
-    """ returns a frozen set of names of properties defined by the interface
-    if interface is not a PureInterface subtype then an empty set is returned
-    """
-    if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'interface_property_names')
-    else:
-        return frozenset()
-
-
 def get_interface_attribute_names(interface):
     # type: (Type[PureInterface]) -> FrozenSet[str]
     """ returns a frozen set of names of attributes defined by the interface
@@ -822,12 +782,27 @@ def get_interface_attribute_names(interface):
         return frozenset()
 
 
+def get_interface_property_names(interface):
+    # type: (Type[PureInterface]) -> FrozenSet[str]
+    """ returns a frozen set of names of properties defined by the interface
+    if interface is not a PureInterface subtype then an empty set is returned
+    """
+    warnings.warn('PureInterface no longer distinguishes between properties and attributes\n'
+                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
+    if type_is_pure_interface(interface):
+        return _get_pi_attribute(interface, 'interface_attribute_names')
+    else:
+        return frozenset()
+
+
 def get_interface_properties_and_attribute_names(interface):
     # type: (Type[PureInterface]) -> FrozenSet[str]
     """ returns a frozen set of names of properties or attributes defined by the interface
     if interface is not a PureInterface subtype then an empty set is returned
     """
+    warnings.warn('PureInterface no longer distinguishes between properties and attributes\n'
+                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
     if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'props_and_attrs')
+        return _get_pi_attribute(interface, 'interface_attribute_names')
     else:
         return frozenset()
