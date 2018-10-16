@@ -10,16 +10,16 @@ Jump to the `Reference`_.
 
 Features
 --------
-    * Prevents code in method bodies of an interface class
-    * Ensures that method overrides have compatible signatures
-    * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
-    * Supports interface adaption.
-    * Treats abc interfaces that do not include any implementation as a pure interface type.
-      This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
-      no function body content criteria.
-    * Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
-    * Warns if ``provided_by`` did a structural type check when inheritance would work.
-    * Supports python 2.7 and 3.5+
+* Prevents code in method bodies of an interface class
+* Ensures that method overrides have compatible signatures
+* Supports interface adaption.
+* Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
+* Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
+* Treats abc interfaces that do not include any implementation as a pure interface type.
+  This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
+  no function body content criteria.
+* Warns if ``provided_by`` did a structural type check when inheritance would work.
+* Supports python 2.7 and 3.5+
 
 A note on the name
 ------------------
@@ -30,16 +30,11 @@ Installation
 ------------
 pure_interface depends on the six_ and typing_ modules (typing is included in python 3.5 and later).
 
-.. _six: https://pypi.python.org/pypi/six
-.. _typing: https://pypi.python.org/pypi/typing
-
 You can install released versions of ``pure_interface`` using pip::
 
     pip install pure_interface
 
 or you can grab the source code from GitHub_.
-
-.. _GitHub: https://github.com/aranzgeo/pure_interface
 
 Defining a Pure Interface
 =========================
@@ -48,23 +43,46 @@ For simplicity in these examples we assume that the entire pure_interface namesp
 
     from pure_interface import *
 
-To define an interface, simply inherit from the class ``PureInterface`` and leave all method bodies empty::
+To define an interface, simply inherit from the class ``PureInterface`` and write a PEP-544_ Protocol-like class
+leaving all method bodies empty::
 
     class IAnimal(PureInterface):
-        @property
+        height: float
+
+        def speak(self, volume):
+            pass
+
+
+Like Protocols, class annotations are considered part of the interface. In Python versions earlier than 3.6 you can use
+the following alternate syntax::
+
+    class IAnimal(PureInterface):
+        height = None
+
+        def speak(self, volume):
+            pass
+
+The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary
+(since annotations are not in the class dictionary).
+
+``PureInterface`` is a subtype of ``abc.ABC`` and the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
+ABC-style property definitions are also supported (and equivalent)::
+
+    class IAnimal(PureInterface):
+        @abstractproperty
         def height(self):
             pass
 
         def speak(self, volume):
             pass
 
+Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
+all concrete subclasses will be required to have a ``height`` attribute.
 
-As ``PureInterface`` is a subtype of ``abc.ABC`` the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
 For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and
 on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
-
-However these decorators are optional as **ALL** methods and properties on a pure interface are abstract.  In the
-example above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
+However these decorators are optional as **ALL** methods and properties on a ``PureInterface`` subclass are abstract.
+In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
@@ -85,36 +103,6 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
     InterfaceError: Function "method" is not empty
     Did you forget to inherit from object to make the class concrete?
 
-Inspired by PEP-544_ ``pure_interface`` also allows using class attributes to specify required interface attributes.
-This is now the preferred way to specify the existance of an attribute in an interface.
-The use of class attribute or ``@property`` to define a the existance of an attribute are usually interchangable [#attr]_.
-
-.. _PEP-544: https://www.python.org/dev/peps/pep-0544/
-
-This interface is equivalent to the one above::
-
-    class IAnimal(PureInterface):
-        height = None
-
-        def speak(self, volume):
-            pass
-
-The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary.::
-
-    >>> IAnimal.height
-    AttributeError: 'IAnimal' object has no attribute 'height'
-
-This is because ``IAnimal`` is an interface definition and not an implementation.  Of course, concrete implementations
-may use class attributes as normal.
-
-In Python 3.6 and later type annotations are the preferred way to define interface attributes::
-
-    class IAnimal(PureInterface):
-        height: float
-
-        def speak(self, volume):
-            pass
-
 
 The ``dir()`` function will include all interface attributes so that ``mock.Mock(spec=IAnimal)`` will work as expected::
 
@@ -132,11 +120,7 @@ concrete simply inherit from ``object`` as well (or anything else that isn't a `
 
     class Animal(object, IAnimal):
         def __init__(self, height):
-            self._height = height
-
-        @property
-        def height(self):
-            return self._height
+            self.height = height
 
         def speak(self, volume):
             print('hello')
@@ -149,24 +133,23 @@ and properties that satisfy the empty method criteria will result in a type that
         def foo(self):
             pass
 
-    class MyPureInterface(ABCInterface):
+    class MyPureInterface(ABCInterface, PureInterface):
         def bar(self):
             pass
 
-.. _attributes:
-
-Concrete implementations may implement interface properties as normal attributes,
-provided that they are all set in the constructor::
+Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties,
+custom descriptors provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
 
     class Animal2(object, IAnimal):
         def __init__(self, height):
-            self.height = height
+            self._height = height
+
+        @property
+        def height(self):
+            return self._height
 
         def speak(self, volume):
             print('hello')
-
-This can simplify implementations greatly when there are lots of properties on an interface.
-You can also implement interface class attributes as properties if desired.
 
 The astute reader will notice that the ``Animal2`` bases list makes an inconsistent method resolution order.
 This is handled by the ``PureInterfaceType`` meta-class by removing ``object`` from the front of the bases list.
@@ -182,8 +165,6 @@ However static checkers such as mypy_ and some IDE's will complain.  To get arou
 
         def speak(self, volume):
             print('hello')
-
-.. _mypy: http://mypy-lang.org/
 
 Method Signatures
 -----------------
@@ -425,11 +406,11 @@ get_type_interfaces(cls)
 
 get_interface_method_names(interface)
     Returns a frozen set of names of methods defined by the interface.
-    If ``type_is_pure_interface(interface)`` returns ``False`` then an empty set is returned.
+    if interface is not a ``PureInterface`` subtype then an empty set is returned
 
-get_interface_property_names(interface)
-    Returns a frozen set of names of properties defined by the interface.
-    If ``type_is_pure_interface(interface)`` returns ``False`` then an empty set is returned.
+get_interface_attribute_names(interface)
+    Returns a frozen set of names of attributes defined by the interface.
+    if interface is not a ``PureInterface`` subtype then an empty set is returned
 
 
 Development Flag
@@ -443,11 +424,6 @@ For this reason the ``pure_interface`` module has an ``is_development`` switch.:
 
 ``is_development`` defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
 py2exe_, cx_Freeze_ or similar tools.
-
-.. _py2exe: https://pypi.python.org/pypi/py2exe
-
-.. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
-
 
 If you manually change this flag it must be set before modules using the ``PureInterface`` type
 are imported or else the change will not have any effect.
@@ -525,7 +501,7 @@ Classes
     **provided_by** *(obj, allow_implicit=True)*
         Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
         return ``True`` for objects that provide the interface structure but do not inherit from it.
-        Raises ``ValueError`` is the class is a concrete type.
+        Raises ``ValueError`` if the class is a concrete type.
 
 
 **Concrete**
@@ -556,16 +532,8 @@ Functions
     Returns a ``frozenset`` of names of methods defined by the interface.
     If *cls* is not a interface type then an empty set is returned.
 
-**get_interface_property_names** *(cls)*
-    Returns a ``frozenset`` of names of properties defined by the interface
-    If *cls* is not a interface type then an empty set is returned.
-
 **get_interface_attribute_names** *(cls)*
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
-    If *cls* is not a interface type then an empty set is returned.
-
-**get_interface_properties_and_attribute_names** *(cls)*
-    Returns a ``frozenset`` of names of properties, attributes and annotations defined by the interface
     If *cls* is not a interface type then an empty set is returned.
 
 
@@ -575,40 +543,22 @@ Module Attributes
     Set to ``True`` to enable all checks and warnings.
     If set to ``False`` then:
 
-        * Signatures of overriding methods are not checked
-        * No warnings are issued by the adaption functions
-        * No incomplete implementation warnings are issued
-        * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
+    * Signatures of overriding methods are not checked
+    * No warnings are issued by the adaption functions
+    * No incomplete implementation warnings are issued
+    * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
 
 
 **missing_method_warnings**
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.
     Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
-Footnotes
----------
 
-.. [#attr] For the sake of clarity lets consider 2 interfaces and 2 concrete implementations
+.. _six: https://pypi.python.org/pypi/six
+.. _typing: https://pypi.python.org/pypi/typing
+.. _PEP-544: https://www.python.org/dev/peps/pep-0544/
+.. _GitHub: https://github.com/aranzgeo/pure_interface
+.. _mypy: http://mypy-lang.org/
+.. _py2exe: https://pypi.python.org/pypi/py2exe
+.. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
 
-::
-
-    class I1(PureInterface)
-        @property
-        def foo(self):
-            pass
-
-    class I2(PureInterface):
-        foo = None
-
-    class C1(I1):
-        def __init__(self):
-            self.foo = 1
-
-    class C2(I2):
-        def __init__(self):
-            self.foo = 1
-
-
-When constructing class ``C1`` the meta-class creates a property for ``foo`` to override the abstract property on ``I1``.
-When constructing class ``C2`` this is not necessary.
-This also means that  ``C1().foo`` is a descriptor call whereas ``C2().foo`` is a faster ``__dict__`` lookup.

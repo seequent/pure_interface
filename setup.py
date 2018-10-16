@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='pure_interface',
-    version='3.1.1',
+    version='3.2.0',
     py_modules=['pure_interface', 'pure_contracts'],
     url='https://github.com/aranzgeo/pure_interface',
     install_requires=['six', 'typing'],
