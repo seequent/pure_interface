@@ -63,6 +63,20 @@ class ISimple(pure_interface.PureInterface):
         pass
 
 
+class ICrossImplementation(pure_interface.PureInterface):
+    """ interface to test class attributes implemented as properties and vice versa """
+    a = None
+    b = None
+
+    @property
+    def c(self):
+        pass
+
+    @property
+    def d(self):
+        pass
+
+
 class TestImplementationChecks(unittest.TestCase):
     def test_instantiation_fails(self):
         with self.assertRaises(TypeError):
@@ -379,6 +393,12 @@ class IAttribute(pure_interface.PureInterface):
     a = None
 
 
+class RaisingProperty(object, IAttribute):
+    @property
+    def a(self):
+        raise Exception("Bang")
+
+
 class TestAttributeImplementations(unittest.TestCase):
     def test_class_attribute_in_interface(self):
         self.assertIn('a', pure_interface.get_interface_attribute_names(IAttribute))
@@ -443,11 +463,18 @@ class TestAttributeImplementations(unittest.TestCase):
             exec(py_36_tests)
 
     def test_mock_spec_includes_attrs(self):
-        m = mock.MagicMock(spec=IAttribute)
+        m = mock.MagicMock(spec=IAttribute, instance=True)
         try:
             x = m.a
         except AttributeError:
             self.fail("class attribute not mocked")
+
+    def test_raising_property(self):
+        """ Issue 23 """
+        try:
+            a = RaisingProperty()
+        except:
+            self.fail('Instantiation with property that raises failed')
 
 
 py_36_tests = """
@@ -469,3 +496,25 @@ def test_annotations2(self):
 test_annotations(self)
 test_annotations2(self)
 """
+
+
+class TestCrossImplementations(unittest.TestCase):
+    """ test class attributes implemented as properties and vice versa """
+    def test_cross_implementations(self):
+        class CrossImplementation(pure_interface.Concrete, ICrossImplementation):
+            def __init__(self):
+                self.a = 1
+                self.c = 2
+
+            @property
+            def b(self):
+                return 3
+
+            @property
+            def d(self):
+                return 4
+
+        c = CrossImplementation()
+        self.assertEqual(frozenset(['a', 'c']), CrossImplementation._pi.abstractproperties)
+        self.assertEqual(frozenset(['a', 'b']), CrossImplementation._pi.interface_attribute_names)
+        self.assertEqual(frozenset(['c', 'd']), CrossImplementation._pi.interface_property_names)

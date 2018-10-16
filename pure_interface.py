@@ -77,7 +77,8 @@ class _PIAttributes(object):
     def __init__(self, type_is_interface, interface_method_signatures, interface_property_names,
                  interface_attribute_names):
         self.type_is_pure_interface = type_is_interface
-        self.abstractproperties = frozenset()  # properties that must be provided by instances
+        # abstractproperties are checked for at instantiation
+        self.abstractproperties = frozenset(interface_attribute_names)
         self.interface_method_names = frozenset(interface_method_signatures.keys())  # type: FrozenSet[str]
         self.interface_property_names = frozenset(interface_property_names)  # type: FrozenSet[str]
         self.interface_attribute_names = frozenset(interface_attribute_names)  # type: FrozenSet[str]
@@ -269,7 +270,7 @@ def _get_instructions(code_obj):
 
 
 def _is_descriptor(obj):  # in our context we only care about __get__
-    return hasattr(obj, '__get__')
+    return hasattr(obj, '__get__') and not isinstance(obj, types.FunctionType)
 
 
 def _signature_info(arg_spec):
@@ -528,8 +529,6 @@ class PureInterfaceType(abc.ABCMeta):
                     missing_method_warnings.append(message)
                     warnings.warn(message, stacklevel=stacklevel)
 
-        if type_is_interface and not cls.__abstractmethods__:
-            cls.__abstractmethods__ = frozenset({''})  # empty interfaces still should not be instantiated
         return cls
 
     def __call__(cls, *args, **kwargs):
@@ -538,9 +537,6 @@ class PureInterfaceType(abc.ABCMeta):
             raise TypeError('Interfaces cannot be instantiated')
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
-            if not hasattr(self, attr):
-                raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
-        for attr in cls._pi.interface_attribute_names:
             if not hasattr(self, attr):
                 raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
