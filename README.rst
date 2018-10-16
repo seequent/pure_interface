@@ -8,7 +8,8 @@ A Python interface library that disallows function body content on interfaces an
 
 Jump to the `Reference`_.
 
-**Features:**
+Features
+--------
     * Prevents code in method bodies of an interface class
     * Ensures that method overrides have compatible signatures
     * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
@@ -32,7 +33,7 @@ pure_interface depends on the six_ and typing_ modules (typing is included in py
 .. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
 
-You can install released versions of pure_interface using pip::
+You can install released versions of ``pure_interface`` using pip::
 
     pip install pure_interface
 
@@ -64,15 +65,16 @@ on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also avai
 
 However these decorators are optional as **ALL** methods and properties on a pure interface are abstract.  In the
 example above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
-Because of this, interface classes cannot be instantiated ::
-
-    IAnimal()
-    TypeError: Interfaces cannot be instantiated.
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
 the method to raise ``NotImplementedError``.  For this reason methods that just raise ``NotImplementedError`` are also
 considered empty.
+
+Interface classes cannot be instantiated ::
+
+    IAnimal()
+    TypeError: Interfaces cannot be instantiated.
 
 Including code in a method will result in an ``InterfaceError`` being raised when the module is imported. For example::
 
@@ -84,11 +86,12 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
     Did you forget to inherit from object to make the class concrete?
 
 Inspired by PEP-544_ ``pure_interface`` also allows using class attributes to specify required interface attributes.
+This is now the preferred way to specify the existance of an attribute in an interface.
+The use of class attribute or ``@property`` to define a the existance of an attribute are usually interchangable [#attr]_.
 
 .. _PEP-544: https://www.python.org/dev/peps/pep-0544/
 
-The use of class attribute or ``@property`` to define a class attribute are interchangable. This interface is equivalent
-to the one above::
+This interface is equivalent to the one above::
 
     class IAnimal(PureInterface):
         height = None
@@ -104,7 +107,7 @@ The value assigned to class attributes *must* be ``None`` and the attribute is r
 This is because ``IAnimal`` is an interface definition and not an implementation.  Of course, concrete implementations
 may use class attributes as normal.
 
-In Python 3.6 and later type annotations can also be used to define interface properties::
+In Python 3.6 and later type annotations are the preferred way to define interface attributes::
 
     class IAnimal(PureInterface):
         height: float
@@ -150,6 +153,8 @@ and properties that satisfy the empty method criteria will result in a type that
         def bar(self):
             pass
 
+.. _attributes:
+
 Concrete implementations may implement interface properties as normal attributes,
 provided that they are all set in the constructor::
 
@@ -165,8 +170,8 @@ You can also implement interface class attributes as properties if desired.
 
 The astute reader will notice that the ``Animal2`` bases list makes an inconsistent method resolution order.
 This is handled by the ``PureInterfaceType`` meta-class by removing ``object`` from the front of the bases list.
-However static checkers such as mypy_ will complain.  To get around this, ``pure_interface`` includes an empty
-``Concrete`` class which you can use to keep mypy happy::
+However static checkers such as mypy_ and some IDE's will complain.  To get around this, ``pure_interface`` includes an empty
+``Concrete`` class which you can use to keep mypy and your IDE happy::
 
     class Concrete(object):
         pass
@@ -579,3 +584,31 @@ Module Attributes
 **missing_method_warnings**
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.
     Note that missing properties are NOT checked for as they may be provided by instance attributes.
+
+Footnotes
+---------
+
+.. [#attr] For the sake of clarity lets consider 2 interfaces and 2 concrete implementations
+
+::
+
+    class I1(PureInterface)
+        @property
+        def foo(self):
+            pass
+
+    class I2(PureInterface):
+        foo = None
+
+    class C1(I1):
+        def __init__(self):
+            self.foo = 1
+
+    class C2(I2):
+        def __init__(self):
+            self.foo = 1
+
+
+When constructing class ``C1`` the meta-class creates a property for ``foo`` to override the abstract property on ``I1``.
+When constructing class ``C2`` this is not necessary.
+This also means that  ``C1().foo`` is a descriptor call whereas ``C2().foo`` is a faster ``__dict__`` lookup.
