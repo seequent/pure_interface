@@ -14,6 +14,19 @@ class IAnimal(pure_interface.PureInterface):
         return None
 
 
+class IAnimal3(pure_interface.PureInterface):
+    # python 3 style syntax
+    @property
+    @pure_interface.abstractmethod
+    def height(self):
+        pass
+
+    @height.setter
+    @pure_interface.abstractmethod
+    def height(self, height):
+        pass
+
+
 class IGrowingAnimal(pure_interface.PureInterface):
     def get_height(self):
         return None
@@ -86,6 +99,8 @@ class TestImplementationChecks(unittest.TestCase):
         assert 'Interfaces cannot be instantiated' in str(exc.exception)
         with self.assertRaises(TypeError):
             IAnimal()
+        with self.assertRaises(TypeError):
+            IAnimal3()
 
     def test_concrete_base_detection(self):
         class Concrete(object, pure_interface.PureInterface):
@@ -148,9 +163,9 @@ class TestImplementationChecks(unittest.TestCase):
         self.assertTrue(PIEmptyABC._pi.type_is_pure_interface)
         if six.PY3:
             self.assertTrue('foo' in EmptyABCPI._pi.interface_method_names)
-            self.assertTrue('bar' in EmptyABCPI._pi.interface_property_names)
+            self.assertTrue('bar' in EmptyABCPI._pi.interface_attribute_names)
         self.assertTrue('foo' in PIEmptyABC._pi.interface_method_names)
-        self.assertTrue('bar' in PIEmptyABC._pi.interface_property_names)
+        self.assertTrue('bar' in PIEmptyABC._pi.interface_attribute_names)
         with self.assertRaises(TypeError):
             EmptyABCPI()
         with self.assertRaises(TypeError):
@@ -263,6 +278,12 @@ class TestPropertyImplementations(unittest.TestCase):
             def __init__(self):
                 self.height = 5
 
+            def get_height(self):
+                return self.height
+
+            def set_height(self, height):
+                pass
+
         a = Animal()
         self.assertEqual(a.height, 5)
 
@@ -296,8 +317,25 @@ class TestPropertyImplementations(unittest.TestCase):
         a = Animal()
         self.assertEqual(a.height, 10)
 
+    def test_ro_abstract_property_override_passes3(self):
+        class Animal(object, IAnimal3):
+            @property
+            def height(self):
+                return 10
+
+        a = Animal()
+        self.assertEqual(a.height, 10)
+
     def test_ro_abstract_attribute_override_passes(self):
         class Animal(object, IAnimal):
+            def __init__(self):
+                self.height = 5
+
+        a = Animal()
+        self.assertEqual(a.height, 5)
+
+    def test_ro_abstract_attribute_override_passes3(self):
+        class Animal(object, IAnimal3):
             def __init__(self):
                 self.height = 5
 
@@ -514,7 +552,5 @@ class TestCrossImplementations(unittest.TestCase):
             def d(self):
                 return 4
 
-        c = CrossImplementation()
         self.assertEqual(frozenset(['a', 'c']), CrossImplementation._pi.abstractproperties)
-        self.assertEqual(frozenset(['a', 'b']), CrossImplementation._pi.interface_attribute_names)
-        self.assertEqual(frozenset(['c', 'd']), CrossImplementation._pi.interface_property_names)
+        self.assertEqual(frozenset(['a', 'b', 'c', 'd']), CrossImplementation._pi.interface_attribute_names)
