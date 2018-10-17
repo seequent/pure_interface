@@ -91,28 +91,6 @@ class _PIAttributes(object):
         return self.interface_method_names.union(self.interface_attribute_names)
 
 
-class AttributeProperty(object):
-    """ Property that stores it's value in the instance dict under the same name.
-        Abstract properties for concrete classes are replaced with these in the type definition to allow
-        implementations to use attributes.
-    """
-
-    def __init__(self, name):
-        self.name = name
-        super(AttributeProperty, self).__init__()
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        try:
-            return instance.__dict__[self.name]
-        except KeyError:
-            raise AttributeError(self.name)
-
-    def __set__(self, instance, value):
-        instance.__dict__[self.name] = value
-
-
 class _ImplementationWrapper(object):
     def __init__(self, implementation, interface):
         self.__impl = implementation
