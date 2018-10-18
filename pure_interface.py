@@ -265,7 +265,7 @@ def _get_instructions(code_obj):
 
 
 def _is_descriptor(obj):  # in our context we only care about __get__
-    return hasattr(obj, '__get__') and not isinstance(obj, types.FunctionType)
+    return hasattr(obj, '__get__')
 
 
 def _signature_info(arg_spec):

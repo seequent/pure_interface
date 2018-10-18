@@ -514,6 +514,19 @@ class TestAttributeImplementations(unittest.TestCase):
         except:
             self.fail('Instantiation with property that raises failed')
 
+    def test_attr_overridden_with_func(self):
+        # forgotten @property decorator
+        try:
+            class Function(pure_interface.Concrete, IAttribute):
+                def a(self):
+                    return 2
+
+            Function()
+        except:
+            self.fail('Overriding attribute with function should not crash')
+
+        self.assertEqual(frozenset(), Function._pi.abstractproperties)
+
 
 py_36_tests = """
 def test_annotations(self):
