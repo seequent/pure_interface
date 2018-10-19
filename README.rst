@@ -290,6 +290,14 @@ using ``filter_adapt(objects)``::
 
    list(ISpeaker.filter_adapt([None, Talker(), a_speaker, 'text']) --> [TalkerToSpeaker, a_speaker]
 
+To adapt an object only if it is not ``None`` then use::
+
+    ISpeaker.optional_adapt(optional_talker)
+
+This is equivalent to::
+
+    ISpeaker.adapt(optional_talker) if optional_talker is not None else None
+
 By default the adaption functions will return an object which provides **only**
 the functions and properties specified by the interface.  For example given the
 following implementation of the ``ISpeaker`` interface above::
@@ -484,6 +492,10 @@ Classes
 
     **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
         As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
+
+    **optional_adapt** *(obj, allow_implicit=False, interface_only=None)*
+        Adapts obj to this interface if it is not ``None`` returning ``None`` otherwise.
+        Short-cut for ``adapt(obj) if obj is not None else None``
 
     **can_adapt** *(obj, allow_implicit=False)*
         Returns ``True`` if ``adapt(obj, allow_implicit)`` will succeed.  Short-cut for
