@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.2.0'
+__version__ = '3.3.0'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -615,6 +615,14 @@ class PureInterface(ABC):
         if interface_only:
             adapted = cls.interface_only(adapted)
         return adapted
+
+    @classmethod
+    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
+        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
+        """ Adapt obj to to_interface or return None if adaption fails """
+        if obj is None:
+            return None
+        return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
     @classmethod
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):

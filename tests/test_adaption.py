@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import pure_interface
 
 import unittest
+import mock
 
 
 class ISpeaker(pure_interface.PureInterface):
@@ -310,3 +311,15 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         a = IA.adapt_or_none(4, interface_only=False)
         self.assertIsInstance(a, IntToA)
 
+    def test_optional_adapt(self):
+        a_speaker = Speaker()
+        allow = object()
+        interface_only = object()
+        with mock.patch('pure_interface.PureInterface.adapt') as adapt:
+            # act
+            s = ISpeaker.optional_adapt(a_speaker, allow_implicit=allow, interface_only=interface_only)
+            none = ISpeaker.optional_adapt(None, allow_implicit=allow, interface_only=interface_only)
+            # assert
+            adapt.assert_called_once_with(a_speaker, allow_implicit=allow, interface_only=interface_only)
+            self.assertIs(s, adapt.return_value)
+            self.assertIsNone(none, 'optional_adapt(None) did not return None')
