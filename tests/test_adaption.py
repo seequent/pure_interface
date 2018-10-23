@@ -315,11 +315,11 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         a_speaker = Speaker()
         allow = object()
         interface_only = object()
-        with mock.patch('pure_interface.PureInterface.adapt') as adapt:
+        with mock.patch('pure_interface.PureInterfaceType.adapt') as adapt:
             # act
             s = ISpeaker.optional_adapt(a_speaker, allow_implicit=allow, interface_only=interface_only)
             none = ISpeaker.optional_adapt(None, allow_implicit=allow, interface_only=interface_only)
             # assert
-            adapt.assert_called_once_with(a_speaker, allow_implicit=allow, interface_only=interface_only)
+            adapt.assert_called_once_with(ISpeaker, a_speaker, allow_implicit=allow, interface_only=interface_only)
             self.assertIs(s, adapt.return_value)
             self.assertIsNone(none, 'optional_adapt(None) did not return None')

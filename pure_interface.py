@@ -38,7 +38,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.3.0'
+__version__ = '3.3.1'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -70,6 +70,9 @@ class InterfaceError(Exception):
 
 def no_adaption(obj):
     return obj
+
+
+PI = TypeVar('PI', bound='PureInterface')
 
 
 class _PIAttributes(object):
@@ -387,6 +390,64 @@ def _do_missing_impl_warnings(cls, clsname):
         warnings.warn(message, stacklevel=stacklevel)
 
 
+def _structural_type_check(cls, instance):
+    subclass = type(instance)
+    for attr in cls._pi.interface_method_names:
+        subtype_value = getattr(subclass, attr, None)
+        if not callable(subtype_value):
+            return False
+    for attr in cls._pi.interface_attribute_names:
+        if not hasattr(instance, attr):
+            return False
+    return True
+
+
+def _class_structural_type_check(cls, subclass):
+    if subclass in cls._pi.structural_subclasses:
+        return True
+
+    for attr in cls._pi.interface_method_names:
+        subtype_value = getattr(subclass, attr, None)
+        if not callable(subtype_value):
+            return False
+    for attr in cls._pi.interface_attribute_names:
+        if not hasattr(subclass, attr):
+            return False
+
+    cls._pi.structural_subclasses.add(subclass)
+    if is_development:
+        stacklevel = 2
+        stack = inspect.stack()
+        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+            stacklevel += 1
+        warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
+                      'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
+                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
+                      stacklevel=stacklevel)
+    return True
+
+
+def _get_adapter(cls, obj_type):
+    # type: (Type[PI], Type[Any]) -> Optional[Callable]
+    """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
+    """
+    adapters = {}
+    candidate_interfaces = [cls] + cls.__subclasses__()
+    candidate_interfaces.reverse()  # prefer this class over sub-class adapters
+    for subcls in candidate_interfaces:
+        if type_is_pure_interface(subcls):
+            adapters.update(subcls._pi.adapters)
+    if not adapters:
+        return None
+
+    for obj_class in obj_type.__mro__:
+        try:
+            return adapters[obj_class]
+        except KeyError:
+            continue
+    return None
+
+
 class PureInterfaceType(abc.ABCMeta):
     """
     Meta-Class for PureInterface.
@@ -499,48 +560,73 @@ class PureInterfaceType(abc.ABCMeta):
         listing = sorted(listing)
         return listing
 
+    def provided_by(cls, obj, allow_implicit=True):
+        if not cls._pi.type_is_pure_interface:
+            raise ValueError('provided_by() can only be called on interfaces')
+        if isinstance(obj, cls):
+            return True
+        if not allow_implicit:
+            return False
+        if _class_structural_type_check(cls, type(obj)):
+            return True
+        return _structural_type_check(cls, obj)
 
-PI = TypeVar('PI', bound='PureInterface')
+    def interface_only(cls, implementation):
+        if cls._pi.impl_wrapper_type is None:
+            type_name = cls.__name__ + 'Only'
+            attributes = {'__module__': cls.__module__}
+            cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
+            abc.ABCMeta.register(cls, cls._pi.impl_wrapper_type)
+        return cls._pi.impl_wrapper_type(implementation, cls)
+
+    def adapt(cls, obj, allow_implicit=False, interface_only=None):
+        if interface_only is None:
+            interface_only = is_development
+        if PureInterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit):
+            adapter = no_adaption
+        else:
+            adapter = _get_adapter(cls, type(obj))
+            if adapter is None:
+                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
+
+        adapted = adapter(obj)
+        if not PureInterfaceType.provided_by(cls, adapted, allow_implicit):
+            raise ValueError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
+        if interface_only:
+            adapted = PureInterfaceType.interface_only(cls, adapted)
+        return adapted
+
+    def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
+        try:
+            return PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
+        except ValueError:
+            return None
+
+    def can_adapt(cls, obj, allow_implicit=False):
+        try:
+            PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit)
+        except ValueError:
+            return False
+        return True
+
+    def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
+        for obj in objects:
+            try:
+                f = PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
+            except ValueError:
+                continue
+            yield f
+
+    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
+        if obj is None:
+            return None
+        return PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
 @six.add_metaclass(PureInterfaceType)
 class PureInterface(ABC):
-    @classmethod
-    def _structural_type_check(cls, instance):
-        subclass = type(instance)
-        for attr in cls._pi.interface_method_names:
-            subtype_value = getattr(subclass, attr, None)
-            if not callable(subtype_value):
-                return False
-        for attr in cls._pi.interface_attribute_names:
-            if not hasattr(instance, attr):
-                return False
-        return True
-
-    @classmethod
-    def _class_structural_type_check(cls, subclass):
-        if subclass in cls._pi.structural_subclasses:
-            return True
-
-        for attr in cls._pi.interface_method_names:
-            subtype_value = getattr(subclass, attr, None)
-            if not callable(subtype_value):
-                return False
-        for attr in cls._pi.interface_attribute_names:
-            if not hasattr(subclass, attr):
-                return False
-
-        cls._pi.structural_subclasses.add(subclass)
-        if is_development:
-            stacklevel = 2
-            stack = inspect.stack()
-            while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
-                stacklevel += 1
-            warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
-                          'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
-                          .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
-                          stacklevel=stacklevel)
-        return True
+    # These methods don't need to be here, as they would resolve to the meta-class methods anyway.
+    # However including them here means we can add type hints that would otherwise be ambiguous on the meta-class.
 
     @classmethod
     def provided_by(cls, obj, allow_implicit=True):
@@ -550,47 +636,13 @@ class PureInterface(ABC):
         If allow_implicit is True then returns True if interface duck-type check passes.
         Returns False otherwise.
         """
-        if not cls._pi.type_is_pure_interface:
-            raise ValueError('provided_by() can only be called on interfaces')
-        if isinstance(obj, cls):
-            return True
-        if not allow_implicit:
-            return False
-        if cls._class_structural_type_check(type(obj)):
-            return True
-        return cls._structural_type_check(obj)
+        return PureInterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit)
 
     @classmethod
     def interface_only(cls, implementation):
-        # type: (Type[PI], Any) -> PI
+        # type: (Type[PI], PI) -> PI
         """ Returns a wrapper around implementation that provides ONLY this interface. """
-        if cls._pi.impl_wrapper_type is None:
-            type_name = cls.__name__ + 'Only'
-            attributes = {'__module__': cls.__module__}
-            cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
-            cls.register(cls._pi.impl_wrapper_type)
-        return cls._pi.impl_wrapper_type(implementation, cls)
-
-    @classmethod
-    def _get_adapter(cls, obj_type):
-        # type: (Type[PI], Type[Any]) -> Optional[Callable]
-        """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
-        """
-        adapters = {}
-        candidate_interfaces = [cls] + cls.__subclasses__()
-        candidate_interfaces.reverse()  # prefer this class over sub-class adapters
-        for subcls in candidate_interfaces:
-            if type_is_pure_interface(subcls):
-                adapters.update(subcls._pi.adapters)
-        if not adapters:
-            return None
-
-        for obj_class in obj_type.__mro__:
-            try:
-                return adapters[obj_class]
-            except KeyError:
-                continue
-        return None
+        return PureInterfaceType.interface_only(cls, implementation)
 
     @classmethod
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
@@ -600,48 +652,19 @@ class PureInterface(ABC):
         If interface_only is True, or interface_only is None and is_development is True then the
         returned object is wrapped by an object that only provides the methods and properties defined by to_interface.
         """
-        if interface_only is None:
-            interface_only = is_development
-        if cls.provided_by(obj, allow_implicit=allow_implicit):
-            adapter = no_adaption
-        else:
-            adapter = cls._get_adapter(type(obj))
-            if adapter is None:
-                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
-
-        adapted = adapter(obj)
-        if not cls.provided_by(adapted, allow_implicit):
-            raise ValueError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
-        if interface_only:
-            adapted = cls.interface_only(adapted)
-        return adapted
-
-    @classmethod
-    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
-        """ Adapt obj to to_interface or return None if adaption fails """
-        if obj is None:
-            return None
-        return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
+        return PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
     @classmethod
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
         # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
         """ Adapt obj to to_interface or return None if adaption fails """
-        try:
-            return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
-        except ValueError:
-            return None
+        return PureInterfaceType.adapt_or_none(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
     @classmethod
     def can_adapt(cls, obj, allow_implicit=False):
         # type: (Any, bool) -> bool
         """ Returns True if adapt(obj, allow_implicit) will succeed."""
-        try:
-            cls.adapt(obj, allow_implicit=allow_implicit)
-        except ValueError:
-            return False
-        return True
+        return PureInterfaceType.can_adapt(cls, obj, allow_implicit=allow_implicit)
 
     @classmethod
     def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
@@ -649,12 +672,14 @@ class PureInterface(ABC):
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
-        for obj in objects:
-            try:
-                f = cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
-            except ValueError:
-                continue
-            yield f
+        return PureInterfaceType.filter_adapt(cls, objects, allow_implicit=allow_implicit,
+                                              interface_only=interface_only)
+
+    @classmethod
+    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
+        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
+        """ Adapt obj to to_interface or return None if adaption fails """
+        return PureInterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
 class Concrete(object):
