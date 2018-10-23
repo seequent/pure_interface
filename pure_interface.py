@@ -617,6 +617,11 @@ class PureInterfaceType(abc.ABCMeta):
                 continue
             yield f
 
+    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
+        if obj is None:
+            return None
+        return PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
+
 
 @six.add_metaclass(PureInterfaceType)
 class PureInterface(ABC):
@@ -674,9 +679,7 @@ class PureInterface(ABC):
     def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
         # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
         """ Adapt obj to to_interface or return None if adaption fails """
-        if obj is None:
-            return None
-        return cls.adapt(obj, allow_implicit=allow_implicit, interface_only=interface_only)
+        return PureInterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
 class Concrete(object):
