@@ -36,6 +36,36 @@ class BadGrowingMixin(object):
         self._height = height
 
 
+class IRegisteredInterface(pure_interface.PureInterface):
+    def register(self):  # overrides ABCMeta.register
+        return None
+
+    def adapt(self):
+        pass
+
+    def provided_by(self, x):
+        pass
+
+
+class RegisteredInterface(pure_interface.Concrete, IRegisteredInterface):
+    def register(self):  # overrides ABCMeta.register
+        return "You're all signed up"
+
+    def adapt(self):
+        return "You're highly adaptable"
+
+    def provided_by(self, x):
+        return False
+
+
+class X(object):
+    pass
+
+
+class Y(object):
+    pass
+
+
 class TestInheritance(unittest.TestCase):
     def test_bad_mixin_class_is_checked(self):
         pure_interface.is_development = True
@@ -52,3 +82,39 @@ class TestInheritance(unittest.TestCase):
 
         g = Growing()
         self.assertEqual(g.get_height(), 10)
+
+
+class TestPIMethodOverrides(unittest.TestCase):
+    def test_register_override(self):
+        x = RegisteredInterface()
+        # act
+        v = x.register()
+
+        self.assertEqual("You're all signed up", v)
+
+    def test_register_via_metaclass(self):
+        # act
+        pure_interface.PureInterfaceType.register(IRegisteredInterface, Y)
+
+        self.assertIsInstance(Y(), IRegisteredInterface)
+
+    def test_adapt_override(self):
+        x = RegisteredInterface()
+        # act
+        v = x.adapt()
+
+        self.assertEqual("You're highly adaptable", v)
+
+    def test_adapt_via_metaclass(self):
+        x = RegisteredInterface()
+        # act
+        v = pure_interface.PureInterfaceType.adapt(IRegisteredInterface, x)
+
+        self.assertIsInstance(v, IRegisteredInterface)
+
+    def test_adapt_via_metaclass2(self):
+        x = RegisteredInterface()
+        # act
+        v = pure_interface.PureInterfaceType.adapt_or_none(IRegisteredInterface, x)
+
+        self.assertIsInstance(v, IRegisteredInterface)
