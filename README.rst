@@ -469,14 +469,40 @@ Reference
 Classes
 -------
 
-**PureInterfaceType**
+**PureInterfaceType(abc.ABCMeta)**
     Metaclass for checking interface and implementation classes.
     Adding PureInterfaceType as a meta-class to a class will not make that class an interface, you need to
     inherit from ``PureInterface`` class to define an interface.
 
+    In addition to the ``register`` method provided by ``ABCMeta``, the following functions are defined on
+    ``PureInterfaceType`` and can be accessed directly when the ``PureInterface`` methods are overridden
+    for other purposes.
+
+    **adapt** *(cls, obj, allow_implicit=False, interface_only=None)*
+        See ``PureInterface.adapt`` for a description.
+
+    **adapt_or_none** *(cls, obj, allow_implicit=False, interface_only=None)*
+        See ``PureInterface.adapt_or_none`` for a description
+
+    **optional_adapt** *(cls, obj, allow_implicit=False, interface_only=None)*
+        See ``PureInterface.optional_adapt`` for a description
+
+    **can_adapt** *(cls, obj, allow_implicit=False)*
+        See ``PureInterface.can_adapt`` for a description
+
+    **filter_adapt** *(cls, objects, allow_implicit=False, interface_only=None)*
+        See ``PureInterface.filter_adapt`` for a description
+
+    **interface_only** *(cls, implementation)*
+        See ``PureInterface.interface_only`` for a description
+
+    **provided_by** *(cls, obj, allow_implicit=True)*
+        See ``PureInterface.provided_by`` for a description
+
     Classes created with a metaclass of ``PureInterfaceType`` will have the following property:
 
-    **_pi** Information about the class that is used by this meta-class
+    **_pi** Information about the class that is used by this meta-class.  This attribute is reserved for use by
+            ``pure_interface`` and must not be overridden.
 
 
 **PureInterface**
