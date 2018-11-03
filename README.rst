@@ -421,6 +421,31 @@ get_interface_attribute_names(interface)
     if interface is not a ``PureInterface`` subtype then an empty set is returned
 
 
+Automatic Adaption
+==================
+The function decorator ``adapt_args`` adapts arguments to a decorated function to the types given.
+For example::
+
+    @adapt_args(foo=IFoo, bar=IBar)
+    def my_func(foo, bar=None):
+        pass
+
+In Python 3.5 and later the types can be taken from the argument annotations.::
+
+    @adapt_args
+    def my_func(foo: IFoo, bar: IBar=None):
+        pass
+
+This would adapt the ``foo`` parameter to ``IFoo`` (with ``IFoo.optional_adapt(foo))`` and ``bar`` to ``IBar
+(using ``IBar.optional_adapt(bar)``)
+before passing them to my_func.  ``None`` values are never adapted, so ``my_func(foo, None)`` will work, otherwise
+``ValueError`` is raised if the parameter is not adaptable.
+All arguments must be specified as keyword arguments::
+
+    @adapt_args(IFoo, IBar)   # NOT ALLOWED
+    def other_func(foo, bar):
+        pass
+
 Development Flag
 ================
 

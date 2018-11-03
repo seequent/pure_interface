@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import mock
 import unittest
 
 import pure_interface
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 
 class IAnimal(pure_interface.PureInterface):

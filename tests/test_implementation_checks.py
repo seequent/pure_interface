@@ -1,11 +1,15 @@
 import pure_interface
 
 import abc
-import mock
 import sys
 import unittest
 
 import six
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 
 class IAnimal(pure_interface.PureInterface):
