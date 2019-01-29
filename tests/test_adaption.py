@@ -4,7 +4,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import pure_interface
 
 import unittest
-import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 
 class ISpeaker(pure_interface.PureInterface):
@@ -103,7 +106,7 @@ class SleepTalker(pure_interface.Concrete, ISleepTalker):
         self.is_asleep = sleeper.is_asleep
 
     def speak(self, volume):
-        super().speak(volume)
+        super(SleepTalker, self).speak(volume)
 
 
 class TestAdaption(unittest.TestCase):

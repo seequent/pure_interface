@@ -7,9 +7,11 @@ from __future__ import division, print_function, absolute_import
 import abc
 import collections
 import dis
+import functools
 import inspect
 import types
 from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Tuple
+import typing
 import sys
 import warnings
 import weakref
@@ -831,3 +833,97 @@ def get_interface_properties_and_attribute_names(interface):
         return _get_pi_attribute(interface, 'interface_attribute_names')
     else:
         return frozenset()
+
+
+def _interface_from_anno(annotation):
+    """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
+    a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
+    """
+    try:
+        if issubclass(annotation, PureInterface):
+            return annotation
+    except TypeError:
+        pass
+    if hasattr(annotation, '__origin__') and hasattr(annotation, '__args__'):
+        # could be a typing.Union
+        if annotation.__origin__ is not typing.Union:
+            return None
+        for arg_type in annotation.__args__:
+            try:
+                if issubclass(arg_type, PureInterface):
+                    return arg_type
+            except TypeError:
+                pass
+
+    return None
+
+
+def adapt_args(*func_arg, **kwarg_types):
+    """ adapts arguments to the decorated function to the types given.  For example:
+
+            @adapt_args(foo=IFoo, bar=IBar)
+            def my_func(foo, bar):
+                pass
+
+        This would adapt the foo parameter to IFoo (with IFoo.optional_adapt(foo)) and bar to IBar (using IBar.adapt(bar))
+        before passing them to my_func.  `None` values are never adapted, so my_func(foo, None) will work, otherwise
+        ValueError is raised if the parameter is not adaptable.
+        All arguments must be specified as keyword arguments
+
+            @adapt_args(IFoo, IBar)   # NOT ALLOWED
+            def other_func(foo, bar):
+                pass
+
+        Parameters are only adapted if not None.  This is useful for optional args:
+
+            @adapt_args(foo=IFoo)
+            def optional_func(foo=None):
+                pass
+
+        In Python 3 the types can be taken from the annotations.  Optional[interface] is supported too.
+
+            @adapt_args
+            def my_func(foo: IFoo, bar: Optional[IBar] = None):
+                pass
+
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            adapted_kwargs = inspect.getcallargs(func, *args, **kwargs)
+            for name, interface in kwarg_types.items():
+                kwarg = adapted_kwargs.get(name, None)
+                adapted_kwargs[name] = PureInterfaceType.optional_adapt(interface, kwarg)
+
+            return func(**adapted_kwargs)
+        return wrapped
+
+    if func_arg:
+        if len(func_arg) != 1:
+            raise TypeError('Only one posititional argument permitted')
+        if not isinstance(func_arg[0], types.FunctionType):
+            raise TypeError('Positional argument must be a function (to decorate)')
+        if kwarg_types:
+            raise TypeError('keyword parameters not permitted with positional argument')
+        funcn = func_arg[0]
+        annotations = typing.get_type_hints(funcn)
+        if annotations is None:
+            annotations = {}
+        if not annotations:
+            warnings.warn('No annotations for {}. '
+                          'Add annotations or pass explicit argument types to adapt_args'.format(funcn.__name__),
+                          stacklevel=2)
+        for key, anno in annotations.items():
+            i_face = _interface_from_anno(anno)
+            if i_face is not None:
+                kwarg_types[key] = i_face
+        return decorator(funcn)
+
+    for key, i_face in kwarg_types.items():
+        try:
+            can_adapt = issubclass(i_face, PureInterface)
+        except TypeError:
+            can_adapt = False
+        if not can_adapt:
+            raise TypeError('adapt_args parameter values must be subtypes of PureInterface')
+    return decorator
