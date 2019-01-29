@@ -404,7 +404,7 @@ class, interface pair.  For example::
 
 Interface Type Information
 ==========================
-The ``pure_interface`` module provides 4 functions for returning information about interface types.
+The ``pure_interface`` module provides these functions for returning information about interface types.
 
 type_is_pure_interface(cls)
     Return True if cls is a pure interface, False otherwise or if cls is not a class.
