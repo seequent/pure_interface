@@ -404,7 +404,7 @@ class, interface pair.  For example::
 
 Interface Type Information
 ==========================
-The ``pure_interface`` module provides 4 functions for returning information about interface types.
+The ``pure_interface`` module provides these functions for returning information about interface types.
 
 type_is_pure_interface(cls)
     Return True if cls is a pure interface, False otherwise or if cls is not a class.
@@ -412,12 +412,16 @@ type_is_pure_interface(cls)
 get_type_interfaces(cls)
     Returns all interfaces in the cls mro including cls itself if it is an interface
 
+get_interface_names(cls)
+    Returns a ``frozenset`` of names (methods and attributes) defined by the interface.
+    if interface is not a ``PureInterface`` subtype then an empty set is returned.
+
 get_interface_method_names(interface)
-    Returns a frozen set of names of methods defined by the interface.
+    Returns a ``frozenset`` of names of methods defined by the interface.
     if interface is not a ``PureInterface`` subtype then an empty set is returned
 
 get_interface_attribute_names(interface)
-    Returns a frozen set of names of attributes defined by the interface.
+    Returns a ``frozenset`` of names of attributes defined by the interface.
     if interface is not a ``PureInterface`` subtype then an empty set is returned
 
 
@@ -591,13 +595,17 @@ Functions
 **get_type_interfaces** *(cls)*
     Returns all interfaces in the *cls* mro including cls itself if it is an interface
 
+**get_interface_names** *(cls)*
+    Returns a ``frozenset`` of names (methods and attributes) defined by the interface.
+    if interface is not a ``PureInterface`` subtype then an empty set is returned.
+
 **get_interface_method_names** *(cls)*
     Returns a ``frozenset`` of names of methods defined by the interface.
-    If *cls* is not a interface type then an empty set is returned.
+    If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
 
 **get_interface_attribute_names** *(cls)*
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
-    If *cls* is not a interface type then an empty set is returned.
+    If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
 
 
 Module Attributes

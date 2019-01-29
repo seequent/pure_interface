@@ -773,6 +773,17 @@ def get_type_interfaces(cls):
     return [base for base in bases if type_is_pure_interface(base) and base is not PureInterface]
 
 
+def get_interface_names(interface):
+    # type: (Type[PureInterface]) -> FrozenSet[str]
+    """ returns a frozen set of names (methods and attributes) defined by the interface.
+    if interface is not a PureInterface subtype then an empty set is returned.
+    """
+    if type_is_pure_interface(interface):
+        return _get_pi_attribute(interface, 'interface_names')
+    else:
+        return frozenset()
+
+
 def get_interface_method_names(interface):
     # type: (Type[PureInterface]) -> FrozenSet[str]
     """ returns a frozen set of names of methods defined by the interface.
