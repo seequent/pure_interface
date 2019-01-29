@@ -84,6 +84,12 @@ class TestModuleFunctions(unittest.TestCase):
         self.assertEqual(get_interface_attribute_names(Cat), set())
         self.assertEqual(get_interface_attribute_names('hello'), set())
 
+    def test_get_interface_names(self):
+        self.assertEqual(get_interface_names(IAnimal), {'speak', 'weight', 'species'})
+        self.assertEqual(get_interface_names(ILandAnimal), {'speak', 'weight', 'species', 'height', 'num_legs'})
+        self.assertEqual(get_interface_names(Cat), set())
+        self.assertEqual(get_interface_names('hello'), set())
+
     def test_get_interface_attr_prop_names(self):
         self.assertEqual(get_interface_properties_and_attribute_names(IAnimal), {'weight', 'species'})
         self.assertEqual(get_interface_properties_and_attribute_names(ILandAnimal), {'weight', 'species', 'height'})
