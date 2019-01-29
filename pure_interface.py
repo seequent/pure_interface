@@ -444,7 +444,7 @@ def _get_adapter(cls, obj_type):
 
     for obj_class in obj_type.__mro__:
         try:
-            return adapters[obj_class]
+            return adapters[obj_class]()
         except KeyError:
             continue
     return None
@@ -749,7 +749,10 @@ def register_adapter(adapter, from_type, to_interface):
     adapters = _get_pi_attribute(to_interface, 'adapters')
     if from_type in adapters:
         raise ValueError('{} already has an adapter to {}'.format(from_type, to_interface))
-    adapters[from_type] = weakref.proxy(adapter)
+
+    def on_gone(ref):
+        adapters.pop(from_type, None)
+    adapters[from_type] = weakref.ref(adapter, on_gone)
 
 
 def type_is_pure_interface(cls):
