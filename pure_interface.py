@@ -369,7 +369,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             func = value
         func_sig = getargspec(func)
         if not _signatures_are_consistent(func_sig, base_sig):
-            msg = '{module}.{clsname}.{name} argments does not match base class'.format(
+            msg = '{module}.{clsname}.{name} arguments do not match base method'.format(
                 module=attributes['__module__'], clsname=clsname, name=name)
             raise InterfaceError(msg)
 
