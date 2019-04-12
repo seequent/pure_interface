@@ -586,7 +586,7 @@ class PureInterfaceType(abc.ABCMeta):
 
     def interface_only(cls, implementation):
         if cls._pi.impl_wrapper_type is None:
-            type_name = cls.__name__ + 'Only'
+            type_name = '_{}Only'.format(cls.__name__)
             attributes = {'__module__': cls.__module__}
             cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
             abc.ABCMeta.register(cls, cls._pi.impl_wrapper_type)
