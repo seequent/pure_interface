@@ -755,6 +755,44 @@ def register_adapter(adapter, from_type, to_interface):
     adapters[from_type] = weakref.ref(adapter, on_gone)
 
 
+class AdapterTracker(object):
+    """ The idiom of checking if `x is b` is broken for adapted objects because a new adapter is potentially
+    instantiated each time x or b is adapted.  Also in some context we adapt the same objects many times and don't
+    want the overhead of lots of copies.  This class provides adapt() and adapt_or_none() methods that track adaptions.
+    Thus if `x is b` is `True` then `adapter.adapt(x, I) is adapter.adapt(b, I)` is `True`.
+    """
+    def __init__(self, mapping_factory=dict):
+        self._factory = mapping_factory
+        self._adapters = mapping_factory()
+
+    def adapt(self, obj, interface):
+        """ Adapts `obj` to `interface`"""
+        try:
+            return self._adapters[interface][obj]
+        except KeyError:
+            return self._adapt(obj, interface)
+
+    def adapt_or_none(self, obj, interface):
+        """ Adapt obj to interface returning None on failure."""
+        try:
+            return self.adapt(obj, interface)
+        except ValueError:
+            return None
+
+    def clear(self):
+        """ Clears the cached adapters."""
+        self._adapters = self._factory()
+
+    def _adapt(self, obj, interface):
+        adapted = interface.adapt(obj)
+        try:
+            adapters = self._adapters[interface]
+        except KeyError:
+            adapters = self._adapters[interface] = self._factory()
+        adapters[obj] = adapted
+        return adapted
+
+
 def type_is_pure_interface(cls):
     # type: (Type[Any]) -> bool
     """ Return True if cls is a pure interface"""
