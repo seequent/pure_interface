@@ -66,7 +66,18 @@ else:
     ABC = abc.ABC
 
 
-class InterfaceError(Exception):
+class PureInterfaceError(Exception):
+    """ All exceptions raised by this module are subclasses of this exception """
+    pass
+
+
+class InterfaceError(PureInterfaceError, TypeError):
+    """ An error with an interface class definition or implementation"""
+    pass
+
+
+class AdaptionError(PureInterfaceError, ValueError):
+    """ An adaption error """
     pass
 
 
@@ -347,7 +358,7 @@ def _ensure_everything_is_abstract(attributes):
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
             continue  # do not add to class namespace
         else:
-            raise ValueError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
+            raise InterfaceError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
         namespace[name] = value
     return namespace, functions, interface_method_signatures, interface_attribute_names
 
@@ -548,11 +559,11 @@ class PureInterfaceType(abc.ABCMeta):
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
         if cls._pi.type_is_pure_interface:
-            raise TypeError('Interfaces cannot be instantiated')
+            raise InterfaceError('Interfaces cannot be instantiated')
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
             if not hasattr(self, attr):
-                raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
+                raise InterfaceError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
     def __dir__(cls):
@@ -564,7 +575,7 @@ class PureInterfaceType(abc.ABCMeta):
 
     def provided_by(cls, obj, allow_implicit=True):
         if not cls._pi.type_is_pure_interface:
-            raise ValueError('provided_by() can only be called on interfaces')
+            raise InterfaceError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
             return True
         if not allow_implicit:
@@ -589,11 +600,11 @@ class PureInterfaceType(abc.ABCMeta):
         else:
             adapter = _get_adapter(cls, type(obj))
             if adapter is None:
-                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
+                raise AdaptionError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
         adapted = adapter(obj)
         if not PureInterfaceType.provided_by(cls, adapted, allow_implicit):
-            raise ValueError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
+            raise AdaptionError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
         if interface_only:
             adapted = PureInterfaceType.interface_only(cls, adapted)
         return adapted
@@ -601,13 +612,13 @@ class PureInterfaceType(abc.ABCMeta):
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
         try:
             return PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
-        except ValueError:
+        except AdaptionError:
             return None
 
     def can_adapt(cls, obj, allow_implicit=False):
         try:
             PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit)
-        except ValueError:
+        except AdaptionError:
             return False
         return True
 
@@ -615,7 +626,7 @@ class PureInterfaceType(abc.ABCMeta):
         for obj in objects:
             try:
                 f = PureInterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
-            except ValueError:
+            except AdaptionError:
                 continue
             yield f
 
@@ -741,14 +752,14 @@ def register_adapter(adapter, from_type, to_interface):
     :param to_interface: a (non-concrete) PureInterface subclass to adapt to.
     """
     if not callable(adapter):
-        raise ValueError('adapter must be callable')
+        raise AdaptionError('adapter must be callable')
     if not isinstance(from_type, type):
-        raise ValueError('{} must be a type'.format(from_type))
+        raise AdaptionError('{} must be a type'.format(from_type))
     if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
-        raise ValueError('{} is not an interface'.format(to_interface))
+        raise AdaptionError('{} is not an interface'.format(to_interface))
     adapters = _get_pi_attribute(to_interface, 'adapters')
     if from_type in adapters:
-        raise ValueError('{} already has an adapter to {}'.format(from_type, to_interface))
+        raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
 
     def on_gone(ref):
         adapters.pop(from_type, None)
@@ -905,7 +916,7 @@ def adapt_args(*func_arg, **kwarg_types):
 
         This would adapt the foo parameter to IFoo (with IFoo.optional_adapt(foo)) and bar to IBar (using IBar.adapt(bar))
         before passing them to my_func.  `None` values are never adapted, so my_func(foo, None) will work, otherwise
-        ValueError is raised if the parameter is not adaptable.
+        AdaptionError is raised if the parameter is not adaptable.
         All arguments must be specified as keyword arguments
 
             @adapt_args(IFoo, IBar)   # NOT ALLOWED
@@ -938,11 +949,11 @@ def adapt_args(*func_arg, **kwarg_types):
 
     if func_arg:
         if len(func_arg) != 1:
-            raise TypeError('Only one posititional argument permitted')
+            raise AdaptionError('Only one posititional argument permitted')
         if not isinstance(func_arg[0], types.FunctionType):
-            raise TypeError('Positional argument must be a function (to decorate)')
+            raise AdaptionError('Positional argument must be a function (to decorate)')
         if kwarg_types:
-            raise TypeError('keyword parameters not permitted with positional argument')
+            raise AdaptionError('keyword parameters not permitted with positional argument')
         funcn = func_arg[0]
         annotations = typing.get_type_hints(funcn)
         if annotations is None:
@@ -963,5 +974,5 @@ def adapt_args(*func_arg, **kwarg_types):
         except TypeError:
             can_adapt = False
         if not can_adapt:
-            raise TypeError('adapt_args parameter values must be subtypes of PureInterface')
+            raise AdaptionError('adapt_args parameter values must be subtypes of PureInterface')
     return decorator

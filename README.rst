@@ -92,7 +92,7 @@ considered empty.
 Interface classes cannot be instantiated ::
 
     IAnimal()
-    TypeError: Interfaces cannot be instantiated.
+    InterfaceError: Interfaces cannot be instantiated.
 
 Including code in a method will result in an ``InterfaceError`` being raised when the module is imported. For example::
 
@@ -206,7 +206,7 @@ will issue this warning::
 Trying to create a ``SilentAnimal`` will fail in the standard abc way::
 
     SilentAnimal()
-    TypeError: Can't instantiate abstract class SilentAnimal with abstract methods speak
+    InterfaceError: Can't instantiate abstract class SilentAnimal with abstract methods speak
 
 If you have a mixin class that implements part of an interface you can suppress the warnings by adding an class attribute
 called ``pi_partial_implementation``.  The value of the attribute is ignored, and the attribute itself is removed from
@@ -276,7 +276,7 @@ Adapting Objects
 ----------------
 
 The ``PureInterface.adapt`` method will adapt an object to the given interface
-such that ``Interface.provided_by`` is ``True`` or raise ``ValueError`` if no adapter could be found.  For example::
+such that ``Interface.provided_by`` is ``True`` or raise ``AdaptionError`` if no adapter could be found.  For example::
 
     speaker = ISpeaker.adapt(talker)
     isinstance(speaker, ISpeaker)  --> True
@@ -443,7 +443,7 @@ In Python 3.5 and later the types can be taken from the argument annotations.::
 This would adapt the ``foo`` parameter to ``IFoo`` (with ``IFoo.optional_adapt(foo))`` and ``bar`` to ``IBar
 (using ``IBar.optional_adapt(bar)``)
 before passing them to my_func.  ``None`` values are never adapted, so ``my_func(foo, None)`` will work, otherwise
-``ValueError`` is raised if the parameter is not adaptable.
+``AdaptionError`` is raised if the parameter is not adaptable.
 All arguments must be specified as keyword arguments::
 
     @adapt_args(IFoo, IBar)   # NOT ALLOWED
@@ -542,11 +542,11 @@ Classes
         If ``interface_only`` is ``None`` the it is set to the value of ``is_development``.
         If ``interface_only`` resolves to ``True`` a wrapper object that provides
         the properties and methods defined by the interface and nothing else is returned.
-        Raises ``ValueError`` if no adaption is possible or a registered adapter returns an object not providing
+        Raises ``AdaptionError`` if no adaption is possible or a registered adapter returns an object not providing
         this interface.
 
     **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
-        As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
+        As per **adapt()** except returns ``None`` instead of raising a ``AdaptionError``
 
     **optional_adapt** *(obj, allow_implicit=False, interface_only=None)*
         Adapts obj to this interface if it is not ``None`` returning ``None`` otherwise.
@@ -568,7 +568,7 @@ Classes
     **provided_by** *(obj, allow_implicit=True)*
         Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
         return ``True`` for objects that provide the interface structure but do not inherit from it.
-        Raises ``ValueError`` if the class is a concrete type.
+        Raises ``InterfaceError`` if the class is a concrete type.
 
 
 **Concrete**
@@ -606,6 +606,18 @@ Functions
 **get_interface_attribute_names** *(cls)*
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
     If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
+
+
+Exceptions
+----------
+**PureInterfaceError**
+    Base exception class for all exceptions raised by ``pure_interface``.
+
+**InterfaceError**
+    Exception raised for problems with interfaces
+
+**AdaptionError**
+    Exception raised for problems with adapters or adapting.
 
 
 Module Attributes

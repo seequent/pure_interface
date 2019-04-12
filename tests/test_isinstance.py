@@ -67,7 +67,7 @@ class TestIsInstanceChecks(unittest.TestCase):
                 return True
 
         c = Cat()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(pure_interface.InterfaceError):
             Cat.provided_by(c, allow_implicit=False)
 
     def test_warning_issued_once(self):
