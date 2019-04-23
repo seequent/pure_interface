@@ -22,3 +22,16 @@ class TestImplementationChecks(unittest.TestCase):
 
         self.assertIn('a', get_interface_attribute_names(IAnnotation))
         self.assertIn('b', get_interface_attribute_names(IAnnotation))
+
+    def test_works_with_init_subclass_kwargs(self):
+        saved_kwargs = {}
+
+        class ReceivesClassKwargs:
+            def __init_subclass__(cls, **kwargs):
+                super().__init_subclass__()
+                saved_kwargs.update(kwargs)
+
+        class Receiver(ReceivesClassKwargs, PureInterface, x=1, y=2, z=3):
+            pass
+
+        self.assertEqual(saved_kwargs, dict(x=1, y=2, z=3))

@@ -473,13 +473,13 @@ class PureInterfaceType(abc.ABCMeta):
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
 
-    def __new__(mcs, clsname, bases, attributes):
+    def __new__(mcs, clsname, bases, attributes, **kwargs):
         # PureInterface is not in globals() when we are constructing the PureInterface class itself.
         has_interface = any(PureInterface in base.mro() for base in bases) if 'PureInterface' in globals() else True
         if not has_interface:
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
-            cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, attributes)
+            cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, attributes, **kwargs)
             cls._pi = _PIAttributes(False, (), {}, ())
             return cls
 
@@ -546,7 +546,7 @@ class PureInterfaceType(abc.ABCMeta):
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
-        cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
+        cls = super(PureInterfaceType, mcs).__new__(mcs, clsname, bases, namespace, **kwargs)
         cls._pi = _PIAttributes(type_is_interface, abstract_properties,
                                 interface_method_signatures, interface_attribute_names)
 
