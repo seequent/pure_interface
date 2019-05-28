@@ -991,7 +991,7 @@ try:
                     annos[key] = sc_annos[key]
         return annos
 
-    def dataclass(_cls=None, *, init=True, repr=True, eq=True, order=False,
+    def dataclass(_cls=None, init=True, repr=True, eq=True, order=False,
                   unsafe_hash=False, frozen=False):
         """Returns the same class as was passed in, with dunder methods
         added based on the fields defined in the class.
