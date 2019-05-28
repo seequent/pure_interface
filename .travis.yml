@@ -9,7 +9,7 @@ python:
 sudo: false
 
 install:
-  - python -m pip install -r requirements_dev.txt
+  - pip install -r requirements_dev.txt
 
 script:
-  - python -m unittest discover -p test* tests
+  - python -m unittest discover -p "test*"
