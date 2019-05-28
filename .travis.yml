@@ -12,4 +12,4 @@ install:
   - python -m pip install -r requirements_dev.txt
 
 script:
-  - python -m unittest discover -p test*
+  - python -m unittest discover -p test* tests
