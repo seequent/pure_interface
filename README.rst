@@ -402,6 +402,20 @@ class, interface pair.  For example::
     UserWarning: Class Parrot implements ISpeaker.
     Consider inheriting ISpeaker or using ISpeaker.register(Parrot)
 
+Dataclass Support
+=================
+dataclasses_ were added in Python 3.7.  When used in this and later versions of Python, ``pure_interface`` provides a
+``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
+
+    @dataclass
+    class Speaker(Concrete, ISpeaker):
+        def speak(self, volume):
+            print('hello, I am {} tall', self.height)
+
+The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the annotations
+on the interface base class (``ISpeaker``).  As per the built-in ``dataclass`` decorator, only interface attributes defined
+using annotation syntax are supported (and not the alternatives syntaxes provided by ``pure_interface``).
+
 Interface Type Information
 ==========================
 The ``pure_interface`` module provides these functions for returning information about interface types.
@@ -640,8 +654,8 @@ Module Attributes
 .. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
 .. _PEP-544: https://www.python.org/dev/peps/pep-0544/
-.. _GitHub: https://github.com/aranzgeo/pure_interface
+.. _GitHub: https://github.com/seequent/pure_interface
 .. _mypy: http://mypy-lang.org/
 .. _py2exe: https://pypi.python.org/pypi/py2exe
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
-
+.. _dataclasses: https://docs.python.org/3/library/dataclasses.html
