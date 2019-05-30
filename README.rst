@@ -32,7 +32,7 @@ pure_interface depends on the six_ and typing_ modules (typing is included in py
 
 You can install released versions of ``pure_interface`` using pip::
 
-    pip install pure_interface
+    pip install pure-interface
 
 or you can grab the source code from GitHub_.
 
