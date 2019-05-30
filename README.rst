@@ -1,4 +1,4 @@
-pure_interface
+pure-interface
 ==============
 
 .. image:: https://travis-ci.com/seequent/pure_interface.svg?branch=master
@@ -15,16 +15,16 @@ Features
 * Supports interface adaption.
 * Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
 * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
-* Treats abc interfaces that do not include any implementation as a pure interface type.
-  This means that ``class C(PureInterface, ABCInterface)`` will be a pure interface if the abc interface meets the
-  no function body content criteria.
+* ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
+  attributes and methods defined by ``Interface``.
 * Warns if ``provided_by`` did a structural type check when inheritance would work.
 * Supports python 2.7 and 3.5+
 
 A note on the name
 ------------------
 The phrase *pure interface* applies only to the first design goal - a class that defines only an interface with no
-implementation is a pure interface.  In every other respect the zen of 'practicality beats purity' applies.
+implementation is a pure interface [*]_.
+In every other respect the zen of 'practicality beats purity' applies.
 
 Installation
 ------------
@@ -36,8 +36,8 @@ You can install released versions of ``pure_interface`` using pip::
 
 or you can grab the source code from GitHub_.
 
-Defining a Pure Interface
-=========================
+Defining an Interface
+=====================
 
 For simplicity in these examples we assume that the entire pure_interface namespace has been imported ::
 
@@ -53,8 +53,8 @@ leaving all method bodies empty::
             pass
 
 
-Like Protocols, class annotations are considered part of the interface. In Python versions earlier than 3.6 you can use
-the following alternate syntax::
+Like Protocols, class annotations are considered part of the interface.
+In Python versions earlier than 3.6 you can use the following alternate syntax::
 
     class IAnimal(PureInterface):
         height = None
@@ -73,6 +73,7 @@ ABC-style property definitions are also supported (and equivalent)::
         def height(self):
             pass
 
+        @abstractmethod
         def speak(self, volume):
             pass
 
@@ -357,11 +358,7 @@ The structural type-checking does not check function signatures.::
 
     class Parrot(object):
         def __init__(self):
-            self._height = 43
-
-        @property
-        def height(self):
-            return self._height
+            self.height = 43
 
         def speak(self, volume):
             print('hello')
@@ -374,9 +371,7 @@ The structural type-checking does not check function signatures.::
 The structural type checking makes working with data transfer objects (DTO's) much easier.::
 
     class IMyDataType(PureInterface):
-        @property
-        def thing(self):
-            pass
+        thing: str
 
     class DTO(object):
         pass
@@ -407,13 +402,23 @@ Dataclass Support
 dataclasses_ were added in Python 3.7.  When used in this and later versions of Python, ``pure_interface`` provides a
 ``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
 
-    @dataclass
-    class Speaker(Concrete, ISpeaker):
-        def speak(self, volume):
-            print('hello, I am {} tall', self.height)
+    class IAnimal2(PureInterface):
+        height: float
+        species: str
 
-The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the annotations
-on the interface base class (``ISpeaker``).  As per the built-in ``dataclass`` decorator, only interface attributes defined
+        def speak(self):
+            pass
+
+    @dataclass
+    class Animal(Concrete, IAnimal2):
+        def speak(self):
+            print('hello, I am {}m tall {}', self.height, self.species)
+
+    a = Animal(height=4.5, species='Giraffe')
+
+The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the
+``height`` and ``species`` annotations on the interface base class ``IAnimal2``.
+As per the built-in ``dataclass`` decorator, only interface attributes defined
 using annotation syntax are supported (and not the alternatives syntaxes provided by ``pure_interface``).
 
 Interface Type Information
@@ -621,6 +626,13 @@ Functions
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
     If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
 
+**dataclass** *(_cls=None, init=True, repr=True, eq=True, order=False, unsafe_hash=False, frozen=False)*
+    This function is a re-implementation of the standard Python ``dataclasses.dataclass`` decorator.
+    In addition to the fields on the decorated class, all annotations on interface base classes are added as fields.
+    See the Python dataclasses_ documentation for more details.
+
+    3.7+ Only
+
 
 Exceptions
 ----------
@@ -650,6 +662,7 @@ Module Attributes
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.
     Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
+-----------
 
 .. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
@@ -659,3 +672,5 @@ Module Attributes
 .. _py2exe: https://pypi.python.org/pypi/py2exe
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
+.. [*] We don't talk about the methods on the base ``PureInterface`` class.  In earlier versions they
+   were all on the meta class but then practicality got in the way.
