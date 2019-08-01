@@ -11,6 +11,13 @@ try:
 except ImportError:
     import mock
 
+class ADescriptor(object):
+    def __init__(self, value):
+        self._value = value
+
+    def __get__(self, instance, owner):
+        return self._value
+
 
 class IAnimal(PureInterface):
     @abstractproperty
@@ -260,7 +267,16 @@ class TestImplementationChecks(unittest.TestCase):
                 pi_partial_implementation = False
 
         self.assertEqual(warn.call_count, 1)
-        self.assertTrue(warn.call_args[0][0].startswith('Partial implmentation is indicated'))
+        self.assertTrue(warn.call_args[0][0].startswith('Partial implementation is indicated'))
+
+    def test_super_class_properties_detected(self):
+        class HeightDescr(object):
+            height = ADescriptor('really tall')
+
+        class Test(HeightDescr, IPlant):
+            pass
+
+        self.assertEqual(frozenset([]), Test._pi.abstractproperties)
 
 
 class TestPropertyImplementations(unittest.TestCase):
