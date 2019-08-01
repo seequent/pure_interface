@@ -496,7 +496,7 @@ class PureInterfaceType(abc.ABCMeta):
                     attribute_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
                 interface_attribute_names.update(attribute_names)
-            elif not issubclass(base, PureInterface) and is_development:
+            elif is_development and not issubclass(base, PureInterface):
                 _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
 
         if is_development:
@@ -523,13 +523,17 @@ class PureInterfaceType(abc.ABCMeta):
                                          'Did you forget to inherit from object to make the class concrete?'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
-            class_properties = set(k for k, v in namespace.items() if _is_descriptor(v))
+            class_properties = set()
+            for bt, is_interface in base_types:
+                if not is_interface:
+                    class_properties |= set(k for k, v in bt.__dict__.items() if _is_descriptor(v))
+            class_properties |= set(k for k, v in namespace.items() if _is_descriptor(v))
             abstract_properties.difference_update(class_properties)
             partial_implementation = 'pi_partial_implementation' in namespace
             if partial_implementation:
                 value = namespace.pop('pi_partial_implementation')
                 if not value:
-                    warnings.warn('Partial implmentation is indicated by presence of '
+                    warnings.warn('Partial implementation is indicated by presence of '
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
