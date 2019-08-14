@@ -435,7 +435,7 @@ def _class_structural_type_check(cls, subclass):
             stacklevel += 1
         warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                       'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
-                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
+                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=subclass.__module__),
                       stacklevel=stacklevel)
     return True
 
