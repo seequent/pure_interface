@@ -1,23 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from six.moves import cStringIO
 import unittest
 
 import pure_interface
+from tests.interface_module import IAnimal
 
 try:
     from unittest import mock
 except ImportError:
     import mock
-
-
-class IAnimal(pure_interface.PureInterface):
-    def speak(self, volume):
-        pass
-
-    @pure_interface.abstractproperty
-    def height(self):
-        return None
 
 
 class TestIsInstanceChecks(unittest.TestCase):
@@ -87,9 +80,6 @@ class TestIsInstanceChecks(unittest.TestCase):
             IAnimal.provided_by(Cat2(), allow_implicit=True)
 
         self.assertEqual(warn.call_count, 1)
-        msg = warn.call_args[0][0]
-        self.assertIn('Cat2', msg)
-        self.assertIn('IAnimal', msg)
 
     def test_warning_not_issued(self):
         pure_interface.is_development = False
@@ -107,3 +97,46 @@ class TestIsInstanceChecks(unittest.TestCase):
             IAnimal.provided_by(Cat3(), allow_implicit=True)
 
         warn.assert_not_called()
+
+    def test_warning_contents(self):
+        pure_interface.is_development = True
+
+        class Cat4(object):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+        s = cStringIO()
+        with mock.patch('sys.stderr', new=s):
+            IAnimal.provided_by(Cat4(), allow_implicit=True)
+
+        msg = s.getvalue()
+        self.assertIn('Cat4', msg)
+        self.assertIn(Cat4.__module__, msg)
+        self.assertIn('test_isinstance.py', msg.split('\n')[0])
+        self.assertIn('IAnimal', msg)
+
+    def test_warning_contents_adapt(self):
+        pure_interface.is_development = True
+
+        class Cat5(object):
+            def speak(self, volume):
+                print('meow')
+
+            @property
+            def height(self):
+                return 35
+
+        s = cStringIO()
+        with mock.patch('sys.stderr', new=s):
+            IAnimal.adapt(Cat5(), allow_implicit=True)
+
+        msg = s.getvalue()
+        self.assertIn('Cat5', msg)
+        self.assertIn(Cat5.__module__, msg)
+        self.assertIn('test_isinstance.py', msg.split('\n')[0])
+        self.assertIn('IAnimal', msg)
+
