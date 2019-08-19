@@ -431,7 +431,7 @@ def _class_structural_type_check(cls, subclass):
     if is_development:
         stacklevel = 2
         stack = inspect.stack()
-        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel-1][1]:
             stacklevel += 1
         warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                       'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'

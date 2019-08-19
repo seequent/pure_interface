@@ -116,7 +116,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         msg = s.getvalue()
         self.assertIn('Cat4', msg)
         self.assertIn(Cat4.__module__, msg)
-        self.assertIn('test_isinstance.py', msg.split('\n')[0])
+        self.assertNotIn('pure_interface', msg.split('\n')[0])
         self.assertIn('IAnimal', msg)
 
     def test_warning_contents_adapt(self):
@@ -137,6 +137,6 @@ class TestIsInstanceChecks(unittest.TestCase):
         msg = s.getvalue()
         self.assertIn('Cat5', msg)
         self.assertIn(Cat5.__module__, msg)
-        self.assertIn('test_isinstance.py', msg.split('\n')[0])
+        self.assertNotIn('pure_interface', msg.split('\n')[0])
         self.assertIn('IAnimal', msg)
 
