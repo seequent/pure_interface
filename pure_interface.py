@@ -48,22 +48,18 @@ missing_method_warnings = []
 
 if six.PY2:
     _six_ord = ord
-    ArgSpec = inspect.ArgSpec
-    getargspec = inspect.getargspec
 
     @six.add_metaclass(abc.ABCMeta)
     class ABC(object):
         pass
 else:
     _six_ord = lambda x: x
-    ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
-
-    def getargspec(func):
-        # getargspec is deprecated, but getfullargspec is not a drop-in replacement as advertised
-        # as the keywords attribute has been renamed
-        full_spec = inspect.getfullargspec(func)
-        return ArgSpec(*full_spec[:4])
     ABC = abc.ABC
+
+try:
+    from inspect import signature, Signature, Parameter
+except ImportError:
+    from funcsigs import signature, Signature, Parameter
 
 
 class PureInterfaceError(Exception):
@@ -171,9 +167,9 @@ def _get_abc_interface_props_and_funcs(cls):
         value = getattr(cls, name)
         if isinstance(value, (staticmethod, classmethod, types.MethodType)):
             func = six.get_method_function(value)
-            function_sigs[name] = getargspec(func)
+            function_sigs[name] = signature(func)
         elif isinstance(value, types.FunctionType):
-            function_sigs[name] = getargspec(value)
+            function_sigs[name] = signature(value)
         elif isinstance(value, property):
             properties.add(name)
 
@@ -262,56 +258,119 @@ def _is_descriptor(obj):  # in our context we only care about __get__
     return hasattr(obj, '__get__')
 
 
+_ParamTypes = collections.namedtuple('_ParamTypes', 'pos_only pos_or_kw vararg kw_only varkw')
+
+
 def _signature_info(arg_spec):
-    # type: (ArgSpec) -> Tuple[List[str], List[str], bool, bool]
-    """ returns (req_args, def_args, has_varargs, has_keywords)"""
-    if arg_spec.defaults:
-        n_defaults = len(arg_spec.defaults)
-        def_args = arg_spec.args[-n_defaults:]
-        req_args = arg_spec.args[:-n_defaults]
-    else:
-        req_args = arg_spec.args
-        def_args = []
-    return req_args, def_args, bool(arg_spec.varargs), bool(arg_spec.keywords)
+    # type: (List[Parameter]) -> _ParamTypes
+    param_types = collections.defaultdict(list)
+    for param in arg_spec:
+        param_types[param.kind].append(param)
+
+    return _ParamTypes(param_types[Parameter.POSITIONAL_ONLY],
+                       param_types[Parameter.POSITIONAL_OR_KEYWORD],
+                       param_types[Parameter.VAR_POSITIONAL],
+                       param_types[Parameter.KEYWORD_ONLY],
+                       param_types[Parameter.VAR_KEYWORD]
+                       )
+
+
+def _required_params(param_list):
+    """ return params without a default"""
+    # params with defaults come last
+    for i, p in enumerate(param_list):
+        if p.default is not Parameter.empty:
+            return param_list[:i]
+    # no defaults
+    return param_list
+
+
+def _positional_names_match(func, base):
+    return [p.name for p in func] == [p.name for p in base]
+
+
+def _kw_names_match(func, base):
+    func_names = set(p.name for p in func)
+    return all(p.name in func_names for p in base)
+
+
+def _pos_or_kw_names_match(func_list, base_list):
+    assert all(p.kind == Parameter.POSITIONAL_OR_KEYWORD for p in func_list)
+    assert all(p.kind == Parameter.POSITIONAL_OR_KEYWORD for p in base_list)
+    func_req_params = _required_params(func_list)
+    base_req_params = _required_params(base_list)
+
+    # arguments may be position or kewword - so name and position must match
+    # func may have more parameters
+    if not _positional_names_match(func_list[:len(base_list)], base_list):
+        return False
+
+    # extra parameters must be have defaults (be optional)
+    if len(func_req_params) > len(base_req_params):
+        return False
+
+    return True
+
+
+def _kw_only_names_match(func_list, base_list):
+    assert all(p.kind == Parameter.KEYWORD_ONLY for p in func_list)
+    assert all(p.kind == Parameter.KEYWORD_ONLY for p in base_list)
+    func_req_params = _required_params(func_list)
+    base_req_params = _required_params(base_list)
+
+    # only names must match, order doesn't matter
+    # func may have more parameters
+    if not _kw_names_match(func_list, base_list):
+        return False
+
+    # extra parameters must be have defaults (be optional)
+    if not _kw_names_match(func_req_params, base_req_params):
+        return False
+
+    return True
 
 
 def _signatures_are_consistent(func_sig, base_sig):
-    # type: (ArgSpec, ArgSpec) -> bool
+    # type: (Signature, Signature) -> bool
     """
-    :param func_sig: ArgSpec named tuple for overriding function
-    :param base_sig: ArgSpec named tuple for base class function
-    :return: True if signatures are consistent.
+    :param func_sig: List of parameters for overriding function
+    :param base_sig: List of parameters for base class function
+    :return: True if signature of func is Liskov substitutable for base.
     """
-    base_required_args, base_default_args, base_varargs, base_keywords = _signature_info(base_sig)
-    func_required_args, func_default_args, func_varargs, func_keywords = _signature_info(func_sig)
-    if func_varargs:
-        shortest_len = min(len(base_required_args), len(func_required_args))
-        req_names_match = func_required_args[:shortest_len] == base_required_args[:shortest_len]
+    func_params = func_sig.parameters
+    base_params = base_sig.parameters
+    base = _signature_info(base_params.values())
+    func = _signature_info(func_params.values())
+    # must have same number of positional only, unless override has vararg
+    if len(base.pos_only) != len(func.pos_only):
+        if not func.vararg:
+            return False
+    func_req_params = _required_params(func.pos_only)
+    base_req_params = _required_params(base.pos_only)
+    # extra parameters must be have defaults (be optional)
+    if len(func_req_params) > len(base_req_params):
+        return False
+
+    if base.vararg and not func.vararg:
+        return False
+    if base.varkw and not func.varkw:
+        return False
+    var_all = bool(func.vararg) and bool(func.varkw)
+    if not (func.pos_only or func.pos_or_kw or func.kw_only) and var_all:
+        return True
+
+    names_match = _pos_or_kw_names_match(func.pos_or_kw, base.pos_or_kw)
+    if not names_match:
+        return False
+    if func.varkw:
+        match_len = len(func.kw_only)
+        names_match = _kw_only_names_match(func.kw_only, base.kw_only[:match_len])
     else:
-        # (a, b, c) can be overridden with (a, b, c=0) so need to check entire args sequence here
-        req_names_match = func_sig.args[:len(base_required_args)] == base_required_args
-    no_new_required_args = len(func_required_args) <= len(base_required_args)
-    if func_keywords:
-        def_names_match = True
-    else:
-        def_names_match = func_default_args[:len(base_default_args)] == base_default_args
-    if base_default_args and func_varargs:
-        # need to check that we don't have multiple values for keyword arguments
-        # e.g. base(a, b, c=None)  func(a, c=4, *args)
-        # base can be called with (a, b, c) but func cannot.
-        for arg in func_default_args:
-            if arg in base_sig.args:
-                base_index = base_sig.args.index(arg)
-                func_index = func_sig.args.index(arg)
-                if base_index != func_index:
-                    def_names_match = False
-                    break
-    varargs_ok = True
-    if base_varargs:
-        varargs_ok = func_varargs
-    if base_keywords:
-        varargs_ok &= func_keywords
-    return req_names_match and def_names_match and no_new_required_args and varargs_ok
+        names_match = _kw_only_names_match(func.kw_only, base.kw_only)
+    if not names_match:
+        return False
+
+    return True
 
 
 def _ensure_everything_is_abstract(attributes):
@@ -335,23 +394,23 @@ def _ensure_everything_is_abstract(attributes):
                 else:
                     func = value
                 functions.append(func)
-                interface_method_signatures[name] = getargspec(func)
+                interface_method_signatures[name] = signature(func)
             elif isinstance(value, property):
                 interface_attribute_names.add(name)
                 continue  # do not add to class namespace
         elif isinstance(value, staticmethod):
             func = value.__func__
             functions.append(func)
-            interface_method_signatures[name] = getargspec(func)
+            interface_method_signatures[name] = signature(func)
             value = abstractstaticmethod(func)
         elif isinstance(value, classmethod):
             func = value.__func__
-            interface_method_signatures[name] = getargspec(func)
+            interface_method_signatures[name] = signature(func)
             functions.append(func)
             value = abstractclassmethod(func)
         elif isinstance(value, types.FunctionType):
             functions.append(value)
-            interface_method_signatures[name] = getargspec(value)
+            interface_method_signatures[name] = signature(value)
             value = abstractmethod(value)
         elif isinstance(value, property):
             interface_attribute_names.add(name)
@@ -378,7 +437,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             func = value.__func__
         else:
             func = value
-        func_sig = getargspec(func)
+        func_sig = signature(func)
         if not _signatures_are_consistent(func_sig, base_sig):
             msg = '{module}.{clsname}.{name} arguments do not match base method'.format(
                 module=attributes['__module__'], clsname=clsname, name=name)
