@@ -209,17 +209,26 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.check_signatures(func4, pos_kwarg_vararg, False)
 
     def test_all(self):
-        def all(a, c='c', *args, **kwargs):
+        def all(a, b='b', *args, **kwargs):
             pass
 
-        self.check_signatures(func1, all, False)
-        self.check_signatures(func2, all, False)
+        self.check_signatures(func1, all, True)
+        self.check_signatures(func2, all, True)
         self.check_signatures(func3, all, False)
         self.check_signatures(func4, all, False)
         self.check_signatures(func6, all, True)
-        self.check_signatures(func7, all, False)
+        self.check_signatures(func7, all, True)
         self.check_signatures(func11, all, False)
         self.check_signatures(all, all, True)
+
+    def test_binding_order(self):
+        def all(a, c='c', *args, **kwargs):
+            pass
+
+        def rev(a, c, b):
+            pass
+        self.check_signatures(func1, all, False)
+        self.check_signatures(func1, rev, False)
 
     def test_some_more(self):
         self.check_signatures(func1, func5, False)

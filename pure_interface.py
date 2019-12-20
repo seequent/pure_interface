@@ -258,7 +258,15 @@ def _is_descriptor(obj):  # in our context we only care about __get__
     return hasattr(obj, '__get__')
 
 
-_ParamTypes = collections.namedtuple('_ParamTypes', 'pos_only pos_or_kw vararg kw_only varkw')
+class _ParamTypes(object):
+    def __init__(self, pos_only, pos_or_kw, vararg, kw_only, varkw):
+        self.pos_only = pos_only
+        self.pos_or_kw = pos_or_kw
+        self.vararg = vararg
+        self.kw_only = kw_only
+        self.varkw = varkw
+        self.positional = pos_only + pos_or_kw
+        self.keyword = pos_or_kw + kw_only
 
 
 def _signature_info(arg_spec):
@@ -285,89 +293,86 @@ def _required_params(param_list):
     return param_list
 
 
-def _positional_names_match(func, base):
-    return [p.name for p in func] == [p.name for p in base]
-
-
 def _kw_names_match(func, base):
     func_names = set(p.name for p in func)
     return all(p.name in func_names for p in base)
 
 
-def _pos_or_kw_names_match(func_list, base_list):
-    assert all(p.kind == Parameter.POSITIONAL_OR_KEYWORD for p in func_list)
-    assert all(p.kind == Parameter.POSITIONAL_OR_KEYWORD for p in base_list)
-    func_req_params = _required_params(func_list)
-    base_req_params = _required_params(base_list)
-
-    # arguments may be position or kewword - so name and position must match
-    # func may have more parameters
-    if not _positional_names_match(func_list[:len(base_list)], base_list):
-        return False
-
+def _positional_args_match(func_list, base_list, vararg, base_kwo):
+    # arguments are positional - so name doesn't matter
+    # func may not have fewer parameters
+    if len(base_list) > len(func_list):
+        if not vararg:  # unless it has varargs
+            return False
     # extra parameters must be have defaults (be optional)
-    if len(func_req_params) > len(base_req_params):
-        return False
-
+    base_kwo = [p.name for p in base_kwo]
+    for p in func_list[len(base_list):]:
+        if p.default is Parameter.empty and p.name not in base_kwo:
+            return False
     return True
 
 
-def _kw_only_names_match(func_list, base_list):
-    assert all(p.kind == Parameter.KEYWORD_ONLY for p in func_list)
-    assert all(p.kind == Parameter.KEYWORD_ONLY for p in base_list)
-    func_req_params = _required_params(func_list)
-    base_req_params = _required_params(base_list)
+def _pos_or_kw_args_match(func_list, base_list, base_pos_only):
+    # arguments names must occur in same order
+    if base_pos_only and func_list and base_list:  # some args may be positional only in base method
+        func_args = [p.name for p in func_list]
+        base_args = [p.name for p in base_list]
+        try:
+            i = func_args.index(base_args[0])
+        except ValueError:
+            return False
+        if i > len(base_pos_only):
+            return False
+        func_list = func_list[i:]
+    for fp, bp in zip(func_list, base_list):
+        if fp.name != bp.name:
+            return False
+    return True
 
-    # only names must match, order doesn't matter
-    # func may have more parameters
-    if not _kw_names_match(func_list, base_list):
-        return False
 
-    # extra parameters must be have defaults (be optional)
-    if not _kw_names_match(func_req_params, base_req_params):
-        return False
-
+def _keyword_args_match(func_list, base_list, varkw, num_pos):
+    base_args = {p.name: p for p in base_list}
+    for i, fp in enumerate(func_list):
+        bp = base_args.get(fp.name, None)
+        if i < num_pos:  # this argument is positional
+            if bp is not None:
+                return False
+            continue
+        if bp is None:  # new arg
+            if fp.default is Parameter.empty:  # arg must have a default
+                return False
+        elif bp.default is not Parameter.empty:  # base has default
+            if fp.default is Parameter.empty:  # func must have a default
+                return False
+    if not varkw:
+        func_args = {p.name: p for p in func_list}
+        for bp in base_list:
+            if bp.name not in func_args:
+                return False
     return True
 
 
 def _signatures_are_consistent(func_sig, base_sig):
     # type: (Signature, Signature) -> bool
     """
-    :param func_sig: List of parameters for overriding function
-    :param base_sig: List of parameters for base class function
+    :param func_sig: Signature of overriding function
+    :param base_sig: Signature of base class function
     :return: True if signature of func is Liskov substitutable for base.
     """
-    func_params = func_sig.parameters
-    base_params = base_sig.parameters
-    base = _signature_info(base_params.values())
-    func = _signature_info(func_params.values())
-    # must have same number of positional only, unless override has vararg
-    if len(base.pos_only) != len(func.pos_only):
-        if not func.vararg:
-            return False
-    func_req_params = _required_params(func.pos_only)
-    base_req_params = _required_params(base.pos_only)
-    # extra parameters must be have defaults (be optional)
-    if len(func_req_params) > len(base_req_params):
-        return False
+    base = _signature_info(base_sig.parameters.values())
+    func = _signature_info(func_sig.parameters.values())
 
     if base.vararg and not func.vararg:
         return False
     if base.varkw and not func.varkw:
         return False
-    var_all = bool(func.vararg) and bool(func.varkw)
-    if not (func.pos_only or func.pos_or_kw or func.kw_only) and var_all:
-        return True
 
-    names_match = _pos_or_kw_names_match(func.pos_or_kw, base.pos_or_kw)
-    if not names_match:
+    if not _positional_args_match(func.positional, base.positional, func.vararg, base.kw_only):
         return False
-    if func.varkw:
-        match_len = len(func.kw_only)
-        names_match = _kw_only_names_match(func.kw_only, base.kw_only[:match_len])
-    else:
-        names_match = _kw_only_names_match(func.kw_only, base.kw_only)
-    if not names_match:
+    if not _pos_or_kw_args_match(func.pos_or_kw, base.pos_or_kw, base.pos_only):
+        return False
+    n = len(base.pos_only) - len(func.pos_only)
+    if not _keyword_args_match(func.keyword, base.keyword, func.varkw, n):
         return False
 
     return True
