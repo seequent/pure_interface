@@ -93,3 +93,9 @@ ENV/
 
 # PyCharm
 .idea/
+
+# MyPy
+.mypy_cache/
+
+# build output
+dist/
