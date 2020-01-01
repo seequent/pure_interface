@@ -4,11 +4,11 @@ import gc
 import unittest
 
 
-class IOne(pure_interface.PureInterface):
+class IOne(pure_interface.Interface):
     pass
 
 
-class ITwo(pure_interface.PureInterface):
+class ITwo(pure_interface.Interface):
     pass
 
 

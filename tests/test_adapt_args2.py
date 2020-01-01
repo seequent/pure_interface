@@ -11,14 +11,14 @@ from pure_interface import adapt_args
 import pure_interface
 
 
-class I1(pure_interface.PureInterface):
+class I1(pure_interface.Interface):
     foo = None
 
     def bar(self):
         pass
 
 
-class I2(pure_interface.PureInterface):
+class I2(pure_interface.Interface):
     bar = None
 
     def foo(self):
@@ -55,7 +55,7 @@ class TestAdaptArgsPy2(unittest.TestCase):
     def test_adapt_args_works(self):
         thing1 = Thing1()
         adapt = mock.MagicMock()
-        with mock.patch('pure_interface.PureInterfaceType.optional_adapt', new=adapt):
+        with mock.patch('pure_interface.InterfaceType.optional_adapt', new=adapt):
             some_func(3, thing1)
 
         self.assertEqual(1, adapt.call_count)
@@ -64,7 +64,7 @@ class TestAdaptArgsPy2(unittest.TestCase):
     def test_adapt_optional_args_works_with_none(self):
         thing1 = Thing1()
         adapt = mock.MagicMock()
-        with mock.patch('pure_interface.PureInterfaceType.optional_adapt', new=adapt):
+        with mock.patch('pure_interface.InterfaceType.optional_adapt', new=adapt):
             other_func(thing1)
 
         adapt.assert_called_once_with(I2, None)
@@ -73,7 +73,7 @@ class TestAdaptArgsPy2(unittest.TestCase):
         thing1 = Thing1()
         thing2 = Thing2()
         adapt = mock.MagicMock()
-        with mock.patch('pure_interface.PureInterfaceType.optional_adapt', new=adapt):
+        with mock.patch('pure_interface.InterfaceType.optional_adapt', new=adapt):
             other_func(thing1, thing2)
 
         adapt.assert_called_once_with(I2, thing2)

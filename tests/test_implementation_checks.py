@@ -12,13 +12,13 @@ except ImportError:
     import mock
 
 
-class IAnimal(pure_interface.PureInterface):
+class IAnimal(pure_interface.Interface):
     @pure_interface.abstractproperty
     def height(self):
         return None
 
 
-class IAnimal3(pure_interface.PureInterface):
+class IAnimal3(pure_interface.Interface):
     # python 3 style syntax
     @property
     @pure_interface.abstractmethod
@@ -31,7 +31,7 @@ class IAnimal3(pure_interface.PureInterface):
         pass
 
 
-class IGrowingAnimal(pure_interface.PureInterface):
+class IGrowingAnimal(pure_interface.Interface):
     def get_height(self):
         return None
 
@@ -41,13 +41,13 @@ class IGrowingAnimal(pure_interface.PureInterface):
     height = abc.abstractproperty(get_height, set_height)
 
 
-class IPlant(pure_interface.PureInterface):
+class IPlant(pure_interface.Interface):
     @property
     def height(self):
         return None
 
 
-class IGrowingPlant(pure_interface.PureInterface):
+class IGrowingPlant(pure_interface.Interface):
     @property
     def height(self):
         return None
@@ -57,7 +57,7 @@ class IGrowingPlant(pure_interface.PureInterface):
         pass
 
 
-class IFunkyMethods(pure_interface.PureInterface):
+class IFunkyMethods(pure_interface.Interface):
     @pure_interface.abstractclassmethod
     def acm(cls):
         return None
@@ -75,12 +75,12 @@ class IFunkyMethods(pure_interface.PureInterface):
         return None
 
 
-class ISimple(pure_interface.PureInterface):
+class ISimple(pure_interface.Interface):
     def foo(self):
         pass
 
 
-class ICrossImplementation(pure_interface.PureInterface):
+class ICrossImplementation(pure_interface.Interface):
     """ interface to test class attributes implemented as properties and vice versa """
     a = None
     b = None
@@ -97,7 +97,7 @@ class ICrossImplementation(pure_interface.PureInterface):
 class TestImplementationChecks(unittest.TestCase):
     def test_instantiation_fails(self):
         with self.assertRaises(TypeError):
-            pure_interface.PureInterface()
+            pure_interface.Interface()
         with self.assertRaises(TypeError) as exc:
             IPlant()
         assert 'Interfaces cannot be instantiated' in str(exc.exception)
@@ -107,7 +107,7 @@ class TestImplementationChecks(unittest.TestCase):
             IAnimal3()
 
     def test_concrete_base_detection(self):
-        class Concrete(object, pure_interface.PureInterface):
+        class Concrete(object, pure_interface.Interface):
             pass
 
         self.assertFalse(Concrete._pi.type_is_pure_interface)
@@ -121,7 +121,7 @@ class TestImplementationChecks(unittest.TestCase):
             def __init__(self):
                 self.foo = 'bar'
 
-        class Concrete(B, pure_interface.PureInterface):
+        class Concrete(B, pure_interface.Interface):
             pass
 
         self.assertFalse(Concrete._pi.type_is_pure_interface)
@@ -136,7 +136,7 @@ class TestImplementationChecks(unittest.TestCase):
             def __init__(self):
                 self.foo = 'bar'
 
-        class Concrete(B, pure_interface.PureInterface):
+        class Concrete(B, pure_interface.Interface):
             pass
 
         self.assertFalse(Concrete._pi.type_is_pure_interface)
@@ -157,10 +157,10 @@ class TestImplementationChecks(unittest.TestCase):
             def bar(self):
                 return None
 
-        class EmptyABCPI(IABC, pure_interface.PureInterface):
+        class EmptyABCPI(IABC, pure_interface.Interface):
             pass
 
-        class PIEmptyABC(pure_interface.PureInterface, IABC):
+        class PIEmptyABC(pure_interface.Interface, IABC):
             pass
 
         self.assertTrue(EmptyABCPI._pi.type_is_pure_interface)
@@ -177,7 +177,7 @@ class TestImplementationChecks(unittest.TestCase):
 
     def test_can_use_type_methods(self):
         try:
-            class MyInterface(pure_interface.PureInterface):
+            class MyInterface(pure_interface.Interface):
                 def register(self):
                     pass
         except pure_interface.InterfaceError as exc:
@@ -190,7 +190,7 @@ class TestImplementationChecks(unittest.TestCase):
             return w
 
         with self.assertRaises(pure_interface.InterfaceError):
-            class MyInterface(pure_interface.PureInterface):
+            class MyInterface(pure_interface.Interface):
                 @d
                 def foo(self):
                     pass
@@ -260,7 +260,18 @@ class TestImplementationChecks(unittest.TestCase):
                 pi_partial_implementation = False
 
         self.assertEqual(warn.call_count, 1)
-        self.assertTrue(warn.call_args[0][0].startswith('Partial implmentation is indicated'))
+        self.assertTrue(warn.call_args[0][0].startswith('Partial implementation is indicated'))
+
+    def test_pureinterface_warning(self):
+        pure_interface.is_development = True
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            class OldInterface(pure_interface.PureInterface):
+                pass
+
+        self.assertEqual(warn.call_count, 1)
+        self.assertTrue(warn.call_args[0][0].startswith('PureInterface class has been renamed to Interface'))
 
 
 class TestPropertyImplementations(unittest.TestCase):
@@ -431,7 +442,7 @@ class TestPropertyImplementations(unittest.TestCase):
             self.fail(str(exc))
 
 
-class IAttribute(pure_interface.PureInterface):
+class IAttribute(pure_interface.Interface):
     a = None
 
 
@@ -447,7 +458,7 @@ class TestAttributeImplementations(unittest.TestCase):
 
     def test_class_attribute_must_be_none(self):
         with self.assertRaises(ValueError):
-            class IAttribute2(pure_interface.PureInterface):
+            class IAttribute2(pure_interface.Interface):
                 a = False
 
     def test_class_attribute_is_removed(self):
@@ -534,14 +545,14 @@ class TestAttributeImplementations(unittest.TestCase):
 
 py_36_tests = """
 def test_annotations(self):
-    class IAnnotation(pure_interface.PureInterface):
+    class IAnnotation(pure_interface.Interface):
         a: int
     
     self.assertIn('a', pure_interface.get_interface_attribute_names(IAnnotation))
     self.assertIn('a', dir(IAnnotation))
 
 def test_annotations2(self):
-    class IAnnotation(pure_interface.PureInterface):
+    class IAnnotation(pure_interface.Interface):
         a: int
         b = None
 

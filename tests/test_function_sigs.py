@@ -9,12 +9,12 @@ import types
 from typing import Dict, Any
 
 
-class IAnimal(pure_interface.PureInterface):
+class IAnimal(pure_interface.Interface):
     def speak(self, volume):
         pass
 
 
-class IPlant(pure_interface.PureInterface):
+class IPlant(pure_interface.Interface):
     def grow(self, height=10):
         pass
 

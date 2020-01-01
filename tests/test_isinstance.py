@@ -11,7 +11,7 @@ except ImportError:
     import mock
 
 
-class IAnimal(pure_interface.PureInterface):
+class IAnimal(pure_interface.Interface):
     def speak(self, volume):
         pass
 

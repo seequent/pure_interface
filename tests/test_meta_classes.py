@@ -8,9 +8,9 @@ import unittest
 import pure_interface
 
 
-class SomeOtherMetaClass(pure_interface.PureInterfaceType):
+class SomeOtherMetaClass(pure_interface.InterfaceType):
     def __new__(mcs, name, bases, clsdict):
-        cls = pure_interface.PureInterfaceType.__new__(mcs, name, bases, clsdict)
+        cls = pure_interface.InterfaceType.__new__(mcs, name, bases, clsdict)
         return cls
 
 
@@ -39,7 +39,7 @@ class ABCImpl(InnocentBystanderWithABC):
         pass
 
 
-class MyInterface(pure_interface.PureInterface):
+class MyInterface(pure_interface.Interface):
     def method2(self):
         pass
 
