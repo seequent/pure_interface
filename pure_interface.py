@@ -40,7 +40,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.3.1'
+__version__ = '3.5.2'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -66,7 +66,18 @@ else:
     ABC = abc.ABC
 
 
-class InterfaceError(Exception):
+class PureInterfaceError(Exception):
+    """ All exceptions raised by this module are subclasses of this exception """
+    pass
+
+
+class InterfaceError(PureInterfaceError, TypeError):
+    """ An error with an interface class definition or implementation"""
+    pass
+
+
+class AdaptionError(PureInterfaceError, ValueError):
+    """ An adaption error """
     pass
 
 
@@ -347,7 +358,7 @@ def _ensure_everything_is_abstract(attributes):
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
             continue  # do not add to class namespace
         else:
-            raise ValueError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
+            raise InterfaceError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
         namespace[name] = value
     return namespace, functions, interface_method_signatures, interface_attribute_names
 
@@ -420,11 +431,11 @@ def _class_structural_type_check(cls, subclass):
     if is_development:
         stacklevel = 2
         stack = inspect.stack()
-        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel-1][1]:
             stacklevel += 1
         warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                       'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
-                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
+                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=subclass.__module__),
                       stacklevel=stacklevel)
     return True
 
@@ -462,13 +473,13 @@ class InterfaceType(abc.ABCMeta):
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
 
-    def __new__(mcs, clsname, bases, attributes):
+    def __new__(mcs, clsname, bases, attributes, **kwargs):
         # Interface is not in globals() when we are constructing the Interface class itself.
         has_interface = any(Interface in base.mro() for base in bases) if 'Interface' in globals() else True
         if not has_interface:
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
-            cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, attributes)
+            cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, attributes, **kwargs)
             cls._pi = _PIAttributes(False, (), {}, ())
             return cls
 
@@ -498,7 +509,7 @@ class InterfaceType(abc.ABCMeta):
                     attribute_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
                 interface_attribute_names.update(attribute_names)
-            elif not issubclass(base, Interface) and is_development:
+            elif is_development and not issubclass(base, Interface):
                 _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
 
         if is_development:
@@ -527,7 +538,11 @@ class InterfaceType(abc.ABCMeta):
                                          'Did you forget to inherit from object to make the class concrete?'.format(func.__name__))
         else:  # concrete sub-type
             namespace = attributes
-            class_properties = set(k for k, v in namespace.items() if _is_descriptor(v))
+            class_properties = set()
+            for bt, is_interface in base_types:
+                if not is_interface:
+                    class_properties |= set(k for k, v in bt.__dict__.items() if _is_descriptor(v))
+            class_properties |= set(k for k, v in namespace.items() if _is_descriptor(v))
             abstract_properties.difference_update(class_properties)
             partial_implementation = 'pi_partial_implementation' in namespace
             if partial_implementation:
@@ -537,7 +552,7 @@ class InterfaceType(abc.ABCMeta):
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
-        cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, namespace)
+        cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, namespace, **kwargs)
         cls._pi = _PIAttributes(type_is_interface, abstract_properties,
                                 interface_method_signatures, interface_attribute_names)
 
@@ -550,11 +565,11 @@ class InterfaceType(abc.ABCMeta):
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
         if cls._pi.type_is_pure_interface:
-            raise TypeError('Interfaces cannot be instantiated')
+            raise InterfaceError('Interfaces cannot be instantiated')
         self = super(InterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
             if not hasattr(self, attr):
-                raise TypeError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
+                raise InterfaceError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
     def __dir__(cls):
@@ -566,7 +581,7 @@ class InterfaceType(abc.ABCMeta):
 
     def provided_by(cls, obj, allow_implicit=True):
         if not cls._pi.type_is_pure_interface:
-            raise ValueError('provided_by() can only be called on interfaces')
+            raise InterfaceError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
             return True
         if not allow_implicit:
@@ -577,7 +592,7 @@ class InterfaceType(abc.ABCMeta):
 
     def interface_only(cls, implementation):
         if cls._pi.impl_wrapper_type is None:
-            type_name = cls.__name__ + 'Only'
+            type_name = '_{}Only'.format(cls.__name__)
             attributes = {'__module__': cls.__module__}
             cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
             abc.ABCMeta.register(cls, cls._pi.impl_wrapper_type)
@@ -591,11 +606,11 @@ class InterfaceType(abc.ABCMeta):
         else:
             adapter = _get_adapter(cls, type(obj))
             if adapter is None:
-                raise ValueError('Cannot adapt {} to {}'.format(obj, cls.__name__))
+                raise AdaptionError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
         adapted = adapter(obj)
         if not InterfaceType.provided_by(cls, adapted, allow_implicit):
-            raise ValueError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
+            raise AdaptionError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
         if interface_only:
             adapted = InterfaceType.interface_only(cls, adapted)
         return adapted
@@ -603,13 +618,13 @@ class InterfaceType(abc.ABCMeta):
     def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
         try:
             return InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
-        except ValueError:
+        except AdaptionError:
             return None
 
     def can_adapt(cls, obj, allow_implicit=False):
         try:
             InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit)
-        except ValueError:
+        except AdaptionError:
             return False
         return True
 
@@ -617,7 +632,7 @@ class InterfaceType(abc.ABCMeta):
         for obj in objects:
             try:
                 f = InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
-            except ValueError:
+            except AdaptionError:
                 continue
             yield f
 
@@ -704,7 +719,7 @@ class Concrete(object):
 
 # adaption
 def adapts(from_type, to_interface=None):
-    # type: (Any, Type[PI]) -> Callable
+    # type: (Any, Type[PI]) -> Callable[[Any], Any]
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
@@ -748,18 +763,56 @@ def register_adapter(adapter, from_type, to_interface):
     :param to_interface: a (non-concrete) Interface subclass to adapt to.
     """
     if not callable(adapter):
-        raise ValueError('adapter must be callable')
+        raise AdaptionError('adapter must be callable')
     if not isinstance(from_type, type):
-        raise ValueError('{} must be a type'.format(from_type))
+        raise AdaptionError('{} must be a type'.format(from_type))
     if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
-        raise ValueError('{} is not an interface'.format(to_interface))
+        raise AdaptionError('{} is not an interface'.format(to_interface))
     adapters = _get_pi_attribute(to_interface, 'adapters')
     if from_type in adapters:
-        raise ValueError('{} already has an adapter to {}'.format(from_type, to_interface))
+        raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
 
     def on_gone(ref):
         adapters.pop(from_type, None)
     adapters[from_type] = weakref.ref(adapter, on_gone)
+
+
+class AdapterTracker(object):
+    """ The idiom of checking if `x is b` is broken for adapted objects because a new adapter is potentially
+    instantiated each time x or b is adapted.  Also in some context we adapt the same objects many times and don't
+    want the overhead of lots of copies.  This class provides adapt() and adapt_or_none() methods that track adaptions.
+    Thus if `x is b` is `True` then `adapter.adapt(x, I) is adapter.adapt(b, I)` is `True`.
+    """
+    def __init__(self, mapping_factory=dict):
+        self._factory = mapping_factory
+        self._adapters = mapping_factory()
+
+    def adapt(self, obj, interface):
+        """ Adapts `obj` to `interface`"""
+        try:
+            return self._adapters[interface][obj]
+        except KeyError:
+            return self._adapt(obj, interface)
+
+    def adapt_or_none(self, obj, interface):
+        """ Adapt obj to interface returning None on failure."""
+        try:
+            return self.adapt(obj, interface)
+        except ValueError:
+            return None
+
+    def clear(self):
+        """ Clears the cached adapters."""
+        self._adapters = self._factory()
+
+    def _adapt(self, obj, interface):
+        adapted = interface.adapt(obj)
+        try:
+            adapters = self._adapters[interface]
+        except KeyError:
+            adapters = self._adapters[interface] = self._factory()
+        adapters[obj] = adapted
+        return adapted
 
 
 def type_is_pure_interface(cls):
@@ -874,7 +927,7 @@ def adapt_args(*func_arg, **kwarg_types):
 
         This would adapt the foo parameter to IFoo (with IFoo.optional_adapt(foo)) and bar to IBar (using IBar.adapt(bar))
         before passing them to my_func.  `None` values are never adapted, so my_func(foo, None) will work, otherwise
-        ValueError is raised if the parameter is not adaptable.
+        AdaptionError is raised if the parameter is not adaptable.
         All arguments must be specified as keyword arguments
 
             @adapt_args(IFoo, IBar)   # NOT ALLOWED
@@ -907,11 +960,11 @@ def adapt_args(*func_arg, **kwarg_types):
 
     if func_arg:
         if len(func_arg) != 1:
-            raise TypeError('Only one posititional argument permitted')
+            raise AdaptionError('Only one posititional argument permitted')
         if not isinstance(func_arg[0], types.FunctionType):
-            raise TypeError('Positional argument must be a function (to decorate)')
+            raise AdaptionError('Positional argument must be a function (to decorate)')
         if kwarg_types:
-            raise TypeError('keyword parameters not permitted with positional argument')
+            raise AdaptionError('keyword parameters not permitted with positional argument')
         funcn = func_arg[0]
         annotations = typing.get_type_hints(funcn)
         if annotations is None:
@@ -932,5 +985,52 @@ def adapt_args(*func_arg, **kwarg_types):
         except TypeError:
             can_adapt = False
         if not can_adapt:
-            raise TypeError('adapt_args parameter values must be subtypes of Interface')
+            raise AdaptionError('adapt_args parameter values must be subtypes of Interface')
     return decorator
+
+
+try:
+    import dataclasses
+
+    def _get_interface_annotions(cls):
+        annos = collections.OrderedDict()
+        for subcls in get_type_interfaces(cls)[::-1]:
+            sc_annos = typing.get_type_hints(subcls)
+            sc_names = get_interface_attribute_names(subcls)
+            for key, value in sc_annos.items():  # sc_annos has the correct ordering
+                if key in sc_names:
+                    annos[key] = sc_annos[key]
+        return annos
+
+    def dataclass(_cls=None, init=True, repr=True, eq=True, order=False,
+                  unsafe_hash=False, frozen=False):
+        """Returns the same class as was passed in, with dunder methods
+        added based on the fields defined in the class.
+
+        Examines PEP 526 __annotations__ to determine fields.
+
+        If init is true, an __init__() method is added to the class. If
+        repr is true, a __repr__() method is added. If order is true, rich
+        comparison dunder methods are added. If unsafe_hash is true, a
+        __hash__() method function is added. If frozen is true, fields may
+        not be assigned to after instance creation.
+        """
+
+        def wrap(cls):
+            # dataclasses only operates on annotations in the current class
+            # get all interface attributes and add them to this class
+            interface_annos = _get_interface_annotions(cls)
+            annos = cls.__dict__.get('__annotations__', {})
+            interface_annos.update(annos)
+            cls.__annotations__ = interface_annos
+            return dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen)
+
+        # See if we're being called as @dataclass or @dataclass().
+        if _cls is None:
+            # We're called with parens.
+            return wrap
+        # We're called as @dataclass without parens.
+        return wrap(_cls)
+
+except ImportError:
+    pass

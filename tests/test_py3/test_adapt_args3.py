@@ -7,7 +7,7 @@ try:
 except ImportError:
     import mock
 
-from pure_interface import adapt_args
+from pure_interface import adapt_args, AdaptionError
 import pure_interface
 from typing import Optional
 
@@ -155,25 +155,25 @@ class TestAdaptArgsPy3(unittest.TestCase):
             self.assertEqual(1, warn.call_count)
 
     def test_type_error_raised_if_arg_not_subclass(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AdaptionError):
             @adapt_args(x=int)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_positional_arg_not_func(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AdaptionError):
             @adapt_args(I2)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_multiple_positional_args(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AdaptionError):
             @adapt_args(I1, I2)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_mixed_args(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AdaptionError):
             @adapt_args(I1, y=I2)
             def some_func(x, y):
                 pass

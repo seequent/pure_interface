@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import unittest
+from pure_interface import *
+
+
+class IFoo(PureInterface):
+    a: int
+    b: str
+
+    def foo(self):
+        pass
+
+
+if 'dataclass' in globals():
+    @dataclass
+    class Foo(Concrete, IFoo):
+        c: float = 12.0
+
+        def foo(self):
+            return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
+
+
+    class TestDataClasses(unittest.TestCase):
+        def test_data_class(self):
+            try:
+                f = Foo(a=1, b='two')
+                self.assertEqual(1, f.a)
+                self.assertEqual('two', f.b)
+                self.assertEqual(12.0, f.c)
+            except Exception as exc:
+                self.fail(str(exc))
+
+        def test_data_arg_order(self):
+            try:
+                f = Foo(2, 'two', 34.0)
+                self.assertEqual(2, f.a)
+                self.assertEqual('two', f.b)
+                self.assertEqual(34.0, f.c)
+                self.assertEqual('a=2, b=two, c=34.0', f.foo())
+            except Exception as exc:
+                self.fail(str(exc))

@@ -1,4 +1,4 @@
-pure_interface
+pure-interface
 ==============
 
 .. image:: https://travis-ci.com/seequent/pure_interface.svg?branch=master
@@ -15,16 +15,16 @@ Features
 * Supports interface adaption.
 * Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
 * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
-* Treats abc interfaces that do not include any implementation as a pure interface type.
-  This means that ``class C(Interface, ABCInterface)`` will be a pure interface if the abc interface meets the
-  no function body content criteria.
+* ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
+  attributes and methods defined by ``Interface``.
 * Warns if ``provided_by`` did a structural type check when inheritance would work.
 * Supports python 2.7 and 3.5+
 
 A note on the name
 ------------------
 The phrase *pure interface* applies only to the first design goal - a class that defines only an interface with no
-implementation is a pure interface.  In every other respect the zen of 'practicality beats purity' applies.
+implementation is a pure interface [*]_.
+In every other respect the zen of 'practicality beats purity' applies.
 
 Installation
 ------------
@@ -32,12 +32,12 @@ pure_interface depends on the six_ and typing_ modules (typing is included in py
 
 You can install released versions of ``pure_interface`` using pip::
 
-    pip install pure_interface
+    pip install pure-interface
 
 or you can grab the source code from GitHub_.
 
 Defining an Interface
-=========================
+=====================
 
 For simplicity in these examples we assume that the entire pure_interface namespace has been imported ::
 
@@ -53,8 +53,8 @@ leaving all method bodies empty::
             pass
 
 
-Like Protocols, class annotations are considered part of the interface. In Python versions earlier than 3.6 you can use
-the following alternate syntax::
+Like Protocols, class annotations are considered part of the interface.
+In Python versions earlier than 3.6 you can use the following alternate syntax::
 
     class IAnimal(Interface):
         height = None
@@ -73,6 +73,7 @@ ABC-style property definitions are also supported (and equivalent)::
         def height(self):
             pass
 
+        @abstractmethod
         def speak(self, volume):
             pass
 
@@ -92,7 +93,7 @@ considered empty.
 Interface classes cannot be instantiated ::
 
     IAnimal()
-    TypeError: Interfaces cannot be instantiated.
+    InterfaceError: Interfaces cannot be instantiated.
 
 Including code in a method will result in an ``InterfaceError`` being raised when the module is imported. For example::
 
@@ -206,7 +207,7 @@ will issue this warning::
 Trying to create a ``SilentAnimal`` will fail in the standard abc way::
 
     SilentAnimal()
-    TypeError: Can't instantiate abstract class SilentAnimal with abstract methods speak
+    InterfaceError: Can't instantiate abstract class SilentAnimal with abstract methods speak
 
 If you have a mixin class that implements part of an interface you can suppress the warnings by adding an class attribute
 called ``pi_partial_implementation``.  The value of the attribute is ignored, and the attribute itself is removed from
@@ -276,7 +277,7 @@ Adapting Objects
 ----------------
 
 The ``Interface.adapt`` method will adapt an object to the given interface
-such that ``Interface.provided_by`` is ``True`` or raise ``ValueError`` if no adapter could be found.  For example::
+such that ``Interface.provided_by`` is ``True`` or raise ``AdaptionError`` if no adapter could be found.  For example::
 
     speaker = ISpeaker.adapt(talker)
     isinstance(speaker, ISpeaker)  --> True
@@ -357,11 +358,7 @@ The structural type-checking does not check function signatures.::
 
     class Parrot(object):
         def __init__(self):
-            self._height = 43
-
-        @property
-        def height(self):
-            return self._height
+            self.height = 43
 
         def speak(self, volume):
             print('hello')
@@ -374,9 +371,7 @@ The structural type-checking does not check function signatures.::
 The structural type checking makes working with data transfer objects (DTO's) much easier.::
 
     class IMyDataType(Interface):
-        @property
-        def thing(self):
-            pass
+        thing: str
 
     class DTO(object):
         pass
@@ -401,6 +396,30 @@ class, interface pair.  For example::
     s = ISpeaker.adapt(Parrot())
     UserWarning: Class Parrot implements ISpeaker.
     Consider inheriting ISpeaker or using ISpeaker.register(Parrot)
+
+Dataclass Support
+=================
+dataclasses_ were added in Python 3.7.  When used in this and later versions of Python, ``pure_interface`` provides a
+``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
+
+    class IAnimal2(PureInterface):
+        height: float
+        species: str
+
+        def speak(self):
+            pass
+
+    @dataclass
+    class Animal(Concrete, IAnimal2):
+        def speak(self):
+            print('hello, I am {}m tall {}', self.height, self.species)
+
+    a = Animal(height=4.5, species='Giraffe')
+
+The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the
+``height`` and ``species`` annotations on the interface base class ``IAnimal2``.
+As per the built-in ``dataclass`` decorator, only interface attributes defined
+using annotation syntax are supported (and not the alternatives syntaxes provided by ``pure_interface``).
 
 Interface Type Information
 ==========================
@@ -443,7 +462,7 @@ In Python 3.5 and later the types can be taken from the argument annotations.::
 This would adapt the ``foo`` parameter to ``IFoo`` (with ``IFoo.optional_adapt(foo))`` and ``bar`` to ``IBar
 (using ``IBar.optional_adapt(bar)``)
 before passing them to my_func.  ``None`` values are never adapted, so ``my_func(foo, None)`` will work, otherwise
-``ValueError`` is raised if the parameter is not adaptable.
+``AdaptionError`` is raised if the parameter is not adaptable.
 All arguments must be specified as keyword arguments::
 
     @adapt_args(IFoo, IBar)   # NOT ALLOWED
@@ -542,11 +561,11 @@ Classes
         If ``interface_only`` is ``None`` the it is set to the value of ``is_development``.
         If ``interface_only`` resolves to ``True`` a wrapper object that provides
         the properties and methods defined by the interface and nothing else is returned.
-        Raises ``ValueError`` if no adaption is possible or a registered adapter returns an object not providing
+        Raises ``AdaptionError`` if no adaption is possible or a registered adapter returns an object not providing
         this interface.
 
     **adapt_or_none** *(obj, allow_implicit=False, interface_only=None)*
-        As per **adapt()** except returns ``None`` instead of raising a ``ValueError``
+        As per **adapt()** except returns ``None`` instead of raising a ``AdaptionError``
 
     **optional_adapt** *(obj, allow_implicit=False, interface_only=None)*
         Adapts obj to this interface if it is not ``None`` returning ``None`` otherwise.
@@ -568,7 +587,7 @@ Classes
     **provided_by** *(obj, allow_implicit=True)*
         Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
         return ``True`` for objects that provide the interface structure but do not inherit from it.
-        Raises ``ValueError`` if the class is a concrete type.
+        Raises ``InterfaceError`` if the class is a concrete type.
 
 
 **Concrete**
@@ -607,6 +626,25 @@ Functions
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
     If *cls* is not a ``Interface`` subtype then an empty set is returned.
 
+**dataclass** *(_cls=None, init=True, repr=True, eq=True, order=False, unsafe_hash=False, frozen=False)*
+    This function is a re-implementation of the standard Python ``dataclasses.dataclass`` decorator.
+    In addition to the fields on the decorated class, all annotations on interface base classes are added as fields.
+    See the Python dataclasses_ documentation for more details.
+
+    3.7+ Only
+
+
+Exceptions
+----------
+**PureInterfaceError**
+    Base exception class for all exceptions raised by ``pure_interface``.
+
+**InterfaceError**
+    Exception raised for problems with interfaces
+
+**AdaptionError**
+    Exception raised for problems with adapters or adapting.
+
 
 Module Attributes
 -----------------
@@ -624,12 +662,15 @@ Module Attributes
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.
     Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
+-----------
 
 .. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
 .. _PEP-544: https://www.python.org/dev/peps/pep-0544/
-.. _GitHub: https://github.com/aranzgeo/pure_interface
+.. _GitHub: https://github.com/seequent/pure_interface
 .. _mypy: http://mypy-lang.org/
 .. _py2exe: https://pypi.python.org/pypi/py2exe
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
-
+.. _dataclasses: https://docs.python.org/3/library/dataclasses.html
+.. [*] We don't talk about the methods on the base ``PureInterface`` class.  In earlier versions they
+   were all on the meta class but then practicality got in the way.

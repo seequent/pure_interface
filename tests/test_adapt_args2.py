@@ -86,26 +86,26 @@ class TestAdaptArgsPy2(unittest.TestCase):
 
             self.assertEqual(1, warn.call_count)
 
-    def test_type_error_raised_if_arg_not_subclass(self):
-        with self.assertRaises(TypeError):
+    def test_error_raised_if_arg_not_subclass(self):
+        with self.assertRaises(pure_interface.AdaptionError):
             @adapt_args(x=int)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_positional_arg_not_func(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(pure_interface.AdaptionError):
             @adapt_args(I2)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_multiple_positional_args(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(pure_interface.AdaptionError):
             @adapt_args(I1, I2)
             def some_func(x):
                 pass
 
     def test_type_error_raised_if_mixed_args(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(pure_interface.AdaptionError):
             @adapt_args(I1, y=I2)
             def some_func(x, y):
                 pass
