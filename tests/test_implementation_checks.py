@@ -278,7 +278,7 @@ class TestImplementationChecks(unittest.TestCase):
 
         self.assertEqual(frozenset([]), Test._pi.abstractproperties)
 
-   def test_pureinterface_warning(self):
+    def test_pureinterface_warning(self):
         pure_interface.is_development = True
 
         warn = mock.MagicMock()
