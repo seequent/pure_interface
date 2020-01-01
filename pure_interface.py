@@ -478,6 +478,8 @@ class PureInterfaceType(abc.ABCMeta):
         if clsname == 'PureInterface' and attributes.get('__module__', '') == 'pure_interface':
             type_is_interface = True
         if len(bases) > 1 and bases[0] is object:
+            warnings.warn('object should come after {} in base list of {}. '
+                          'Fixing inconsistent MRO is deprecated'.format(bases[1].__name__, clsname))
             bases = bases[1:]  # create a consistent MRO order
             base_types = base_types[1:]
 
@@ -684,17 +686,6 @@ class PureInterface(ABC):
         return PureInterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
-class Concrete(object):
-    """
-    Inheriting from object to define an implementation technically creates an inconsistent MRO.  This is handled by
-    the PureInterfaceType meta-class by removing object from the front of the bases list.
-    However static checkers such as mypy will complain.  To get around this, use this class instead
-
-        class Implemenation(Concrete, Interface):
-    """
-    pass
-
-
 # adaption
 def adapts(from_type, to_interface=None):
     # type: (Any, Type[PI]) -> Callable
@@ -707,7 +698,7 @@ def adapts(from_type, to_interface=None):
     If decorating a class to_interface may be None to use the first interface in the class's MRO.
     E.g.
         @adapts(MyClass)
-        class MyClassToInterfaceAdapter(object, MyInterface):
+        class MyClassToInterfaceAdapter(MyInterface, object):
             def __init__(self, obj):
                 ....
             ....
