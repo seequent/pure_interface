@@ -519,7 +519,7 @@ def _get_adapter(cls, obj_type):
 
     for obj_class in obj_type.__mro__:
         try:
-            return adapters[obj_class]()
+            return adapters[obj_class]
         except KeyError:
             continue
     return None
@@ -829,9 +829,7 @@ def register_adapter(adapter, from_type, to_interface):
     if from_type in adapters:
         raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
 
-    def on_gone(ref):
-        adapters.pop(from_type, None)
-    adapters[from_type] = weakref.ref(adapter, on_gone)
+    adapters[from_type] = adapter
 
 
 class AdapterTracker(object):
