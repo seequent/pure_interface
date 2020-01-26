@@ -26,7 +26,7 @@ class I2(pure_interface.Interface):
         pass
 
 
-class Thing1(pure_interface.Concrete, I1):
+class Thing1(I1, object):
     def __init__(self):
         self.foo = 'foo'
 
@@ -34,7 +34,7 @@ class Thing1(pure_interface.Concrete, I1):
         print('bar:', self.foo)
 
 
-class Thing2(pure_interface.Concrete, I2):
+class Thing2(I2, object):
     def __init__(self):
         self.bar = 'bar'
 
@@ -65,7 +65,7 @@ class I2(pure_interface.Interface):
         pass
 
 
-class Thing1(pure_interface.Concrete, I1):
+class Thing1(I1, object):
     def __init__(self):
         self.foo = 'foo'
 
@@ -73,7 +73,7 @@ class Thing1(pure_interface.Concrete, I1):
         print('bar:', self.foo)
 
 
-class Thing2(pure_interface.Concrete, I2):
+class Thing2(I2, object):
     def __init__(self):
         self.bar = 'bar'
 

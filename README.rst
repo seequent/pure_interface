@@ -119,7 +119,7 @@ Simply inheriting from a pure interface and writing a concrete class will result
 as ``pure_interface`` will assume you are creating a sub-interface. To tell ``pure_interface`` that a type should be
 concrete simply inherit from ``object`` as well (or anything else that isn't an ``Interface``).  For example::
 
-    class Animal(object, IAnimal):
+    class Animal(IAnimal, object):
         def __init__(self, height):
             self.height = height
 
@@ -141,28 +141,13 @@ and properties that satisfy the empty method criteria will result in a type that
 Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties or
 custom descriptors, provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
 
-    class Animal2(object, IAnimal):
+    class Animal2(IAnimal, object):
         def __init__(self, height):
             self._height = height
 
         @property
         def height(self):
             return self._height
-
-        def speak(self, volume):
-            print('hello')
-
-The astute reader will notice that the ``Animal2`` bases list makes an inconsistent method resolution order.
-This is handled by the ``InterfaceType`` meta-class by removing ``object`` from the front of the bases list.
-However static checkers such as mypy_ and some IDE's will complain.  To get around this, ``pure_interface`` includes an empty
-``Concrete`` class which you can use to keep mypy and your IDE happy::
-
-    class Concrete(object):
-        pass
-
-    class Animal2(Concrete, IAnimal):
-        def __init__(self, height):
-            self.height = height
 
         def speak(self, volume):
             print('hello')
@@ -195,14 +180,14 @@ As with ``abc.ABC``, the abstract method checking for a class is done when an ob
 However it is useful to know about missing methods sooner than that.  For this reason ``pure_interface`` will issue
 a warning during module import when methods are missing from a concrete subclass.  For example::
 
-    class SilentAnimal(object, IAnimal):
+    class SilentAnimal(IAnimal, object):
         def __init__(self, height):
             self.height = height
 
 will issue this warning::
 
     readme.py:28: UserWarning: Incomplete Implementation: SilentAnimal does not implement speak
-    class SilentAnimal(object, IAnimal):
+    class SilentAnimal(IAnimal, object):
 
 Trying to create a ``SilentAnimal`` will fail in the standard abc way::
 
@@ -213,7 +198,7 @@ If you have a mixin class that implements part of an interface you can suppress 
 called ``pi_partial_implementation``.  The value of the attribute is ignored, and the attribute itself is removed from
 the class.  For example::
 
-    class HeightMixin(object, IAnimal):
+    class HeightMixin(IAnimal, object):
         pi_partial_implementation = True
 
         def __init__(self, height):
@@ -337,7 +322,7 @@ Adapters from sub-interfaces may be used to perform adaption if necessary. For e
         bar = None
 
     @adapts(int):
-    class IntToB(object, IB):
+    class IntToB(IB, object):
         def __init__(self, x):
             self.foo = self.bar = x
 
@@ -588,11 +573,6 @@ Classes
         Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
         return ``True`` for objects that provide the interface structure but do not inherit from it.
         Raises ``InterfaceError`` if the class is a concrete type.
-
-
-**Concrete**
-    Empty class to create a consistent MRO in implementation classes.
-
 
 Functions
 ---------

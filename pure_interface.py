@@ -48,22 +48,18 @@ missing_method_warnings = []
 
 if six.PY2:
     _six_ord = ord
-    ArgSpec = inspect.ArgSpec
-    getargspec = inspect.getargspec
 
     @six.add_metaclass(abc.ABCMeta)
     class ABC(object):
         pass
 else:
     _six_ord = lambda x: x
-    ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
-
-    def getargspec(func):
-        # getargspec is deprecated, but getfullargspec is not a drop-in replacement as advertised
-        # as the keywords attribute has been renamed
-        full_spec = inspect.getfullargspec(func)
-        return ArgSpec(*full_spec[:4])
     ABC = abc.ABC
+
+try:
+    from inspect import signature, Signature, Parameter
+except ImportError:
+    from funcsigs import signature, Signature, Parameter
 
 
 class PureInterfaceError(Exception):
@@ -171,9 +167,9 @@ def _get_abc_interface_props_and_funcs(cls):
         value = getattr(cls, name)
         if isinstance(value, (staticmethod, classmethod, types.MethodType)):
             func = six.get_method_function(value)
-            function_sigs[name] = getargspec(func)
+            function_sigs[name] = signature(func)
         elif isinstance(value, types.FunctionType):
-            function_sigs[name] = getargspec(value)
+            function_sigs[name] = signature(value)
         elif isinstance(value, property):
             properties.add(name)
 
@@ -262,56 +258,124 @@ def _is_descriptor(obj):  # in our context we only care about __get__
     return hasattr(obj, '__get__')
 
 
+class _ParamTypes(object):
+    def __init__(self, pos_only, pos_or_kw, vararg, kw_only, varkw):
+        self.pos_only = pos_only
+        self.pos_or_kw = pos_or_kw
+        self.vararg = vararg
+        self.kw_only = kw_only
+        self.varkw = varkw
+        self.positional = pos_only + pos_or_kw
+        self.keyword = pos_or_kw + kw_only
+
+
 def _signature_info(arg_spec):
-    # type: (ArgSpec) -> Tuple[List[str], List[str], bool, bool]
-    """ returns (req_args, def_args, has_varargs, has_keywords)"""
-    if arg_spec.defaults:
-        n_defaults = len(arg_spec.defaults)
-        def_args = arg_spec.args[-n_defaults:]
-        req_args = arg_spec.args[:-n_defaults]
-    else:
-        req_args = arg_spec.args
-        def_args = []
-    return req_args, def_args, bool(arg_spec.varargs), bool(arg_spec.keywords)
+    # type: (List[Parameter]) -> _ParamTypes
+    param_types = collections.defaultdict(list)
+    for param in arg_spec:
+        param_types[param.kind].append(param)
+
+    return _ParamTypes(param_types[Parameter.POSITIONAL_ONLY],
+                       param_types[Parameter.POSITIONAL_OR_KEYWORD],
+                       param_types[Parameter.VAR_POSITIONAL],
+                       param_types[Parameter.KEYWORD_ONLY],
+                       param_types[Parameter.VAR_KEYWORD]
+                       )
+
+
+def _required_params(param_list):
+    """ return params without a default"""
+    # params with defaults come last
+    for i, p in enumerate(param_list):
+        if p.default is not Parameter.empty:
+            return param_list[:i]
+    # no defaults
+    return param_list
+
+
+def _kw_names_match(func, base):
+    func_names = set(p.name for p in func)
+    return all(p.name in func_names for p in base)
+
+
+def _positional_args_match(func_list, base_list, vararg, base_kwo):
+    # arguments are positional - so name doesn't matter
+    # func may not have fewer parameters
+    if len(base_list) > len(func_list):
+        if not vararg:  # unless it has varargs
+            return False
+    # extra parameters must be have defaults (be optional)
+    base_kwo = [p.name for p in base_kwo]
+    for p in func_list[len(base_list):]:
+        if p.default is Parameter.empty and p.name not in base_kwo:
+            return False
+    return True
+
+
+def _pos_or_kw_args_match(func_list, base_list, base_pos_only):
+    # arguments names must occur in same order
+    if base_pos_only and func_list and base_list:  # some args may be positional only in base method
+        func_args = [p.name for p in func_list]
+        base_args = [p.name for p in base_list]
+        try:
+            i = func_args.index(base_args[0])
+        except ValueError:
+            return False
+        if i > len(base_pos_only):
+            return False
+        func_list = func_list[i:]
+    for fp, bp in zip(func_list, base_list):
+        if fp.name != bp.name:
+            return False
+    return True
+
+
+def _keyword_args_match(func_list, base_list, varkw, num_pos):
+    base_args = {p.name: p for p in base_list}
+    for i, fp in enumerate(func_list):
+        bp = base_args.get(fp.name, None)
+        if i < num_pos:  # this argument is positional
+            if bp is not None:
+                return False
+            continue
+        if bp is None:  # new arg
+            if fp.default is Parameter.empty:  # arg must have a default
+                return False
+        elif bp.default is not Parameter.empty:  # base has default
+            if fp.default is Parameter.empty:  # func must have a default
+                return False
+    if not varkw:
+        func_args = {p.name: p for p in func_list}
+        for bp in base_list:
+            if bp.name not in func_args:
+                return False
+    return True
 
 
 def _signatures_are_consistent(func_sig, base_sig):
-    # type: (ArgSpec, ArgSpec) -> bool
+    # type: (Signature, Signature) -> bool
     """
-    :param func_sig: ArgSpec named tuple for overriding function
-    :param base_sig: ArgSpec named tuple for base class function
-    :return: True if signatures are consistent.
+    :param func_sig: Signature of overriding function
+    :param base_sig: Signature of base class function
+    :return: True if signature of func is Liskov substitutable for base.
     """
-    base_required_args, base_default_args, base_varargs, base_keywords = _signature_info(base_sig)
-    func_required_args, func_default_args, func_varargs, func_keywords = _signature_info(func_sig)
-    if func_varargs:
-        shortest_len = min(len(base_required_args), len(func_required_args))
-        req_names_match = func_required_args[:shortest_len] == base_required_args[:shortest_len]
-    else:
-        # (a, b, c) can be overridden with (a, b, c=0) so need to check entire args sequence here
-        req_names_match = func_sig.args[:len(base_required_args)] == base_required_args
-    no_new_required_args = len(func_required_args) <= len(base_required_args)
-    if func_keywords:
-        def_names_match = True
-    else:
-        def_names_match = func_default_args[:len(base_default_args)] == base_default_args
-    if base_default_args and func_varargs:
-        # need to check that we don't have multiple values for keyword arguments
-        # e.g. base(a, b, c=None)  func(a, c=4, *args)
-        # base can be called with (a, b, c) but func cannot.
-        for arg in func_default_args:
-            if arg in base_sig.args:
-                base_index = base_sig.args.index(arg)
-                func_index = func_sig.args.index(arg)
-                if base_index != func_index:
-                    def_names_match = False
-                    break
-    varargs_ok = True
-    if base_varargs:
-        varargs_ok = func_varargs
-    if base_keywords:
-        varargs_ok &= func_keywords
-    return req_names_match and def_names_match and no_new_required_args and varargs_ok
+    base = _signature_info(base_sig.parameters.values())
+    func = _signature_info(func_sig.parameters.values())
+
+    if base.vararg and not func.vararg:
+        return False
+    if base.varkw and not func.varkw:
+        return False
+
+    if not _positional_args_match(func.positional, base.positional, func.vararg, base.kw_only):
+        return False
+    if not _pos_or_kw_args_match(func.pos_or_kw, base.pos_or_kw, base.pos_only):
+        return False
+    n = len(base.pos_only) - len(func.pos_only)
+    if not _keyword_args_match(func.keyword, base.keyword, func.varkw, n):
+        return False
+
+    return True
 
 
 def _ensure_everything_is_abstract(attributes):
@@ -335,23 +399,23 @@ def _ensure_everything_is_abstract(attributes):
                 else:
                     func = value
                 functions.append(func)
-                interface_method_signatures[name] = getargspec(func)
+                interface_method_signatures[name] = signature(func)
             elif isinstance(value, property):
                 interface_attribute_names.add(name)
                 continue  # do not add to class namespace
         elif isinstance(value, staticmethod):
             func = value.__func__
             functions.append(func)
-            interface_method_signatures[name] = getargspec(func)
+            interface_method_signatures[name] = signature(func)
             value = abstractstaticmethod(func)
         elif isinstance(value, classmethod):
             func = value.__func__
-            interface_method_signatures[name] = getargspec(func)
+            interface_method_signatures[name] = signature(func)
             functions.append(func)
             value = abstractclassmethod(func)
         elif isinstance(value, types.FunctionType):
             functions.append(value)
-            interface_method_signatures[name] = getargspec(value)
+            interface_method_signatures[name] = signature(value)
             value = abstractmethod(value)
         elif isinstance(value, property):
             interface_attribute_names.add(name)
@@ -378,7 +442,7 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
             func = value.__func__
         else:
             func = value
-        func_sig = getargspec(func)
+        func_sig = signature(func)
         if not _signatures_are_consistent(func_sig, base_sig):
             msg = '{module}.{clsname}.{name} arguments do not match base method'.format(
                 module=attributes['__module__'], clsname=clsname, name=name)
@@ -455,7 +519,7 @@ def _get_adapter(cls, obj_type):
 
     for obj_class in obj_type.__mro__:
         try:
-            return adapters[obj_class]()
+            return adapters[obj_class]
         except KeyError:
             continue
     return None
@@ -489,6 +553,8 @@ class InterfaceType(abc.ABCMeta):
         if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
             type_is_interface = True
         if len(bases) > 1 and bases[0] is object:
+            warnings.warn('object should come after {} in base list of {}. '
+                          'Fixing inconsistent MRO is deprecated'.format(bases[1].__name__, clsname))
             bases = bases[1:]  # create a consistent MRO order
             base_types = base_types[1:]
 
@@ -568,7 +634,8 @@ class InterfaceType(abc.ABCMeta):
             raise InterfaceError('Interfaces cannot be instantiated')
         self = super(InterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
-            if not hasattr(self, attr):
+            if not (hasattr(cls, attr) or hasattr(self, attr)):
+                # check for attribute on class first so that properties are not run.
                 raise InterfaceError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
@@ -706,17 +773,6 @@ class PureInterface(Interface):
     pass
 
 
-class Concrete(object):
-    """
-    Inheriting from object to define an implementation technically creates an inconsistent MRO.  This is handled by
-    the InterfaceType meta-class by removing object from the front of the bases list.
-    However static checkers such as mypy will complain.  To get around this, use this class instead
-
-        class Implemenation(Concrete, Interface):
-    """
-    pass
-
-
 # adaption
 def adapts(from_type, to_interface=None):
     # type: (Any, Type[PI]) -> Callable[[Any], Any]
@@ -729,7 +785,7 @@ def adapts(from_type, to_interface=None):
     If decorating a class to_interface may be None to use the first interface in the class's MRO.
     E.g.
         @adapts(MyClass)
-        class MyClassToInterfaceAdapter(object, MyInterface):
+        class MyClassToInterfaceAdapter(MyInterface, object):
             def __init__(self, obj):
                 ....
             ....
@@ -772,9 +828,7 @@ def register_adapter(adapter, from_type, to_interface):
     if from_type in adapters:
         raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
 
-    def on_gone(ref):
-        adapters.pop(from_type, None)
-    adapters[from_type] = weakref.ref(adapter, on_gone)
+    adapters[from_type] = adapter
 
 
 class AdapterTracker(object):
@@ -863,32 +917,6 @@ def get_interface_attribute_names(interface):
     """ returns a frozen set of names of attributes defined by the interface
     if interface is not a Interface subtype then an empty set is returned
     """
-    if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'interface_attribute_names')
-    else:
-        return frozenset()
-
-
-def get_interface_property_names(interface):
-    # type: (Type[Interface]) -> FrozenSet[str]
-    """ returns a frozen set of names of properties defined by the interface
-    if interface is not a Interface subtype then an empty set is returned
-    """
-    warnings.warn('Interface no longer distinguishes between properties and attributes\n'
-                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
-    if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'interface_attribute_names')
-    else:
-        return frozenset()
-
-
-def get_interface_properties_and_attribute_names(interface):
-    # type: (Type[Interface]) -> FrozenSet[str]
-    """ returns a frozen set of names of properties or attributes defined by the interface
-    if interface is not a Interface subtype then an empty set is returned
-    """
-    warnings.warn('Interface no longer distinguishes between properties and attributes\n'
-                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
     if type_is_pure_interface(interface):
         return _get_pi_attribute(interface, 'interface_attribute_names')
     else:

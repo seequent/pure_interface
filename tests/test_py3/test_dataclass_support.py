@@ -15,7 +15,7 @@ class IFoo(PureInterface):
 
 if 'dataclass' in globals():
     @dataclass
-    class Foo(Concrete, IFoo):
+    class Foo(IFoo, object):
         c: float = 12.0
 
         def foo(self):
