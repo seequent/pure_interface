@@ -19,7 +19,7 @@ class IPlant(pure_contracts.ContractInterface):
         return None
 
 
-class Plant(pure_contracts.Concrete, IPlant):
+class Plant(IPlant, object):
     def set_height(self, height):
         return height
 

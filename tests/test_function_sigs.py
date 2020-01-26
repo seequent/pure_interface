@@ -245,7 +245,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_diff_names_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
-            class Animal(object, IAnimal):
+            class Animal(IAnimal, object):
                 def speak(self, loudness):
                     pass
 
@@ -258,7 +258,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_too_few_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
-            class Animal(object, IAnimal):
+            class Animal(IAnimal, object):
                 def speak(self):
                     pass
 
@@ -271,7 +271,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_too_many_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
-            class Animal(object, IAnimal):
+            class Animal(IAnimal, object):
                 def speak(self, volume, msg):
                     pass
 
@@ -281,7 +281,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
                 pass
 
         with self.assertRaises(pure_interface.InterfaceError):
-            class Animal(object, IWalkingAnimal):
+            class Animal(IWalkingAnimal, object):
                 speak = ADescriptor()
 
                 def walk(self, volume):
@@ -294,7 +294,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
                     pass
 
     def test_new_with_default_passes(self):
-        class Animal(object, IAnimal):
+        class Animal(IAnimal, object):
             def speak(self, volume, msg='hello'):
                 return '{} ({})'.format(msg, volume)
 
@@ -303,7 +303,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
             def speak(self, volume, msg='hello'):
                 pass
 
-        class Animal3(object, IAnimal2):
+        class Animal3(IAnimal2, object):
             def speak(self, volume, msg='hello'):
                 return '{} ({})'.format(msg, volume)
 
@@ -313,7 +313,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.assertEqual(b.speak('loud'), 'hello (loud)')
 
     def test_adding_default_passes(self):
-        class Animal(object, IAnimal):
+        class Animal(IAnimal, object):
             def speak(self, volume='loud'):
                 return 'hello ({})'.format(volume)
 
@@ -323,7 +323,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_increasing_required_params_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
-            class Plant(object, IPlant):
+            class Plant(IPlant, object):
                 def grow(self, height):
                     return height + 5
 
@@ -341,7 +341,7 @@ class TestDisableFunctionSignatureChecks(unittest.TestCase):
 
     def test_too_many_passes(self):
         try:
-            class Animal(object, IAnimal):
+            class Animal(IAnimal, object):
                 def speak(self, volume, msg):
                     pass
             a = Animal()

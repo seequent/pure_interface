@@ -30,7 +30,7 @@ class Talker(object):
 
 
 @pure_interface.adapts(Talker)
-class TalkerToSpeaker(pure_interface.Concrete, ISpeaker):
+class TalkerToSpeaker(ISpeaker, object):
     def __init__(self, talker):
         self._talker = talker
 
@@ -100,7 +100,7 @@ class Sleeper(object):
 
 
 @pure_interface.adapts(Sleeper)
-class SleepTalker(pure_interface.Concrete, ISleepTalker):
+class SleepTalker(ISleepTalker, object):
     def __init__(self, sleeper):
         self._sleeper = sleeper
         self.is_asleep = sleeper.is_asleep
@@ -299,7 +299,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
             bar = None
 
         @pure_interface.adapts(int)
-        class IntToB(pure_interface.Concrete, IB):
+        class IntToB(IB, object):
             def __init__(self, x):
                 self.foo = self.bar = x
 
@@ -307,7 +307,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         self.assertIsInstance(a, IntToB)
 
         @pure_interface.adapts(int)
-        class IntToA(pure_interface.Concrete, IA):
+        class IntToA(IA, object):
             def __init__(self, x):
                 self.foo = x
 

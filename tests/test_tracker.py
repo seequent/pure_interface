@@ -23,7 +23,7 @@ class Talker(object):
         return self._saying
 
 
-class Sleeper(Concrete, ISleeper):
+class Sleeper(ISleeper, object):
     def __init__(self, is_asleep=False):
         self.is_asleep = is_asleep
 
@@ -34,7 +34,7 @@ def talker_to_sleeper(talker):
 
 
 @adapts(Talker)
-class TalkerToSpeaker(Concrete, ISpeaker):
+class TalkerToSpeaker(ISpeaker, object):
     def __init__(self, talker):
         self._talker = talker
 

@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from six.moves import cStringIO
 import unittest
 
+
 import pure_interface
 from tests.interface_module import IAnimal
 
@@ -48,7 +49,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertFalse(IAnimal.provided_by(a, allow_implicit=True))
 
     def test_concrete_subclass_check(self):
-        class Cat(object, IAnimal):
+        class Cat(IAnimal, object):
             def speak(self, volume):
                 print('meow')
 

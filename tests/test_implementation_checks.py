@@ -114,7 +114,7 @@ class TestImplementationChecks(unittest.TestCase):
             IAnimal3()
 
     def test_concrete_base_detection(self):
-        class Concrete(object, PureInterface):
+        class Concrete(PureInterface, object):
             pass
 
         self.assertFalse(Concrete._pi.type_is_pure_interface)
@@ -214,7 +214,7 @@ class TestImplementationChecks(unittest.TestCase):
                     else:
                         return self.__function
 
-            class Simple(object, ISimple):
+            class Simple(ISimple, object):
                 @MyDescriptor
                 def foo():
                     return 1
@@ -229,7 +229,7 @@ class TestImplementationChecks(unittest.TestCase):
         pure_interface.missing_method_warnings = []
         # act
 
-        class SimpleSimon(object, ISimple):
+        class SimpleSimon(ISimple, object):
             pass
 
         # assert
@@ -238,12 +238,24 @@ class TestImplementationChecks(unittest.TestCase):
         self.assertIn('SimpleSimon', msg)
         self.assertIn('foo', msg)
 
+    def test_inconsistent_mro_warning(self):
+        pure_interface.is_development = True
+
+        warn = mock.MagicMock()
+        with mock.patch('warnings.warn', warn):
+            class SimpleSimon(object, ISimple):
+                def foo(self):
+                    pass
+
+        self.assertEqual(warn.call_count, 1)
+        self.assertTrue(warn.call_args[0][0].startswith('object should come after ISimple'))
+
     def test_is_development_flag_stops_warnings(self):
         pure_interface.is_development = False
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            class SimpleSimon(object, ISimple):
+            class SimpleSimon(ISimple, object):
                 pass
 
         warn.assert_not_called()
@@ -253,7 +265,7 @@ class TestImplementationChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            class SimpleSimon(object, ISimple):
+            class SimpleSimon(ISimple, object):
                 pi_partial_implementation = True
 
         warn.assert_not_called()
@@ -263,7 +275,7 @@ class TestImplementationChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            class SimpleSimon(object, ISimple):
+            class SimpleSimon(ISimple, object):
                 pi_partial_implementation = False
 
         self.assertEqual(warn.call_count, 1)
@@ -281,7 +293,7 @@ class TestImplementationChecks(unittest.TestCase):
 
 class TestPropertyImplementations(unittest.TestCase):
     def test_abstract_property_override_passes(self):
-        class Animal(object, IGrowingAnimal):
+        class Animal(IGrowingAnimal, object):
             def get_height(self):
                 return 10
 
@@ -294,7 +306,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_abstract_attribute_override_passes(self):
-        class Animal(object, IGrowingAnimal):
+        class Animal(IGrowingAnimal, object):
             def __init__(self):
                 self.height = 5
 
@@ -308,7 +320,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 5)
 
     def test_property_override_passes(self):
-        class Plant(object, IGrowingPlant):
+        class Plant(IGrowingPlant, object):
             @property
             def height(self):
                 return 10
@@ -321,7 +333,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_attribute_override_passes(self):
-        class Plant(object, IGrowingPlant):
+        class Plant(IGrowingPlant, object):
             def __init__(self):
                 self.height = 5
 
@@ -329,7 +341,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 5)
 
     def test_ro_abstract_property_override_passes(self):
-        class Animal(object, IAnimal):
+        class Animal(IAnimal, object):
             @property
             def height(self):
                 return 10
@@ -338,7 +350,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_ro_abstract_property_override_passes3(self):
-        class Animal(object, IAnimal3):
+        class Animal(IAnimal3, object):
             @property
             def height(self):
                 return 10
@@ -347,7 +359,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_ro_abstract_attribute_override_passes(self):
-        class Animal(object, IAnimal):
+        class Animal(IAnimal, object):
             def __init__(self):
                 self.height = 5
 
@@ -355,7 +367,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 5)
 
     def test_ro_abstract_attribute_override_passes3(self):
-        class Animal(object, IAnimal3):
+        class Animal(IAnimal3, object):
             def __init__(self):
                 self.height = 5
 
@@ -363,7 +375,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 5)
 
     def test_ro_property_override_passes(self):
-        class Plant(object, IPlant):
+        class Plant(IPlant, object):
             @property
             def height(self):
                 return 10
@@ -372,7 +384,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 10)
 
     def test_ro_attribute_override_passes(self):
-        class Plant(object, IPlant):
+        class Plant(IPlant, object):
             def __init__(self):
                 self.height = 5
 
@@ -380,21 +392,21 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(a.height, 5)
 
     def test_missing_abstract_property_fails(self):
-        class Animal(object, IAnimal):
+        class Animal(IAnimal, object):
             pass
 
         with self.assertRaises(InterfaceError):
             Animal()
 
     def test_missing_property_fails(self):
-        class Plant(object, IPlant):
+        class Plant(IPlant, object):
             pass
 
         with self.assertRaises(TypeError):
             Plant()
 
     def test_missing_property_subclass_fails(self):
-        class PlantBase(object, IPlant):
+        class PlantBase(IPlant, object):
             pass
 
         class Potato(PlantBase):
@@ -404,7 +416,7 @@ class TestPropertyImplementations(unittest.TestCase):
             Potato()
 
     def test_abstract_property_is_cleared(self):
-        class PlantBase(object, IPlant):
+        class PlantBase(IPlant, object):
             pass
 
         class Potato(PlantBase):
@@ -415,7 +427,7 @@ class TestPropertyImplementations(unittest.TestCase):
         self.assertEqual(Potato._pi.abstractproperties, set())
 
     def test_getattr_property_passes(self):
-        class Plant(object, IPlant):
+        class Plant(IPlant, object):
             def __getattr__(self, item):
                 if item == 'height':
                     return 10
@@ -427,7 +439,7 @@ class TestPropertyImplementations(unittest.TestCase):
 
     def test_class_and_static_methods(self):
         try:
-            class Concrete(object, IFunkyMethods):
+            class Concrete(IFunkyMethods, object):
                 @classmethod
                 def acm(cls):
                     return 1
@@ -451,7 +463,7 @@ class IAttribute(PureInterface):
     a = None
 
 
-class RaisingProperty(object, IAttribute):
+class RaisingProperty(IAttribute, object):
     @property
     def a(self):
         raise Exception("Bang")
@@ -471,7 +483,7 @@ class TestAttributeImplementations(unittest.TestCase):
             b = IAttribute.a
 
     def test_class_attribute_is_required(self):
-        class A(object, IAttribute):
+        class A(IAttribute, object):
             pass
 
         with self.assertRaises(InterfaceError):
@@ -481,7 +493,7 @@ class TestAttributeImplementations(unittest.TestCase):
         self.assertIn('a', dir(IAttribute))
 
     def test_instance_attribute_passes(self):
-        class A(object, IAttribute):
+        class A(IAttribute, object):
             def __init__(self):
                 self.a = 2
 
@@ -493,7 +505,7 @@ class TestAttributeImplementations(unittest.TestCase):
         self.assertEqual(a.a, 2)
 
     def test_class_attribute_passes(self):
-        class A(object, IAttribute):
+        class A(IAttribute, object):
             a = 2
 
         try:
@@ -504,7 +516,7 @@ class TestAttributeImplementations(unittest.TestCase):
         self.assertEqual(a.a, 2)
 
     def test_property_passes(self):
-        class A(object, IAttribute):
+        class A(IAttribute, object):
             @property
             def a(self):
                 return 2
@@ -533,7 +545,7 @@ class TestAttributeImplementations(unittest.TestCase):
     def test_attr_overridden_with_func(self):
         # forgotten @property decorator
         try:
-            class Function(Concrete, IAttribute):
+            class Function(IAttribute, object):
                 def a(self):
                     return 2
 
@@ -568,7 +580,7 @@ class TestAttributeImplementations(unittest.TestCase):
 class TestCrossImplementations(unittest.TestCase):
     """ test class attributes implemented as properties and vice versa """
     def test_cross_implementations(self):
-        class CrossImplementation(Concrete, ICrossImplementation):
+        class CrossImplementation(ICrossImplementation, object):
             def __init__(self):
                 self.a = 1
                 self.c = 2
