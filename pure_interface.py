@@ -630,7 +630,8 @@ class PureInterfaceType(abc.ABCMeta):
             raise InterfaceError('Interfaces cannot be instantiated')
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
-            if not hasattr(self, attr):
+            if not (hasattr(cls, attr) or hasattr(self, attr)):
+                # check for attribute on class first so that properties are not run.
                 raise InterfaceError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
