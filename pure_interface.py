@@ -924,32 +924,6 @@ def get_interface_attribute_names(interface):
         return frozenset()
 
 
-def get_interface_property_names(interface):
-    # type: (Type[PureInterface]) -> FrozenSet[str]
-    """ returns a frozen set of names of properties defined by the interface
-    if interface is not a PureInterface subtype then an empty set is returned
-    """
-    warnings.warn('PureInterface no longer distinguishes between properties and attributes\n'
-                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
-    if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'interface_attribute_names')
-    else:
-        return frozenset()
-
-
-def get_interface_properties_and_attribute_names(interface):
-    # type: (Type[PureInterface]) -> FrozenSet[str]
-    """ returns a frozen set of names of properties or attributes defined by the interface
-    if interface is not a PureInterface subtype then an empty set is returned
-    """
-    warnings.warn('PureInterface no longer distinguishes between properties and attributes\n'
-                  'Use get_interface_attribute_names instead', DeprecationWarning, stacklevel=2)
-    if type_is_pure_interface(interface):
-        return _get_pi_attribute(interface, 'interface_attribute_names')
-    else:
-        return frozenset()
-
-
 def _interface_from_anno(annotation):
     """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
     a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
