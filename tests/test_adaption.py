@@ -10,7 +10,7 @@ except ImportError:
     import mock
 
 
-class ISpeaker(pure_interface.PureInterface):
+class ISpeaker(pure_interface.Interface):
     def speak(self, volume):
         pass
 
@@ -292,7 +292,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
 
     def test_adapter_preference(self):
         """ adapt should prefer interface adapter over sub-interface adapter """
-        class IA(pure_interface.PureInterface):
+        class IA(pure_interface.Interface):
             foo = None
 
         class IB(IA):
@@ -318,7 +318,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         a_speaker = Speaker()
         allow = object()
         interface_only = object()
-        with mock.patch('pure_interface.PureInterfaceType.adapt') as adapt:
+        with mock.patch('pure_interface.InterfaceType.adapt') as adapt:
             # act
             s = ISpeaker.optional_adapt(a_speaker, allow_implicit=allow, interface_only=interface_only)
             none = ISpeaker.optional_adapt(None, allow_implicit=allow, interface_only=interface_only)

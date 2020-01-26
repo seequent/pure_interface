@@ -43,10 +43,10 @@ For simplicity in these examples we assume that the entire pure_interface namesp
 
     from pure_interface import *
 
-To define an interface, simply inherit from the class ``PureInterface`` and write a PEP-544_ Protocol-like class
+To define an interface, simply inherit from the class ``Interface`` and write a PEP-544_ Protocol-like class
 leaving all method bodies empty::
 
-    class IAnimal(PureInterface):
+    class IAnimal(Interface):
         height: float
 
         def speak(self, volume):
@@ -56,7 +56,7 @@ leaving all method bodies empty::
 Like Protocols, class annotations are considered part of the interface.
 In Python versions earlier than 3.6 you can use the following alternate syntax::
 
-    class IAnimal(PureInterface):
+    class IAnimal(Interface):
         height = None
 
         def speak(self, volume):
@@ -65,10 +65,10 @@ In Python versions earlier than 3.6 you can use the following alternate syntax::
 The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary
 (since annotations are not in the class dictionary).
 
-``PureInterface`` is a subtype of ``abc.ABC`` and the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
+``Interface`` is a subtype of ``abc.ABC`` and the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
 ABC-style property definitions are also supported (and equivalent)::
 
-    class IAnimal(PureInterface):
+    class IAnimal(Interface):
         @abstractproperty
         def height(self):
             pass
@@ -82,7 +82,7 @@ all concrete subclasses will be required to have a ``height`` attribute.
 
 For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and
 on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
-However these decorators are optional as **ALL** methods and properties on a ``PureInterface`` subclass are abstract.
+However these decorators are optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
 In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
@@ -97,7 +97,7 @@ Interface classes cannot be instantiated ::
 
 Including code in a method will result in an ``InterfaceError`` being raised when the module is imported. For example::
 
-    class BadInterface(PureInterface):
+    class BadInterface(Interface):
         def method(self):
             print('hello')
 
@@ -117,7 +117,7 @@ Concrete Implementations
 
 Simply inheriting from a pure interface and writing a concrete class will result in an ``InterfaceError`` exception
 as ``pure_interface`` will assume you are creating a sub-interface. To tell ``pure_interface`` that a type should be
-concrete simply inherit from ``object`` as well (or anything else that isn't a ``PureInterface``).  For example::
+concrete simply inherit from ``object`` as well (or anything else that isn't an ``Interface``).  For example::
 
     class Animal(IAnimal, object):
         def __init__(self, height):
@@ -126,7 +126,7 @@ concrete simply inherit from ``object`` as well (or anything else that isn't a `
         def speak(self, volume):
             print('hello')
 
-**Exception:** Mixing a ``PureInterface`` class with an ``abc.ABC`` interface class that only defines abstract methods
+**Exception:** Mixing an ``Interface`` class with an ``abc.ABC`` interface class that only defines abstract methods
 and properties that satisfy the empty method criteria will result in a type that is considered a pure interface.::
 
     class ABCInterface(abc.ABC):
@@ -134,12 +134,12 @@ and properties that satisfy the empty method criteria will result in a type that
         def foo(self):
             pass
 
-    class MyPureInterface(ABCInterface, PureInterface):
+    class MyInterface(ABCInterface, Interface):
         def bar(self):
             pass
 
-Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties,
-custom descriptors provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
+Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties or
+custom descriptors, provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
 
     class Animal2(IAnimal, object):
         def __init__(self, height):
@@ -171,7 +171,7 @@ Then these overrides will all fail the checks and raise an ``InterfaceError``::
 However new optional parameters are permitted, as are ``*args`` and ``**kwargs``::
 
   def speak(self, volume, language='doggy speak')
-  def speak(self, *args)
+  def speak(self, *args, **kwargs)
 
 Implementation Warnings
 -----------------------
@@ -207,7 +207,7 @@ the class.  For example::
 will not issue any warnings.
 
 The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
-filters (but only if ``is_development=True``).  This provides an alternative to raising warnings as errors.
+module filters (but only if ``is_development=True``).  This provides an alternative to raising warnings as errors.
 When all your imports are complete you can check if this list is empty.::
 
     if pure_iterface.missing_method_warnings:
@@ -227,7 +227,7 @@ Adapters for an interface are registered with the ``adapts`` decorator or with
 the ``register_adapter`` function. Take for example an interface ``ISpeaker`` and a
 class ``Talker`` and an adapter class ``TalkerToSpeaker``::
 
-    class ISpeaker(PureInterface):
+    class ISpeaker(Interface):
         def speak(self, volume):
             pass
 
@@ -261,7 +261,7 @@ The decorated adapter (whether class for function) must be callable with a singl
 Adapting Objects
 ----------------
 
-The ``PureInterface.adapt`` method will adapt an object to the given interface
+The ``Interface.adapt`` method will adapt an object to the given interface
 such that ``Interface.provided_by`` is ``True`` or raise ``AdaptionError`` if no adapter could be found.  For example::
 
     speaker = ISpeaker.adapt(talker)
@@ -315,7 +315,7 @@ of ``ISpeaker``, but this code will likely break at some inconvenient time in th
 
 Adapters from sub-interfaces may be used to perform adaption if necessary. For example::
 
-    class IA(PureInterface):
+    class IA(Interface):
        foo = None
 
     class IB(IA):
@@ -337,7 +337,7 @@ Structural_ type checking checks if an object has the attributes and methods def
 .. _Structural: https://en.wikipedia.org/wiki/Structural_type_system
 
 As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
-An alternative to ``isinstance()`` is the ``PureInterface.provided_by(obj)`` classmethod which will fall back to structural type
+An alternative to ``isinstance()`` is the ``Interface.provided_by(obj)`` classmethod which will fall back to structural type
 checking if the instance is not an actual subclass.  This can be controlled by the ``allow_implicit`` parameter which defaults to ``True``.
 The structural type-checking does not check function signatures.::
 
@@ -355,7 +355,7 @@ The structural type-checking does not check function signatures.::
 
 The structural type checking makes working with data transfer objects (DTO's) much easier.::
 
-    class IMyDataType(PureInterface):
+    class IMyDataType(Interface):
         thing: str
 
     class DTO(object):
@@ -418,15 +418,15 @@ get_type_interfaces(cls)
 
 get_interface_names(cls)
     Returns a ``frozenset`` of names (methods and attributes) defined by the interface.
-    if interface is not a ``PureInterface`` subtype then an empty set is returned.
+    if interface is not a ``Interface`` subtype then an empty set is returned.
 
 get_interface_method_names(interface)
     Returns a ``frozenset`` of names of methods defined by the interface.
-    if interface is not a ``PureInterface`` subtype then an empty set is returned
+    if interface is not a ``Interface`` subtype then an empty set is returned
 
 get_interface_attribute_names(interface)
     Returns a ``frozenset`` of names of attributes defined by the interface.
-    if interface is not a ``PureInterface`` subtype then an empty set is returned
+    if interface is not a ``Interface`` subtype then an empty set is returned
 
 
 Automatic Adaption
@@ -466,7 +466,7 @@ For this reason the ``pure_interface`` module has an ``is_development`` switch.:
 ``is_development`` defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
 py2exe_, cx_Freeze_ or similar tools.
 
-If you manually change this flag it must be set before modules using the ``PureInterface`` type
+If you manually change this flag it must be set before modules using the ``Interface`` type
 are imported or else the change will not have any effect.
 
 If ``is_development`` if ``False`` then:
@@ -485,7 +485,7 @@ You can use ``pure_interface`` with PyContracts_
 .. _PyContracts: https://pypi.python.org/pypi/PyContracts
 
 Simply import the ``pure_contracts`` module and use the ``ContractInterface`` class defined there as you
-would the ``PureInterface`` class described above.
+would the ``Interface`` class described above.
 For example::
 
     from pure_contracts import ContractInterface
@@ -502,43 +502,43 @@ Reference
 Classes
 -------
 
-**PureInterfaceType(abc.ABCMeta)**
+**InterfaceType(abc.ABCMeta)**
     Metaclass for checking interface and implementation classes.
-    Adding PureInterfaceType as a meta-class to a class will not make that class an interface, you need to
-    inherit from ``PureInterface`` class to define an interface.
+    Adding ``InterfaceType`` as a meta-class to a class will not make that class an interface, you need to
+    inherit from ``Interface`` class to define an interface.
 
     In addition to the ``register`` method provided by ``ABCMeta``, the following functions are defined on
-    ``PureInterfaceType`` and can be accessed directly when the ``PureInterface`` methods are overridden
+    ``InterfaceType`` and can be accessed directly when the ``Interface`` methods are overridden
     for other purposes.
 
     **adapt** *(cls, obj, allow_implicit=False, interface_only=None)*
-        See ``PureInterface.adapt`` for a description.
+        See ``Interface.adapt`` for a description.
 
     **adapt_or_none** *(cls, obj, allow_implicit=False, interface_only=None)*
-        See ``PureInterface.adapt_or_none`` for a description
+        See ``Interface.adapt_or_none`` for a description
 
     **optional_adapt** *(cls, obj, allow_implicit=False, interface_only=None)*
-        See ``PureInterface.optional_adapt`` for a description
+        See ``Interface.optional_adapt`` for a description
 
     **can_adapt** *(cls, obj, allow_implicit=False)*
-        See ``PureInterface.can_adapt`` for a description
+        See ``Interface.can_adapt`` for a description
 
     **filter_adapt** *(cls, objects, allow_implicit=False, interface_only=None)*
-        See ``PureInterface.filter_adapt`` for a description
+        See ``Interface.filter_adapt`` for a description
 
     **interface_only** *(cls, implementation)*
-        See ``PureInterface.interface_only`` for a description
+        See ``Interface.interface_only`` for a description
 
     **provided_by** *(cls, obj, allow_implicit=True)*
-        See ``PureInterface.provided_by`` for a description
+        See ``Interface.provided_by`` for a description
 
-    Classes created with a metaclass of ``PureInterfaceType`` will have the following property:
+    Classes created with a metaclass of ``InterfaceType`` will have the following property:
 
     **_pi** Information about the class that is used by this meta-class.  This attribute is reserved for use by
             ``pure_interface`` and must not be overridden.
 
 
-**PureInterface**
+**Interface**
     Base class for defining interfaces.  The following methods are provided:
 
     **adapt** *(obj, allow_implicit=False, interface_only=None)*
@@ -596,15 +596,15 @@ Functions
 
 **get_interface_names** *(cls)*
     Returns a ``frozenset`` of names (methods and attributes) defined by the interface.
-    if interface is not a ``PureInterface`` subtype then an empty set is returned.
+    if interface is not a ``Interface`` subtype then an empty set is returned.
 
 **get_interface_method_names** *(cls)*
     Returns a ``frozenset`` of names of methods defined by the interface.
-    If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
+    If *cls* is not a ``Interface`` subtype then an empty set is returned.
 
 **get_interface_attribute_names** *(cls)*
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
-    If *cls* is not a ``PureInterface`` subtype then an empty set is returned.
+    If *cls* is not a ``Interface`` subtype then an empty set is returned.
 
 **dataclass** *(_cls=None, init=True, repr=True, eq=True, order=False, unsafe_hash=False, frozen=False)*
     This function is a re-implementation of the standard Python ``dataclasses.dataclass`` decorator.

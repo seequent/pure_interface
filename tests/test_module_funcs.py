@@ -7,7 +7,7 @@ import unittest
 from pure_interface import *
 
 
-class IAnimal(PureInterface):
+class IAnimal(Interface):
     species = None
 
     def speak(self, volume):
@@ -58,7 +58,7 @@ class Car(object):
 
 class TestModuleFunctions(unittest.TestCase):
     def test_type_is_pure_interface(self):
-        self.assertTrue(type_is_pure_interface(PureInterface))
+        self.assertTrue(type_is_pure_interface(Interface))
         self.assertTrue(type_is_pure_interface(IAnimal))
         self.assertFalse(type_is_pure_interface(object))
         self.assertFalse(type_is_pure_interface(Cat))

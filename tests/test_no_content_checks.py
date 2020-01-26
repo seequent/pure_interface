@@ -5,7 +5,7 @@ import unittest
 
 class TestNoContentChecks(unittest.TestCase):
     def test_empty_function_passes(self):
-        class IAnimal(pure_interface.PureInterface):
+        class IAnimal(pure_interface.Interface):
             def speak(self, volume):
                 pass
 
@@ -30,7 +30,7 @@ class TestNoContentChecks(unittest.TestCase):
                 pass
 
     def test_raise_function_passes(self):
-        class IAnimal(pure_interface.PureInterface):
+        class IAnimal(pure_interface.Interface):
             def speak(self, volume):
                 raise NotImplementedError()
 
@@ -45,14 +45,14 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_function_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-            class IAnimal(pure_interface.PureInterface):
+            class IAnimal(pure_interface.Interface):
                 def speak(self, volume):
                     if volume > 0:
                         print('hello' + '!'*int(volume))
 
     def test_abstract_function_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-            class IAnimal(pure_interface.PureInterface):
+            class IAnimal(pure_interface.Interface):
                 @pure_interface.abstractmethod
                 def speak(self, volume):
                     if volume > 0:
@@ -60,7 +60,7 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_abstract_classmethod_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-            class IAnimal(pure_interface.PureInterface):
+            class IAnimal(pure_interface.Interface):
                 @pure_interface.abstractclassmethod
                 def speak(cls, volume):
                     if volume > 0:
@@ -68,7 +68,7 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_property_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-            class IAnimal(pure_interface.PureInterface):
+            class IAnimal(pure_interface.Interface):
                 @property
                 def height(self):
                     return self

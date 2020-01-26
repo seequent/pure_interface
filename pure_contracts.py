@@ -10,7 +10,7 @@ import six
 try:
     import contracts  # https://pypi.python.org/pypi/PyContracts
 
-    class PureContractType(pure_interface.PureInterfaceType, contracts.ContractsMeta):
+    class ContractType(pure_interface.InterfaceType, contracts.ContractsMeta):
         # we need to unwrap the decorators because otherwise we fail the empty function body test
         # inspecting the wrapper.
         _pi_unwrap_decorators = True
@@ -19,11 +19,11 @@ try:
 except ImportError:
     warnings.warn('PyContracts not found')
 
-    class PureContractType(pure_interface.PureInterfaceType):
+    class ContractType(pure_interface.InterfaceType):
         _pi_unwrap_decorators = True
         pass
 
 
-@six.add_metaclass(PureContractType)
-class ContractInterface(pure_interface.PureInterface):
+@six.add_metaclass(ContractType)
+class ContractInterface(pure_interface.Interface):
     pass

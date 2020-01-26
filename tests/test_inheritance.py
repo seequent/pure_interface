@@ -6,7 +6,7 @@ import unittest
 import pure_interface
 
 
-class IGrowingThing(pure_interface.PureInterface):
+class IGrowingThing(pure_interface.Interface):
     def get_height(self):
         return None
 
@@ -36,7 +36,7 @@ class BadGrowingMixin(object):
         self._height = height
 
 
-class IRegisteredInterface(pure_interface.PureInterface):
+class IRegisteredInterface(pure_interface.Interface):
     def register(self):  # overrides ABCMeta.register
         return None
 
@@ -94,7 +94,7 @@ class TestPIMethodOverrides(unittest.TestCase):
 
     def test_register_via_metaclass(self):
         # act
-        pure_interface.PureInterfaceType.register(IRegisteredInterface, Y)
+        pure_interface.InterfaceType.register(IRegisteredInterface, Y)
 
         self.assertIsInstance(Y(), IRegisteredInterface)
 
@@ -108,13 +108,13 @@ class TestPIMethodOverrides(unittest.TestCase):
     def test_adapt_via_metaclass(self):
         x = RegisteredInterface()
         # act
-        v = pure_interface.PureInterfaceType.adapt(IRegisteredInterface, x)
+        v = pure_interface.InterfaceType.adapt(IRegisteredInterface, x)
 
         self.assertIsInstance(v, IRegisteredInterface)
 
     def test_adapt_via_metaclass2(self):
         x = RegisteredInterface()
         # act
-        v = pure_interface.PureInterfaceType.adapt_or_none(IRegisteredInterface, x)
+        v = pure_interface.InterfaceType.adapt_or_none(IRegisteredInterface, x)
 
         self.assertIsInstance(v, IRegisteredInterface)
