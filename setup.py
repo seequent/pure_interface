@@ -3,11 +3,14 @@ from setuptools import setup
 
 setup(
     name='pure_interface',
-    version='3.5.2',
+    version='4.0.0',
     py_modules=['pure_interface', 'pure_contracts'],
     url='https://github.com/seequent/pure_interface',
-    install_requires=['six', 'typing'],
+    install_requires=['six',
+                      'typing; python_version<"3.5"',
+                      'funcsigs; python_version<"3.5"'],
     extras_require={'contracts': ['PyContracts>=1.7']},
+    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
     license='MIT',
     author='Tim Mitchell',
     author_email='tim.mitchell@seequent.com',
