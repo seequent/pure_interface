@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import pure_interface
 
 
-class IAnimal(pure_interface.PureInterface):
+class IAnimal(pure_interface.Interface):
     def speak(self, volume):
         pass
 

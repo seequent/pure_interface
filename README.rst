@@ -387,7 +387,7 @@ Dataclass Support
 dataclasses_ were added in Python 3.7.  When used in this and later versions of Python, ``pure_interface`` provides a
 ``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
 
-    class IAnimal2(PureInterface):
+    class IAnimal2(Interface):
         height: float
         species: str
 
@@ -397,7 +397,7 @@ dataclasses_ were added in Python 3.7.  When used in this and later versions of 
     @dataclass
     class Animal(Concrete, IAnimal2):
         def speak(self):
-            print('hello, I am {}m tall {}', self.height, self.species)
+            print('Hello, I am a {} metre tall {}', self.height, self.species)
 
     a = Animal(height=4.5, species='Giraffe')
 
@@ -652,5 +652,5 @@ Module Attributes
 .. _py2exe: https://pypi.python.org/pypi/py2exe
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
-.. [*] We don't talk about the methods on the base ``PureInterface`` class.  In earlier versions they
+.. [*] We don't talk about the methods on the base ``Interface`` class.  In earlier versions they
    were all on the meta class but then practicality got in the way.

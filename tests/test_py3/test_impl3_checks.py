@@ -9,14 +9,14 @@ import unittest
 class TestImplementationChecks(unittest.TestCase):
 
     def test_annotations(self):
-        class IAnnotation(PureInterface):
+        class IAnnotation(Interface):
             a: int
 
         self.assertIn('a', get_interface_attribute_names(IAnnotation))
         self.assertIn('a', dir(IAnnotation))
 
     def test_annotations2(self):
-        class IAnnotation(PureInterface):
+        class IAnnotation(Interface):
             a: int
             b = None
 
@@ -31,7 +31,7 @@ class TestImplementationChecks(unittest.TestCase):
                 super().__init_subclass__()
                 saved_kwargs.update(kwargs)
 
-        class Receiver(ReceivesClassKwargs, PureInterface, x=1, y=2, z=3):
+        class Receiver(ReceivesClassKwargs, Interface, x=1, y=2, z=3):
             pass
 
         self.assertEqual(saved_kwargs, dict(x=1, y=2, z=3))
