@@ -6,12 +6,12 @@ import unittest
 from pure_interface import *
 
 
-class ISpeaker(PureInterface):
+class ISpeaker(Interface):
     def speak(self, volume):
         pass
 
 
-class ISleeper(PureInterface):
+class ISleeper(Interface):
     is_asleep = None
 
 

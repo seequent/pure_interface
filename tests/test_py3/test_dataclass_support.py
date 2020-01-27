@@ -5,7 +5,7 @@ import unittest
 from pure_interface import *
 
 
-class IFoo(PureInterface):
+class IFoo(Interface):
     a: int
     b: str
 

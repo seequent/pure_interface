@@ -568,7 +568,7 @@ class TestAttributeImplementations(unittest.TestCase):
 
     def test_property_not_accessed(self):
         # previously instantiating C failed (issue 65)
-        class IA(pure_interface.PureInterface):
+        class IA(Interface):
             next = None
 
         class IOther(IA):
