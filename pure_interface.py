@@ -668,6 +668,8 @@ class InterfaceType(abc.ABCMeta):
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
         if interface_only is None:
             interface_only = is_development
+        if isinstance(obj, _ImplementationWrapper):
+            obj = obj._ImplementationWrapper__impl
         if InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:
