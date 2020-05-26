@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='pure_interface',
-    version='3.5.2',
+    version='3.5.3',
     py_modules=['pure_interface', 'pure_contracts'],
     url='https://github.com/seequent/pure_interface',
     install_requires=['six', 'typing'],

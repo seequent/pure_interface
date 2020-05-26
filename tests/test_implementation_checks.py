@@ -543,6 +543,27 @@ class TestAttributeImplementations(unittest.TestCase):
 
         self.assertEqual(frozenset(), Function._pi.abstractproperties)
 
+    def test_property_not_accessed(self):
+        # previously instantiating C failed (issue 65)
+        class IA(pure_interface.PureInterface):
+            next = None
+
+        class IOther(IA):
+            pass
+
+        class A(IA, object):
+            @property
+            def next(self):
+                raise RuntimeError('property accessed')
+
+        class B(A):
+            pass
+
+        class C(B, IOther):
+            pass
+
+        C()
+
 
 class TestCrossImplementations(unittest.TestCase):
     """ test class attributes implemented as properties and vice versa """

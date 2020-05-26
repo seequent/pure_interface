@@ -40,7 +40,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '3.5.2'
+__version__ = '3.5.3'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -431,11 +431,11 @@ def _class_structural_type_check(cls, subclass):
     if is_development:
         stacklevel = 2
         stack = inspect.stack()
-        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel][1]:
+        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel-1][1]:
             stacklevel += 1
         warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                       'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
-                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=cls.__module__),
+                      .format(cls_name=cls.__name__, sub_name=subclass.__name__, module=subclass.__module__),
                       stacklevel=stacklevel)
     return True
 
@@ -455,7 +455,7 @@ def _get_adapter(cls, obj_type):
 
     for obj_class in obj_type.__mro__:
         try:
-            return adapters[obj_class]()
+            return adapters[obj_class]
         except KeyError:
             continue
     return None
@@ -566,7 +566,8 @@ class PureInterfaceType(abc.ABCMeta):
             raise InterfaceError('Interfaces cannot be instantiated')
         self = super(PureInterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
-            if not hasattr(self, attr):
+            if not (hasattr(cls, attr) or hasattr(self, attr)):
+                # check for attribute on class first so that properties are not run.
                 raise InterfaceError('{}.__init__ does not create required attribute "{}"'.format(cls.__name__, attr))
         return self
 
@@ -599,6 +600,8 @@ class PureInterfaceType(abc.ABCMeta):
     def adapt(cls, obj, allow_implicit=False, interface_only=None):
         if interface_only is None:
             interface_only = is_development
+        if isinstance(obj, _ImplementationWrapper):
+            obj = obj._ImplementationWrapper__impl
         if PureInterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:
@@ -765,9 +768,7 @@ def register_adapter(adapter, from_type, to_interface):
     if from_type in adapters:
         raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
 
-    def on_gone(ref):
-        adapters.pop(from_type, None)
-    adapters[from_type] = weakref.ref(adapter, on_gone)
+    adapters[from_type] = adapter
 
 
 class AdapterTracker(object):

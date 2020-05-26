@@ -10,6 +10,11 @@ except ImportError:
     import mock
 
 
+class ITalker(pure_interface.PureInterface):
+    def talk(self):
+        pass
+
+
 class ISpeaker(pure_interface.PureInterface):
     def speak(self, volume):
         pass
@@ -24,13 +29,13 @@ class Speaker(object):
         return 'speak'
 
 
-class Talker(object):
+class Talker(ITalker, object):
     def talk(self):
         return 'talk'
 
 
 @pure_interface.adapts(Talker)
-class TalkerToSpeaker(pure_interface.Concrete, ISpeaker):
+class TalkerToSpeaker(ISpeaker, object):
     def __init__(self, talker):
         self._talker = talker
 
@@ -326,3 +331,12 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
             adapt.assert_called_once_with(ISpeaker, a_speaker, allow_implicit=allow, interface_only=interface_only)
             self.assertIs(s, adapt.return_value)
             self.assertIsNone(none, 'optional_adapt(None) did not return None')
+
+    def test_adapt_interface_only(self):
+        talker = Talker()
+        talker_only = ITalker.adapt(talker)
+        self.assertIsInstance(talker_only, pure_interface._ImplementationWrapper)
+        try:
+            ISpeaker.adapt(talker_only)
+        except:
+            self.fail('adaption of interface only failed.')
