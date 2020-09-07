@@ -234,6 +234,16 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         self.assertEqual(s.topic, 'Python')
         self.assertEqual(t.topic, 'Interfaces')
 
+    def test_wrapper_set(self):
+        topic_speaker = TopicSpeaker('Python')
+        s = ITopicSpeaker.adapt(topic_speaker)
+        s.topic = 'Snakes'
+
+        self.assertEqual('Snakes', topic_speaker.topic)
+        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        with self.assertRaises(AttributeError):
+            s._ImplementationWrapper__interface_name = 'hello'
+
     def test_wrapping_works2(self):
         topic_speaker = TopicSpeaker('Python')
         s = ISpeaker.adapt(topic_speaker)
