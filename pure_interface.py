@@ -41,7 +41,7 @@ else:
             super(abstractstaticmethod, self).__init__(callable)
 
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 
 is_development = not hasattr(sys, 'frozen')
