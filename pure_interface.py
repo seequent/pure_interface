@@ -9,6 +9,7 @@ import collections
 import dis
 import functools
 import inspect
+import traceback
 import types
 from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Tuple
 import typing
@@ -105,10 +106,10 @@ class _PIAttributes(object):
 
 class _ImplementationWrapper(object):
     def __init__(self, implementation, interface):
-        self.__impl = implementation
-        self.__interface = interface
-        self.__interface_attrs = interface._pi.interface_names
-        self.__interface_name = interface.__name__
+        object.__setattr__(self, '_ImplementationWrapper__impl', implementation)
+        object.__setattr__(self, '_ImplementationWrapper__interface', interface)
+        object.__setattr__(self, '_ImplementationWrapper__interface_attrs', interface._pi.interface_names)
+        object.__setattr__(self, '_ImplementationWrapper__interface_name', interface.__name__)
 
     def __getattr__(self, attr):
         impl = self.__impl
@@ -116,6 +117,12 @@ class _ImplementationWrapper(object):
             return getattr(impl, attr)
         else:
             raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, attr))
+
+    def __setattr__(self, key, value):
+        if key in self.__interface_attrs:
+            setattr(self.__impl, key, value)
+        else:
+            raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, key))
 
 
 def _builtin_attrs(name):
