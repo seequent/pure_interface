@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from six.moves import cStringIO
+import io
 import unittest
 
 
 import pure_interface
 from tests.interface_module import IAnimal
-
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
 
 
 class TestIsInstanceChecks(unittest.TestCase):
@@ -110,7 +106,7 @@ class TestIsInstanceChecks(unittest.TestCase):
             def height(self):
                 return 35
 
-        s = cStringIO()
+        s = io.StringIO()
         with mock.patch('sys.stderr', new=s):
             IAnimal.provided_by(Cat4(), allow_implicit=True)
 
@@ -131,7 +127,7 @@ class TestIsInstanceChecks(unittest.TestCase):
             def height(self):
                 return 35
 
-        s = cStringIO()
+        s = io.StringIO()
         with mock.patch('sys.stderr', new=s):
             IAnimal.adapt(Cat5(), allow_implicit=True)
 

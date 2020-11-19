@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import types
 import unittest
 
 import pure_interface
-from tests import test_function_sigs
-from tests.test_py3 import test_func_sigs
+from tests import test_func_sigs3
 
 
 def func1(a, b, /):  # kw only no defaults
@@ -87,7 +85,7 @@ class TestFunctionSigsPositionalOnly(unittest.TestCase):
         pure_interface.is_development = True
 
     def check_signatures(self, int_func, impl_func, expected_result):
-        reality = test_func_sigs.test_call(int_func, impl_func)
+        reality = test_func_sigs3.test_call(int_func, impl_func)
         self.assertEqual(expected_result, reality,
                          '{}, {}. Reality does not match expectations'.format(int_func.__name__, impl_func.__name__))
         interface_sig = pure_interface.signature(int_func)

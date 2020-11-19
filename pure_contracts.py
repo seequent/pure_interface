@@ -5,7 +5,6 @@ import warnings
 
 import pure_interface
 from pure_interface import InterfaceError  # alias for convenience
-import six
 
 try:
     import contracts  # https://pypi.python.org/pypi/PyContracts
@@ -24,6 +23,5 @@ except ImportError:
         pass
 
 
-@six.add_metaclass(ContractType)
-class ContractInterface(pure_interface.Interface):
+class ContractInterface(pure_interface.Interface, metaclass=ContractType):
     pass
