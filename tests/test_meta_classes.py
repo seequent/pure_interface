@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 
-import six
+import abc
 import unittest
 
 import pure_interface
@@ -14,19 +14,18 @@ class SomeOtherMetaClass(pure_interface.InterfaceType):
         return cls
 
 
-@six.add_metaclass(SomeOtherMetaClass)
-class InnocentBystander(object):
+class InnocentBystander(metaclass=SomeOtherMetaClass):
     def method(self):
         pass
 
 
-@six.add_metaclass(SomeOtherMetaClass)
-class InnocentBystanderWithABC(object):
+class InnocentBystanderWithABC(metaclass=SomeOtherMetaClass):
     @pure_interface.abstractmethod
     def method(self):
         pass
 
-    @pure_interface.abstractproperty
+    @property
+    @abc.abstractmethod
     def prop(self):
         pass
 

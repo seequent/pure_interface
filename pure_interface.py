@@ -1,44 +1,21 @@
-# -*- coding: utf-8 -*-
 """
 pure_interface enforces empty functions and properties on interfaces and provides adaption and structural type checking.
 """
 from __future__ import division, print_function, absolute_import
 
 import abc
+from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
 import collections
 import dis
 import functools
 import inspect
-import traceback
+from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Tuple
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar
 import typing
 import sys
 import warnings
 import weakref
-
-import six
-
-if six.PY3:
-    from abc import abstractmethod, abstractproperty, abstractclassmethod, abstractstaticmethod
-else:
-    from abc import abstractmethod, abstractproperty
-
-
-    class abstractclassmethod(classmethod):
-        __isabstractmethod__ = True
-
-        def __init__(self, callable):
-            callable.__isabstractmethod__ = True
-            super(abstractclassmethod, self).__init__(callable)
-
-
-    class abstractstaticmethod(staticmethod):
-        __isabstractmethod__ = True
-
-        def __init__(self, callable):
-            callable.__isabstractmethod__ = True
-            super(abstractstaticmethod, self).__init__(callable)
 
 
 __version__ = '4.0.2'
@@ -46,21 +23,6 @@ __version__ = '4.0.2'
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
-
-if six.PY2:
-    _six_ord = ord
-
-    @six.add_metaclass(abc.ABCMeta)
-    class ABC(object):
-        pass
-else:
-    _six_ord = lambda x: x
-    ABC = abc.ABC
-
-try:
-    from inspect import signature, Signature, Parameter
-except ImportError:
-    from funcsigs import signature, Signature, Parameter
 
 
 class PureInterfaceError(Exception):
@@ -148,7 +110,7 @@ def _type_is_pure_interface(cls):
     if hasattr(cls, '_pi'):
         return cls._pi.type_is_pure_interface
     if issubclass(type(cls), abc.ABCMeta):
-        for attr, value in six.iteritems(cls.__dict__):
+        for attr, value in cls.__dict__.items():
             if _builtin_attrs(attr):
                 continue
             if callable(value):
@@ -173,7 +135,7 @@ def _get_abc_interface_props_and_funcs(cls):
             pass  # shortcut
         value = getattr(cls, name)
         if isinstance(value, (staticmethod, classmethod, types.MethodType)):
-            func = six.get_method_function(value)
+            func = value.__func__
             function_sigs[name] = signature(func)
         elif isinstance(value, types.FunctionType):
             function_sigs[name] = signature(value)
@@ -196,13 +158,13 @@ def _is_empty_function(func, unwrap=False):
      All functions with no return statement have an implicit return None - this is explicit in the code object.
     """
     if isinstance(func, (staticmethod, classmethod, types.MethodType)):
-        func = six.get_method_function(func)
+        func = func.__func__
     if isinstance(func, property):
         func = property.fget
     if unwrap:
         func = _unwrap_function(func)
     try:
-        code_obj = six.get_function_code(func)
+        code_obj = func.__code__
     except AttributeError:
         # This callable is something else - assume it is OK.
         return True
@@ -244,7 +206,6 @@ def _get_instructions(code_obj):
     instructions = []
     instruction = None
     for byte in code_obj.co_code:
-        byte = _six_ord(byte)
         if instruction is None:
             instruction = [byte]
         else:
@@ -391,7 +352,7 @@ def _ensure_everything_is_abstract(attributes):
     functions = []
     interface_method_signatures = {}
     interface_attribute_names = set()
-    for name, value in six.iteritems(attributes):
+    for name, value in attributes.items():
         if _builtin_attrs(name):
             pass  # shortcut
         elif name == '__annotations__':
@@ -718,8 +679,7 @@ class InterfaceType(abc.ABCMeta):
         return InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
-@six.add_metaclass(InterfaceType)
-class Interface(ABC):
+class Interface(abc.ABC, metaclass=InterfaceType):
     # These methods don't need to be here, as they would resolve to the meta-class methods anyway.
     # However including them here means we can add type hints that would otherwise be ambiguous on the meta-class.
 

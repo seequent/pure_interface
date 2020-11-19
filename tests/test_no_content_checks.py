@@ -16,7 +16,8 @@ class TestNoContentChecks(unittest.TestCase):
             def sleep(self, duration):
                 "a comment"
 
-            @pure_interface.abstractproperty
+            @property
+            @pure_interface.abstractmethod
             def weight(self):
                 pass
 

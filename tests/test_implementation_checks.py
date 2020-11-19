@@ -4,8 +4,6 @@ from pure_interface import *
 import abc
 import unittest
 
-import six
-
 try:
     from unittest import mock
 except ImportError:
@@ -20,7 +18,8 @@ class ADescriptor(object):
 
 
 class IAnimal(Interface):
-    @abstractproperty
+    @property
+    @abstractmethod
     def height(self):
         return None
 
@@ -45,7 +44,7 @@ class IGrowingAnimal(Interface):
     def set_height(self, height):
         pass
 
-    height = abc.abstractproperty(get_height, set_height)
+    height = property(get_height, set_height)
 
 
 class IPlant(Interface):
@@ -138,8 +137,7 @@ class TestImplementationChecks(unittest.TestCase):
             self.fail('Instantiation failed {}'.format(exc))
 
     def test_concrete_abc_detection(self):
-        @six.add_metaclass(abc.ABCMeta)
-        class B(object):
+        class B(metaclass=abc.ABCMeta):
             def __init__(self):
                 self.foo = 'bar'
 
@@ -153,14 +151,14 @@ class TestImplementationChecks(unittest.TestCase):
             self.fail('Instantiation failed {}'.format(exc))
 
     def test_interface_abc_detection(self):
-        @six.add_metaclass(abc.ABCMeta)
-        class IABC(object):
+        class IABC(metaclass=abc.ABCMeta):
 
             @abc.abstractmethod
             def foo(self):
                 pass
 
-            @abc.abstractproperty
+            @property
+            @abc.abstractmethod
             def bar(self):
                 return None
 
@@ -172,9 +170,6 @@ class TestImplementationChecks(unittest.TestCase):
 
         self.assertTrue(EmptyABCPI._pi.type_is_pure_interface)
         self.assertTrue(PIEmptyABC._pi.type_is_pure_interface)
-        if six.PY3:
-            self.assertTrue('foo' in EmptyABCPI._pi.interface_method_names)
-            self.assertTrue('bar' in EmptyABCPI._pi.interface_attribute_names)
         self.assertTrue('foo' in PIEmptyABC._pi.interface_method_names)
         self.assertTrue('bar' in PIEmptyABC._pi.interface_attribute_names)
         with self.assertRaises(InterfaceError):
@@ -606,3 +601,33 @@ class TestCrossImplementations(unittest.TestCase):
 
         self.assertEqual(frozenset(['a', 'c']), CrossImplementation._pi.abstractproperties)
         self.assertEqual(frozenset(['a', 'b', 'c', 'd']), CrossImplementation._pi.interface_attribute_names)
+
+
+class TestAnnoationChecks(unittest.TestCase):
+    def test_annotations(self):
+        class IAnnotation(Interface):
+            a: int
+
+        self.assertIn('a', get_interface_attribute_names(IAnnotation))
+        self.assertIn('a', dir(IAnnotation))
+
+    def test_annotations2(self):
+        class IAnnotation(Interface):
+            a: int
+            b = None
+
+        self.assertIn('a', get_interface_attribute_names(IAnnotation))
+        self.assertIn('b', get_interface_attribute_names(IAnnotation))
+
+    def test_works_with_init_subclass_kwargs(self):
+        saved_kwargs = {}
+
+        class ReceivesClassKwargs:
+            def __init_subclass__(cls, **kwargs):
+                super().__init_subclass__()
+                saved_kwargs.update(kwargs)
+
+        class Receiver(ReceivesClassKwargs, Interface, x=1, y=2, z=3):
+            pass
+
+        self.assertEqual(saved_kwargs, dict(x=1, y=2, z=3))

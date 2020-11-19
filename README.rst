@@ -28,8 +28,6 @@ In every other respect the zen of 'practicality beats purity' applies.
 
 Installation
 ------------
-pure_interface depends on the six_ and typing_ modules (typing is included in python 3.5 and later).
-
 You can install released versions of ``pure_interface`` using pip::
 
     pip install pure-interface
@@ -65,11 +63,12 @@ In Python versions earlier than 3.6 you can use the following alternate syntax::
 The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary
 (since annotations are not in the class dictionary).
 
-``Interface`` is a subtype of ``abc.ABC`` and the ``abstractmethod`` and ``abstractproperty`` decorators work as expected.
+``Interface`` is a subtype of ``abc.ABC`` and the ``abstractmethod``, ``abstractclassmethod`` and ``abstractstaticmethod`` decorators work as expected.
 ABC-style property definitions are also supported (and equivalent)::
 
     class IAnimal(Interface):
-        @abstractproperty
+        @property
+        @abstractmethod
         def height(self):
             pass
 
@@ -80,14 +79,13 @@ ABC-style property definitions are also supported (and equivalent)::
 Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
 all concrete subclasses will be required to have a ``height`` attribute.
 
-For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace, and
-on Python 2.7 ``abstractclassmethod`` and ``abstractstaticmethod`` are also available.
+For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace.
 However these decorators are optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
 In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
 Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
-the method to raise ``NotImplementedError``.  For this reason methods that just raise ``NotImplementedError`` are also
+the method to raise ``NotImplementedError``.  For this reason methods that just ``raise NotImplementedError`` are also
 considered empty.
 
 Interface classes cannot be instantiated ::
@@ -110,6 +108,7 @@ The ``dir()`` function will include all interface attributes so that ``mock.Mock
     >>> dir(IAnimal)
     ['__abstractmethods__', '__doc__', ..., 'height', 'speak']
 
+The mock_protocol_ package also works well with interfaces.
 
 
 Concrete Implementations
@@ -644,7 +643,6 @@ Module Attributes
 
 -----------
 
-.. _six: https://pypi.python.org/pypi/six
 .. _typing: https://pypi.python.org/pypi/typing
 .. _PEP-544: https://www.python.org/dev/peps/pep-0544/
 .. _GitHub: https://github.com/seequent/pure_interface
@@ -652,5 +650,6 @@ Module Attributes
 .. _py2exe: https://pypi.python.org/pypi/py2exe
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
+.. _mock_protocol: https://pypi.org/project/mock-protocol/
 .. [*] We don't talk about the methods on the base ``Interface`` class.  In earlier versions they
    were all on the meta class but then practicality got in the way.
