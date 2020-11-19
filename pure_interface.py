@@ -50,7 +50,7 @@ PI = TypeVar('PI', bound='Interface')
 class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
     def __init__(self, type_is_interface, abstract_properties, interface_method_signatures, interface_attribute_names):
-        self.type_is_pure_interface = type_is_interface
+        self.type_is_interface = type_is_interface
         # abstractproperties are checked for at instantiation.
         # When concrete classes use a @property then they are removed from this set
         self.abstractproperties = frozenset(abstract_properties)
@@ -91,7 +91,7 @@ def _builtin_attrs(name):
     """ These attributes are ignored when checking ABC types for emptyness.
     """
     return name in ('__doc__', '__module__', '__qualname__', '__abstractmethods__', '__dict__',
-                    '__metaclass__', '__weakref__',
+                    '__metaclass__', '__weakref__', '__subclasshook__',
                     '_abc_cache', '_abc_impl', '_abc_registry', '_abc_negative_cache_version', '_abc_negative_cache',
                     '_pi', '_pi_unwrap_decorators')
 
@@ -103,12 +103,12 @@ def _get_pi_attribute(cls, attr_name, default=None):
         return default
 
 
-def _type_is_pure_interface(cls):
+def _type_is_interface(cls):
     """ Return True if cls is a pure interface or an empty ABC class"""
     if cls is object:
         return False
     if hasattr(cls, '_pi'):
-        return cls._pi.type_is_pure_interface
+        return cls._pi.type_is_interface
     if issubclass(type(cls), abc.ABCMeta):
         for attr, value in cls.__dict__.items():
             if _builtin_attrs(attr):
@@ -480,7 +480,7 @@ def _get_adapter(cls, obj_type):
     candidate_interfaces = [cls] + cls.__subclasses__()
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
-        if type_is_pure_interface(subcls):
+        if type_is_interface(subcls):
             adapters.update(subcls._pi.adapters)
     if not adapters:
         return None
@@ -515,7 +515,7 @@ class InterfaceType(abc.ABCMeta):
             cls._pi = _PIAttributes(False, (), {}, ())
             return cls
 
-        base_types = [(cls, _type_is_pure_interface(cls)) for cls in bases]
+        base_types = [(cls, _type_is_interface(cls)) for cls in bases]
         type_is_interface = all(is_interface for cls, is_interface in base_types)
 
         if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
@@ -598,7 +598,7 @@ class InterfaceType(abc.ABCMeta):
 
     def __call__(cls, *args, **kwargs):
         """ Check that abstract properties are created in constructor """
-        if cls._pi.type_is_pure_interface:
+        if cls._pi.type_is_interface:
             raise InterfaceError('Interfaces cannot be instantiated')
         self = super(InterfaceType, cls).__call__(*args, **kwargs)
         for attr in cls._pi.abstractproperties:
@@ -615,7 +615,7 @@ class InterfaceType(abc.ABCMeta):
         return listing
 
     def provided_by(cls, obj, allow_implicit=True):
-        if not cls._pi.type_is_pure_interface:
+        if not cls._pi.type_is_interface:
             raise InterfaceError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
             return True
@@ -791,7 +791,7 @@ def register_adapter(adapter, from_type, to_interface):
         raise AdaptionError('adapter must be callable')
     if not isinstance(from_type, type):
         raise AdaptionError('{} must be a type'.format(from_type))
-    if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_pure_interface', False)):
+    if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_interface', False)):
         raise AdaptionError('{} is not an interface'.format(to_interface))
     adapters = _get_pi_attribute(to_interface, 'adapters')
     if from_type in adapters:
@@ -838,7 +838,7 @@ class AdapterTracker(object):
         return adapted
 
 
-def type_is_pure_interface(cls):
+def type_is_interface(cls):
     # type: (Type[Any]) -> bool
     """ Return True if cls is a pure interface"""
     try:
@@ -846,7 +846,12 @@ def type_is_pure_interface(cls):
             return False
     except TypeError:  # handle non-classes
         return False
-    return _get_pi_attribute(cls, 'type_is_pure_interface', False)
+    return _get_pi_attribute(cls, 'type_is_interface', False)
+
+
+def type_is_pure_interface(cls):
+    warnings.warn('type_is_pure_interface has been renamed to type_is_interface.')
+    return type_is_pure_interface(cls)
 
 
 def get_type_interfaces(cls):
@@ -856,7 +861,7 @@ def get_type_interfaces(cls):
         bases = cls.mro()
     except AttributeError:  # handle non-classes
         return []
-    return [base for base in bases if type_is_pure_interface(base) and base is not Interface]
+    return [base for base in bases if type_is_interface(base) and base is not Interface]
 
 
 def get_interface_names(interface):
@@ -864,7 +869,7 @@ def get_interface_names(interface):
     """ returns a frozen set of names (methods and attributes) defined by the interface.
     if interface is not a Interface subtype then an empty set is returned.
     """
-    if type_is_pure_interface(interface):
+    if type_is_interface(interface):
         return _get_pi_attribute(interface, 'interface_names')
     else:
         return frozenset()
@@ -875,7 +880,7 @@ def get_interface_method_names(interface):
     """ returns a frozen set of names of methods defined by the interface.
     if interface is not a Interface subtype then an empty set is returned
     """
-    if type_is_pure_interface(interface):
+    if type_is_interface(interface):
         return _get_pi_attribute(interface, 'interface_method_names')
     else:
         return frozenset()
@@ -886,7 +891,7 @@ def get_interface_attribute_names(interface):
     """ returns a frozen set of names of attributes defined by the interface
     if interface is not a Interface subtype then an empty set is returned
     """
-    if type_is_pure_interface(interface):
+    if type_is_interface(interface):
         return _get_pi_attribute(interface, 'interface_attribute_names')
     else:
         return frozenset()

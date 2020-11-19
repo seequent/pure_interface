@@ -409,7 +409,7 @@ Interface Type Information
 ==========================
 The ``pure_interface`` module provides these functions for returning information about interface types.
 
-type_is_pure_interface(cls)
+type_is_interface(cls)
     Return True if cls is a pure interface, False otherwise or if cls is not a class.
 
 get_type_interfaces(cls)
@@ -587,7 +587,7 @@ Functions
     for the *to_interface.adapt()* method. *adapter* must be a callable that takes a single argument
     (an instance of *from_type*) and returns and object providing *to_interface*.
 
-**type_is_pure_interface** *(cls)*
+**type_is_interface** *(cls)*
     Return ``True`` if *cls* is a pure interface and ``False`` otherwise
 
 **get_type_interfaces** *(cls)*

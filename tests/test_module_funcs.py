@@ -57,13 +57,13 @@ class Car(object):
 
 
 class TestModuleFunctions(unittest.TestCase):
-    def test_type_is_pure_interface(self):
-        self.assertTrue(type_is_pure_interface(Interface))
-        self.assertTrue(type_is_pure_interface(IAnimal))
-        self.assertFalse(type_is_pure_interface(object))
-        self.assertFalse(type_is_pure_interface(Cat))
-        self.assertFalse(type_is_pure_interface(Car))
-        self.assertFalse(type_is_pure_interface('hello'))
+    def test_type_is_interface(self):
+        self.assertTrue(type_is_interface(Interface))
+        self.assertTrue(type_is_interface(IAnimal))
+        self.assertFalse(type_is_interface(object))
+        self.assertFalse(type_is_interface(Cat))
+        self.assertFalse(type_is_interface(Car))
+        self.assertFalse(type_is_interface('hello'))
 
     def test_get_interface_method_names(self):
         self.assertEqual(get_interface_method_names(IAnimal), {'speak'})
