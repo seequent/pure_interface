@@ -18,7 +18,7 @@ import warnings
 import weakref
 
 
-__version__ = '5.0.0'
+__version__ = '5.0.1'
 
 
 is_development = not hasattr(sys, 'frozen')
