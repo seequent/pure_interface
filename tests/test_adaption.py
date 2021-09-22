@@ -114,6 +114,23 @@ class SleepTalker(ISleepTalker, object):
         super(SleepTalker, self).speak(volume)
 
 
+class DunderInterface(pure_interface.Interface):
+    def __call__(self, a):
+        pass
+
+    def __len__(self):
+        pass
+
+
+class DunderClass(DunderInterface, object):
+
+    def __call__(self, a):
+        super().__call__(a)
+
+    def __len__(self):
+        return 5
+
+
 class TestAdaption(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -350,3 +367,16 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
             ISpeaker.adapt(talker_only)
         except:
             self.fail('adaption of interface only failed.')
+
+    def test_adapt_callable_is_callable(self):
+        dunder = DunderClass()
+        dunder_only = DunderInterface.adapt(dunder)
+        try:
+            dunder_only(1)
+        except TypeError:
+            self.fail('calling interface only failed')
+
+        try:
+            len(dunder)
+        except:
+            self.fail('len() interface only failed')

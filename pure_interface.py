@@ -18,7 +18,7 @@ import warnings
 import weakref
 
 
-__version__ = '5.0.0'
+__version__ = '5.0.1'
 
 
 is_development = not hasattr(sys, 'frozen')
@@ -629,6 +629,8 @@ class InterfaceType(abc.ABCMeta):
         if cls._pi.impl_wrapper_type is None:
             type_name = '_{}Only'.format(cls.__name__)
             attributes = {'__module__': cls.__module__}
+            if '__call__' in cls._pi.interface_names:
+                attributes['__call__'] = getattr(implementation, '__call__')
             cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
             abc.ABCMeta.register(cls, cls._pi.impl_wrapper_type)
         return cls._pi.impl_wrapper_type(implementation, cls)
