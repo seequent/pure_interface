@@ -8,35 +8,31 @@ from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
 import collections
 import dataclasses
 import dis
-import functools
 import inspect
 from inspect import signature, Signature, Parameter
 import types
 from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar
-import typing
 import sys
 import warnings
 import weakref
 
-__version__ = '6.0.2'
+from .errors import InterfaceError, AdaptionError
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
 
 
-class PureInterfaceError(Exception):
-    """ All exceptions raised by this module are subclasses of this exception """
-    pass
+def set_is_development(is_dev):
+    global is_development
+    is_development = is_dev
 
 
-class InterfaceError(PureInterfaceError, TypeError):
-    """ An error with an interface class definition or implementation"""
-    pass
+def get_is_development():
+    return is_development
 
 
-class AdaptionError(PureInterfaceError, ValueError):
-    """ An adaption error """
-    pass
+def get_missing_method_warnings():
+    return missing_method_warnings
 
 
 def no_adaption(obj):
@@ -96,7 +92,7 @@ def _builtin_attrs(name):
                     '_pi', '_pi_unwrap_decorators')
 
 
-def _get_pi_attribute(cls, attr_name, default=None):
+def get_pi_attribute(cls, attr_name, default=None):
     if hasattr(cls, '_pi'):
         return getattr(cls._pi, attr_name)
     else:
@@ -562,12 +558,12 @@ class InterfaceType(abc.ABCMeta):
             base, base_is_interface = base_types[i]
             if base is object:
                 continue
-            base_abstract_properties = _get_pi_attribute(base, 'abstractproperties', set())
+            base_abstract_properties = get_pi_attribute(base, 'abstractproperties', set())
             abstract_properties.update(base_abstract_properties)
             if base_is_interface:
                 if hasattr(base, '_pi'):
-                    method_signatures = _get_pi_attribute(base, 'interface_method_signatures', {})
-                    attribute_names = _get_pi_attribute(base, 'interface_attribute_names', set())
+                    method_signatures = get_pi_attribute(base, 'interface_method_signatures', {})
+                    attribute_names = get_pi_attribute(base, 'interface_attribute_names', set())
                 else:
                     attribute_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
@@ -579,9 +575,7 @@ class InterfaceType(abc.ABCMeta):
             _check_method_signatures(attributes, clsname, interface_method_signatures)
 
         if type_is_interface:
-            if 'PureInterface' in [b.__name__ for b in bases]:
-                warnings.warn('PureInterface class has been renamed to Interface.')
-            if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
+            if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
                 namespace = attributes
                 functions = []
                 method_signatures = {}
@@ -616,9 +610,9 @@ class InterfaceType(abc.ABCMeta):
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
+        namespace['_pi'] = _PIAttributes(type_is_interface, abstract_properties,
+                                         interface_method_signatures, interface_attribute_names)
         cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, namespace, **kwargs)
-        cls._pi = _PIAttributes(type_is_interface, abstract_properties,
-                                interface_method_signatures, interface_attribute_names)
 
         # warnings
         if not type_is_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
@@ -769,108 +763,6 @@ class Interface(abc.ABC, metaclass=InterfaceType):
         return InterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
-class PureInterface(Interface):
-    # class for backwards compatibility
-    pass
-
-
-# adaption
-def adapts(from_type, to_interface=None):
-    # type: (Any, Type[PI]) -> Callable[[Any], Any]
-    """Class or function decorator for declaring an adapter from a type to an interface.
-    E.g.
-        @adapts(MyClass, MyInterface)
-        def interface_factory(obj):
-            ....
-
-    If decorating a class to_interface may be None to use the first interface in the class's MRO.
-    E.g.
-        @adapts(MyClass)
-        class MyClassToInterfaceAdapter(MyInterface, object):
-            def __init__(self, obj):
-                ....
-            ....
-        will adapt MyClass to MyInterface using MyClassToInterfaceAdapter
-    """
-
-    def decorator(cls):
-        if to_interface is None:
-            interfaces = get_type_interfaces(cls)
-            if interfaces:
-                interface = interfaces[0]
-            elif isinstance(cls, type):
-                raise InterfaceError('Class {} does not provide any interfaces'.format(cls.__name__))
-            else:
-                raise InterfaceError('to_interface must be specified when decorating non-classes')
-        else:
-            interface = to_interface
-        register_adapter(cls, from_type, interface)
-        return cls
-
-    return decorator
-
-
-def register_adapter(adapter, from_type, to_interface):
-    # type: (Callable, Any, Type[Interface]) -> None
-    """ Registers adapter to convert instances of from_type to objects that provide to_interface
-    for the to_interface.adapt() method.
-
-    :param adapter: callable that takes an instance of from_type and returns an object providing to_interface.
-    :param from_type: a type to adapt from
-    :param to_interface: a (non-concrete) Interface subclass to adapt to.
-    """
-    if not callable(adapter):
-        raise AdaptionError('adapter must be callable')
-    if not isinstance(from_type, type):
-        raise AdaptionError('{} must be a type'.format(from_type))
-    if not (isinstance(to_interface, type) and _get_pi_attribute(to_interface, 'type_is_interface', False)):
-        raise AdaptionError('{} is not an interface'.format(to_interface))
-    adapters = _get_pi_attribute(to_interface, 'adapters')
-    if from_type in adapters:
-        raise AdaptionError('{} already has an adapter to {}'.format(from_type, to_interface))
-
-    adapters[from_type] = adapter
-
-
-class AdapterTracker(object):
-    """ The idiom of checking if `x is b` is broken for adapted objects because a new adapter is potentially
-    instantiated each time x or b is adapted.  Also in some context we adapt the same objects many times and don't
-    want the overhead of lots of copies.  This class provides adapt() and adapt_or_none() methods that track adaptions.
-    Thus if `x is b` is `True` then `adapter.adapt(x, I) is adapter.adapt(b, I)` is `True`.
-    """
-
-    def __init__(self, mapping_factory=dict):
-        self._factory = mapping_factory
-        self._adapters = mapping_factory()
-
-    def adapt(self, obj, interface):
-        """ Adapts `obj` to `interface`"""
-        try:
-            return self._adapters[interface][obj]
-        except KeyError:
-            return self._adapt(obj, interface)
-
-    def adapt_or_none(self, obj, interface):
-        """ Adapt obj to interface returning None on failure."""
-        try:
-            return self.adapt(obj, interface)
-        except ValueError:
-            return None
-
-    def clear(self):
-        """ Clears the cached adapters."""
-        self._adapters = self._factory()
-
-    def _adapt(self, obj, interface):
-        adapted = interface.adapt(obj)
-        try:
-            adapters = self._adapters[interface]
-        except KeyError:
-            adapters = self._adapters[interface] = self._factory()
-        adapters[obj] = adapted
-        return adapted
-
-
 def type_is_interface(cls):
     # type: (Type[Any]) -> bool
     """ Return True if cls is a pure interface"""
@@ -879,7 +771,7 @@ def type_is_interface(cls):
             return False
     except TypeError:  # handle non-classes
         return False
-    return _get_pi_attribute(cls, 'type_is_interface', False)
+    return get_pi_attribute(cls, 'type_is_interface', False)
 
 
 def type_is_pure_interface(cls):
@@ -903,7 +795,7 @@ def get_interface_names(interface):
     if interface is not a Interface subtype then an empty set is returned.
     """
     if type_is_interface(interface):
-        return _get_pi_attribute(interface, 'interface_names')
+        return get_pi_attribute(interface, 'interface_names')
     else:
         return frozenset()
 
@@ -914,7 +806,7 @@ def get_interface_method_names(interface):
     if interface is not a Interface subtype then an empty set is returned
     """
     if type_is_interface(interface):
-        return _get_pi_attribute(interface, 'interface_method_names')
+        return get_pi_attribute(interface, 'interface_method_names')
     else:
         return frozenset()
 
@@ -925,151 +817,7 @@ def get_interface_attribute_names(interface):
     if interface is not a Interface subtype then an empty set is returned
     """
     if type_is_interface(interface):
-        return _get_pi_attribute(interface, 'interface_attribute_names')
+        return get_pi_attribute(interface, 'interface_attribute_names')
     else:
         return frozenset()
 
-
-def _interface_from_anno(annotation):
-    """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
-    a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
-    """
-    try:
-        if issubclass(annotation, Interface):
-            return annotation
-    except TypeError:
-        pass
-    if hasattr(annotation, '__origin__') and hasattr(annotation, '__args__'):
-        # could be a typing.Union
-        if annotation.__origin__ is not typing.Union:
-            return None
-        for arg_type in annotation.__args__:
-            try:
-                if issubclass(arg_type, Interface):
-                    return arg_type
-            except TypeError:
-                pass
-
-    return None
-
-
-def adapt_args(*func_arg, **kwarg_types):
-    """ adapts arguments to the decorated function to the types given.  For example:
-
-            @adapt_args(foo=IFoo, bar=IBar)
-            def my_func(foo, bar):
-                pass
-
-        This would adapt the foo parameter to IFoo (with IFoo.optional_adapt(foo)) and bar to IBar (using IBar.adapt(bar))
-        before passing them to my_func.  `None` values are never adapted, so my_func(foo, None) will work, otherwise
-        AdaptionError is raised if the parameter is not adaptable.
-        All arguments must be specified as keyword arguments
-
-            @adapt_args(IFoo, IBar)   # NOT ALLOWED
-            def other_func(foo, bar):
-                pass
-
-        Parameters are only adapted if not None.  This is useful for optional args:
-
-            @adapt_args(foo=IFoo)
-            def optional_func(foo=None):
-                pass
-
-        In Python 3 the types can be taken from the annotations.  Optional[interface] is supported too.
-
-            @adapt_args
-            def my_func(foo: IFoo, bar: Optional[IBar] = None):
-                pass
-
-    """
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            adapted_kwargs = inspect.getcallargs(func, *args, **kwargs)
-            for name, interface in kwarg_types.items():
-                kwarg = adapted_kwargs.get(name, None)
-                adapted_kwargs[name] = InterfaceType.optional_adapt(interface, kwarg)
-
-            return func(**adapted_kwargs)
-
-        return wrapped
-
-    if func_arg:
-        if len(func_arg) != 1:
-            raise AdaptionError('Only one posititional argument permitted')
-        if not isinstance(func_arg[0], types.FunctionType):
-            raise AdaptionError('Positional argument must be a function (to decorate)')
-        if kwarg_types:
-            raise AdaptionError('keyword parameters not permitted with positional argument')
-        funcn = func_arg[0]
-        annotations = typing.get_type_hints(funcn)
-        if annotations is None:
-            annotations = {}
-        if not annotations:
-            warnings.warn('No annotations for {}. '
-                          'Add annotations or pass explicit argument types to adapt_args'.format(funcn.__name__),
-                          stacklevel=2)
-        for key, anno in annotations.items():
-            i_face = _interface_from_anno(anno)
-            if i_face is not None:
-                kwarg_types[key] = i_face
-        return decorator(funcn)
-
-    for key, i_face in kwarg_types.items():
-        try:
-            can_adapt = issubclass(i_face, Interface)
-        except TypeError:
-            can_adapt = False
-        if not can_adapt:
-            raise AdaptionError('adapt_args parameter values must be subtypes of Interface')
-    return decorator
-
-
-_dataclass_defaults = dict(init=True, repr=True, eq=True, order=False,
-                           unsafe_hash=False, frozen=False, match_args=True, kw_only=False,
-                           slots=False, weakref_slot=False)
-
-
-def _get_interface_annotions(cls):
-    annos = collections.OrderedDict()
-    for subcls in get_type_interfaces(cls)[::-1]:
-        sc_annos = typing.get_type_hints(subcls)
-        sc_names = get_interface_attribute_names(subcls)
-        for key, value in sc_annos.items():  # sc_annos has the correct ordering
-            if key in sc_names:
-                annos[key] = sc_annos[key]
-    return annos
-
-
-if sys.version_info[:2] < (3, 10):
-    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen')
-elif sys.version_info[:2] < (3, 11):
-    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
-                       'match_args', 'kw_only', 'slots')
-else:
-    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
-                       'match_args', 'kw_only', 'slots', 'weakref_slot')
-
-
-def dataclass(_cls=None, **kwargs):
-    """Returns the same class as was passed in, with dunder methods
-    added based on the fields defined in the class.
-    """
-    arg_tuple = tuple(kwargs.get(arg_name, _dataclass_defaults[arg_name]) for arg_name in _dataclass_args)
-
-    def wrap(cls):
-        # dataclasses only operates on annotations in the current class
-        # get all interface attributes and add them to this class
-        interface_annos = _get_interface_annotions(cls)
-        annos = cls.__dict__.get('__annotations__', {})
-        interface_annos.update(annos)
-        cls.__annotations__ = interface_annos
-        return dataclasses._process_class(cls, *arg_tuple)
-
-    # See if we're being called as @dataclass or @dataclass().
-    if _cls is None:
-        # We're called with parens.
-        return wrap
-    # We're called as @dataclass without parens.
-    return wrap(_cls)

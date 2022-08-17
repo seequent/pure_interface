@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import unittest
 
 import pure_interface
+from pure_interface import interface
 
 
 class IGrowingThing(pure_interface.Interface):
@@ -68,14 +69,14 @@ class Y(object):
 
 class TestInheritance(unittest.TestCase):
     def test_bad_mixin_class_is_checked(self):
-        pure_interface.is_development = True
+        interface.is_development = True
 
         with self.assertRaises(pure_interface.InterfaceError):
             class Growing(BadGrowingMixin, IGrowingThing):
                 pass
 
     def test_ok_mixin_class_passes(self):
-        pure_interface.is_development = True
+        interface.is_development = True
 
         class Growing(GrowingMixin, IGrowingThing):
             pass

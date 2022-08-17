@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import unittest
 
 from pure_interface import *
+from pure_interface import adapts, AdapterTracker
 
 
 class ISpeaker(Interface):
