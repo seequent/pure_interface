@@ -44,12 +44,20 @@ class TestNoContentChecks(unittest.TestCase):
                 msg = 'msg'.format(self.__class__.__name__)
                 raise NotImplementedError(msg)
 
+    def test_raise_other_fails(self):
+        with self.assertRaises(pure_interface.InterfaceError):
+            class INotAnimal(pure_interface.Interface):
+                def bad_method(self):
+                    """a comment"""
+                    msg = NotImplementedError('msg'.format(self.__class__.__name__))
+                    raise RuntimeError()
+
     def test_function_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
             class IAnimal(pure_interface.Interface):
                 def speak(self, volume):
                     if volume > 0:
-                        print('hello' + '!'*int(volume))
+                        print('hello' + '!' * int(volume))
 
     def test_abstract_function_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
@@ -57,7 +65,7 @@ class TestNoContentChecks(unittest.TestCase):
                 @pure_interface.abstractmethod
                 def speak(self, volume):
                     if volume > 0:
-                        print('hello' + '!'*int(volume))
+                        print('hello' + '!' * int(volume))
 
     def test_abstract_classmethod_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
@@ -65,7 +73,7 @@ class TestNoContentChecks(unittest.TestCase):
                 @pure_interface.abstractclassmethod
                 def speak(cls, volume):
                     if volume > 0:
-                        print('hello' + '!'*int(volume))
+                        print('hello' + '!' * int(volume))
 
     def test_property_with_body_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):

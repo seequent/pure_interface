@@ -473,26 +473,6 @@ If ``is_development`` if ``False`` then:
     * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
 
 
-PyContracts Integration
-=======================
-
-You can use ``pure_interface`` with PyContracts_
-
-.. _PyContracts: https://pypi.python.org/pypi/PyContracts
-
-Simply import the ``pure_contracts`` module and use the ``ContractInterface`` class defined there as you
-would the ``Interface`` class described above.
-For example::
-
-    from pure_contracts import ContractInterface
-    from contracts import contract
-
-    class ISpeaker(ContractInterface):
-        @contract(volume=int, returns=unicode)
-        def speak(self, volume):
-            pass
-
-
 Reference
 =========
 Classes
