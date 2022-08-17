@@ -17,9 +17,7 @@ import sys
 import warnings
 import weakref
 
-
-__version__ = '5.0.1'
-
+__version__ = '6.0.0'
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
@@ -49,6 +47,7 @@ PI = TypeVar('PI', bound='Interface')
 
 class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
+
     def __init__(self, type_is_interface, abstract_properties, interface_method_signatures, interface_attribute_names):
         self.type_is_interface = type_is_interface
         # abstractproperties are checked for at instantiation.
@@ -170,28 +169,33 @@ def _is_empty_function(func, unwrap=False):
         return True
 
     # quick check
-    if code_obj.co_code == b'd\x00\x00S' and code_obj.co_consts[0] is None:
+    byte_code = code_obj.co_code
+    if byte_code.startswith(b'\x97\x00'):
+        byte_code = byte_code[2:]  # RESUME opcode added in 3.11
+    if byte_code in (b'd\x00\x00S', b'd\x00S\x00') and code_obj.co_consts[0] is None:
         return True
-    if code_obj.co_code == b'd\x01\x00S' and code_obj.co_consts[1] is None:
+    if byte_code in (b'd\x01\x00S', b'd\x01S\x00') and code_obj.co_consts[1] is None:
         return True
     # convert bytes to instructions
     instructions = _get_instructions(code_obj)
     if len(instructions) < 2:
-        return True  # this never happens as there is always the implicit return None which is 2 instructions
-    assert instructions[-1].opname == 'RETURN_VALUE'  # returns TOS (top of stack)
-    instruction = instructions[-2]
-    if not (instruction.opname == 'LOAD_CONST' and code_obj.co_consts[instruction.arg] is None):  # TOS is None
-        return False  # return is not None
-    instructions = instructions[:-2]
+        return True  # this never happens
+    if instructions[0].opname == 'RESUME':
+        instructions.pop(0)
+    if instructions[-1].opname == 'RETURN_VALUE':  # returns TOS (top of stack)
+        instruction = instructions[-2]
+        if not (instruction.opname == 'LOAD_CONST' and code_obj.co_consts[instruction.arg] is None):  # TOS is None
+            return False  # return is not None
+        instructions = instructions[:-2]
     if len(instructions) == 0:
         return True
     # look for raise NotImplementedError
     if instructions[-1].opname == 'RAISE_VARARGS':
         # the thing we are raising should be the result of __call__  (instantiating exception object)
-        if instructions[-2].opname == 'CALL_FUNCTION':
-            for instr in instructions[:-2]:
-                if instr.opname == 'LOAD_GLOBAL' and code_obj.co_names[instr.arg] == 'NotImplementedError':
-                    return True
+        if instructions[-2].opname in ('CALL_FUNCTION', 'CALL'):
+            for instr in instructions[-3::-1]:
+                if instr.opname == 'LOAD_GLOBAL':
+                    return instr.argval == 'NotImplementedError'
 
     return False
 
@@ -463,7 +467,7 @@ def _class_structural_type_check(cls, subclass):
     if is_development:
         stacklevel = 2
         stack = inspect.stack()
-        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel-1][1]:
+        while stacklevel < len(stack) and 'pure_interface' in stack[stacklevel - 1][1]:
             stacklevel += 1
         warnings.warn('Class {module}.{sub_name} implements {cls_name}.\n'
                       'Consider inheriting {cls_name} or using {cls_name}.register({sub_name})'
@@ -529,7 +533,7 @@ class InterfaceType(abc.ABCMeta):
         interface_method_signatures = dict()
         interface_attribute_names = set()
         abstract_properties = set()
-        for i in range(len(bases)-1, -1, -1):  # start at back end
+        for i in range(len(bases) - 1, -1, -1):  # start at back end
             base, base_is_interface = base_types[i]
             if base is object:
                 continue
@@ -569,7 +573,8 @@ class InterfaceType(abc.ABCMeta):
                     continue
                 if not _is_empty_function(func, unwrap):
                     raise InterfaceError('Function "{}" is not empty.\n'
-                                         'Did you forget to inherit from object to make the class concrete?'.format(func.__name__))
+                                         'Did you forget to inherit from object to make the class concrete?'.format(
+                        func.__name__))
         else:  # concrete sub-type
             namespace = attributes
             class_properties = set()
@@ -808,6 +813,7 @@ class AdapterTracker(object):
     want the overhead of lots of copies.  This class provides adapt() and adapt_or_none() methods that track adaptions.
     Thus if `x is b` is `True` then `adapter.adapt(x, I) is adapter.adapt(b, I)` is `True`.
     """
+
     def __init__(self, mapping_factory=dict):
         self._factory = mapping_factory
         self._adapters = mapping_factory()
@@ -951,6 +957,7 @@ def adapt_args(*func_arg, **kwarg_types):
                 pass
 
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
@@ -960,6 +967,7 @@ def adapt_args(*func_arg, **kwarg_types):
                 adapted_kwargs[name] = InterfaceType.optional_adapt(interface, kwarg)
 
             return func(**adapted_kwargs)
+
         return wrapped
 
     if func_arg:
@@ -996,6 +1004,11 @@ def adapt_args(*func_arg, **kwarg_types):
 try:
     import dataclasses
 
+    _dataclass_defaults = dict(init=True, repr=True, eq=True, order=False,
+                               unsafe_hash=False, frozen=False, match_args=True, kw_only=False,
+                               slots=False, weakref_slot=False)
+
+
     def _get_interface_annotions(cls):
         annos = collections.OrderedDict()
         for subcls in get_type_interfaces(cls)[::-1]:
@@ -1006,19 +1019,22 @@ try:
                     annos[key] = sc_annos[key]
         return annos
 
-    def dataclass(_cls=None, init=True, repr=True, eq=True, order=False,
-                  unsafe_hash=False, frozen=False):
+
+    if sys.version_info[:2] < (3, 10):
+        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen')
+    elif sys.version_info[:2] < (3, 11):
+        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
+                           'match_args', 'kw_only', 'slots')
+    else:
+        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
+                           'match_args', 'kw_only', 'slots', 'weakref_slot')
+
+
+    def dataclass(_cls=None, **kwargs):
         """Returns the same class as was passed in, with dunder methods
         added based on the fields defined in the class.
-
-        Examines PEP 526 __annotations__ to determine fields.
-
-        If init is true, an __init__() method is added to the class. If
-        repr is true, a __repr__() method is added. If order is true, rich
-        comparison dunder methods are added. If unsafe_hash is true, a
-        __hash__() method function is added. If frozen is true, fields may
-        not be assigned to after instance creation.
         """
+        arg_tuple = tuple(kwargs.get(arg_name, _dataclass_defaults[arg_name]) for arg_name in _dataclass_args)
 
         def wrap(cls):
             # dataclasses only operates on annotations in the current class
@@ -1027,7 +1043,7 @@ try:
             annos = cls.__dict__.get('__annotations__', {})
             interface_annos.update(annos)
             cls.__annotations__ = interface_annos
-            return dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen)
+            return dataclasses._process_class(cls, *arg_tuple)
 
         # See if we're being called as @dataclass or @dataclass().
         if _cls is None:
@@ -1035,6 +1051,7 @@ try:
             return wrap
         # We're called as @dataclass without parens.
         return wrap(_cls)
+
 
 except ImportError:
     pass
