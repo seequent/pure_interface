@@ -1,4 +1,4 @@
-pure-interface
+pure_interface
 ==============
 
 A Python interface library that disallows function body content on interfaces and supports adaption.
@@ -15,7 +15,7 @@ Features
 * ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
   attributes and methods defined by ``Interface``.
 * Warns if ``provided_by`` did a structural type check when inheritance would work.
-* Supports python 2.7 and 3.5+
+* Supports python 3.7+
 
 A note on the name
 ------------------
@@ -49,7 +49,7 @@ leaving all method bodies empty::
 
 
 Like Protocols, class annotations are considered part of the interface.
-In Python versions earlier than 3.6 you can use the following alternate syntax::
+In for historical reasons, you can also use the following alternate syntax::
 
     class IAnimal(Interface):
         height = None
@@ -330,8 +330,6 @@ Structural Type Checking
 
 Structural_ type checking checks if an object has the attributes and methods defined by the interface.
 
-.. _Structural: https://en.wikipedia.org/wiki/Structural_type_system
-
 As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
 An alternative to ``isinstance()`` is the ``Interface.provided_by(obj)`` classmethod which will fall back to structural type
 checking if the instance is not an actual subclass.  This can be controlled by the ``allow_implicit`` parameter which defaults to ``True``.
@@ -380,8 +378,7 @@ class, interface pair.  For example::
 
 Dataclass Support
 =================
-dataclasses_ were added in Python 3.7.  When used in this and later versions of Python, ``pure_interface`` provides a
-``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
+``pure_interface`` provides a ``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
 
     class IAnimal2(Interface):
         height: float
@@ -391,7 +388,7 @@ dataclasses_ were added in Python 3.7.  When used in this and later versions of 
             pass
 
     @dataclass
-    class Animal(Concrete, IAnimal2):
+    class Animal(IAnimal2, object):
         def speak(self):
             print('Hello, I am a {} metre tall {}', self.height, self.species)
 
@@ -467,10 +464,10 @@ are imported or else the change will not have any effect.
 
 If ``is_development`` if ``False`` then:
 
-    * Signatures of overriding methods are not checked
-    * No warnings are issued by the adaption functions
-    * No incomplete implementation warnings are issued
-    * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
+* Signatures of overriding methods are not checked
+* No warnings are issued by the adaption functions
+* No incomplete implementation warnings are issued
+* The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
 
 
 Reference
@@ -582,12 +579,10 @@ Functions
     Returns a ``frozenset`` of names of class attributes and annotations defined by the interface
     If *cls* is not a ``Interface`` subtype then an empty set is returned.
 
-**dataclass** *(_cls=None, init=True, repr=True, eq=True, order=False, unsafe_hash=False, frozen=False)*
+**dataclass** *(...)*
     This function is a re-implementation of the standard Python ``dataclasses.dataclass`` decorator.
     In addition to the fields on the decorated class, all annotations on interface base classes are added as fields.
-    See the Python dataclasses_ documentation for more details.
-
-    3.7+ Only
+    See the Python dataclasses_ documentation for details on the arguments, they are exactly the same.
 
 
 Exceptions
@@ -628,5 +623,7 @@ Module Attributes
 .. _cx_Freeze: https://pypi.python.org/pypi/cx_Freeze
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
 .. _mock_protocol: https://pypi.org/project/mock-protocol/
+.. _Structural: https://en.wikipedia.org/wiki/Structural_type_system
+
 .. [*] We don't talk about the methods on the base ``Interface`` class.  In earlier versions they
    were all on the meta class but then practicality got in the way.

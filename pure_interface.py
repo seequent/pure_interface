@@ -6,6 +6,7 @@ from __future__ import division, print_function, absolute_import
 import abc
 from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
 import collections
+import dataclasses
 import dis
 import functools
 import inspect
@@ -17,7 +18,7 @@ import sys
 import warnings
 import weakref
 
-__version__ = '6.0.0'
+__version__ = '6.0.1'
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
@@ -170,8 +171,14 @@ def _is_empty_function(func, unwrap=False):
 
     # quick check
     byte_code = code_obj.co_code
+    if byte_code.startswith(b'\x81\x01'):
+        byte_code = byte_code[2:]  # remove GEN_START async def opcode
+    if byte_code.startswith(b'K\x00'):
+        byte_code = byte_code[2:]  # remove RETURN_GENERATOR async def opcode in py311
+        if byte_code.startswith(b'\x01'):
+            byte_code = byte_code[2:]  # remove POP_TOP
     if byte_code.startswith(b'\x97\x00'):
-        byte_code = byte_code[2:]  # RESUME opcode added in 3.11
+        byte_code = byte_code[2:]  # remove RESUME opcode added in 3.11
     if byte_code in (b'd\x00\x00S', b'd\x00S\x00') and code_obj.co_consts[0] is None:
         return True
     if byte_code in (b'd\x01\x00S', b'd\x01S\x00') and code_obj.co_consts[1] is None:
@@ -180,6 +187,12 @@ def _is_empty_function(func, unwrap=False):
     instructions = _get_instructions(code_obj)
     if len(instructions) < 2:
         return True  # this never happens
+    if instructions[0].opname == 'GEN_START':
+        instructions.pop(0)
+    if instructions[0].opname == 'RETURN_GENERATOR':
+        instructions.pop(0)
+        if instructions[0].opname == 'POP_TOP':
+            instructions.pop(0)
     if instructions[0].opname == 'RESUME':
         instructions.pop(0)
     if instructions[-1].opname == 'RETURN_VALUE':  # returns TOS (top of stack)
@@ -1001,57 +1014,50 @@ def adapt_args(*func_arg, **kwarg_types):
     return decorator
 
 
-try:
-    import dataclasses
-
-    _dataclass_defaults = dict(init=True, repr=True, eq=True, order=False,
-                               unsafe_hash=False, frozen=False, match_args=True, kw_only=False,
-                               slots=False, weakref_slot=False)
+_dataclass_defaults = dict(init=True, repr=True, eq=True, order=False,
+                           unsafe_hash=False, frozen=False, match_args=True, kw_only=False,
+                           slots=False, weakref_slot=False)
 
 
-    def _get_interface_annotions(cls):
-        annos = collections.OrderedDict()
-        for subcls in get_type_interfaces(cls)[::-1]:
-            sc_annos = typing.get_type_hints(subcls)
-            sc_names = get_interface_attribute_names(subcls)
-            for key, value in sc_annos.items():  # sc_annos has the correct ordering
-                if key in sc_names:
-                    annos[key] = sc_annos[key]
-        return annos
+def _get_interface_annotions(cls):
+    annos = collections.OrderedDict()
+    for subcls in get_type_interfaces(cls)[::-1]:
+        sc_annos = typing.get_type_hints(subcls)
+        sc_names = get_interface_attribute_names(subcls)
+        for key, value in sc_annos.items():  # sc_annos has the correct ordering
+            if key in sc_names:
+                annos[key] = sc_annos[key]
+    return annos
 
 
-    if sys.version_info[:2] < (3, 10):
-        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen')
-    elif sys.version_info[:2] < (3, 11):
-        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
-                           'match_args', 'kw_only', 'slots')
-    else:
-        _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
-                           'match_args', 'kw_only', 'slots', 'weakref_slot')
+if sys.version_info[:2] < (3, 10):
+    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen')
+elif sys.version_info[:2] < (3, 11):
+    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
+                       'match_args', 'kw_only', 'slots')
+else:
+    _dataclass_args = ('init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen',
+                       'match_args', 'kw_only', 'slots', 'weakref_slot')
 
 
-    def dataclass(_cls=None, **kwargs):
-        """Returns the same class as was passed in, with dunder methods
-        added based on the fields defined in the class.
-        """
-        arg_tuple = tuple(kwargs.get(arg_name, _dataclass_defaults[arg_name]) for arg_name in _dataclass_args)
+def dataclass(_cls=None, **kwargs):
+    """Returns the same class as was passed in, with dunder methods
+    added based on the fields defined in the class.
+    """
+    arg_tuple = tuple(kwargs.get(arg_name, _dataclass_defaults[arg_name]) for arg_name in _dataclass_args)
 
-        def wrap(cls):
-            # dataclasses only operates on annotations in the current class
-            # get all interface attributes and add them to this class
-            interface_annos = _get_interface_annotions(cls)
-            annos = cls.__dict__.get('__annotations__', {})
-            interface_annos.update(annos)
-            cls.__annotations__ = interface_annos
-            return dataclasses._process_class(cls, *arg_tuple)
+    def wrap(cls):
+        # dataclasses only operates on annotations in the current class
+        # get all interface attributes and add them to this class
+        interface_annos = _get_interface_annotions(cls)
+        annos = cls.__dict__.get('__annotations__', {})
+        interface_annos.update(annos)
+        cls.__annotations__ = interface_annos
+        return dataclasses._process_class(cls, *arg_tuple)
 
-        # See if we're being called as @dataclass or @dataclass().
-        if _cls is None:
-            # We're called with parens.
-            return wrap
-        # We're called as @dataclass without parens.
-        return wrap(_cls)
-
-
-except ImportError:
-    pass
+    # See if we're being called as @dataclass or @dataclass().
+    if _cls is None:
+        # We're called with parens.
+        return wrap
+    # We're called as @dataclass without parens.
+    return wrap(_cls)

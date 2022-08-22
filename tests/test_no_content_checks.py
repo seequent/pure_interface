@@ -44,6 +44,19 @@ class TestNoContentChecks(unittest.TestCase):
                 msg = 'msg'.format(self.__class__.__name__)
                 raise NotImplementedError(msg)
 
+    def test_async_function_passes(self):
+        class IAnimal(pure_interface.Interface):
+            async def speak(self, volume):
+                pass
+
+            async def move(self, to):
+                """ a comment """
+                raise NotImplementedError('subclass must provide')
+
+            async def sleep(self, duration):
+                "a comment"
+                pass
+
     def test_raise_other_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
             class INotAnimal(pure_interface.Interface):
