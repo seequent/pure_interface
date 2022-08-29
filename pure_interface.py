@@ -18,7 +18,7 @@ import sys
 import warnings
 import weakref
 
-__version__ = '6.0.1'
+__version__ = '6.0.2'
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings = []
@@ -173,12 +173,18 @@ def _is_empty_function(func, unwrap=False):
     byte_code = code_obj.co_code
     if byte_code.startswith(b'\x81\x01'):
         byte_code = byte_code[2:]  # remove GEN_START async def opcode
+    if byte_code.startswith(b'\x97\x00'):
+        byte_code = byte_code[2:]  # remove RESUME opcode added in 3.11
+    if byte_code.startswith(b'\t\x00'):
+        byte_code = byte_code[2:]  # remove NOP opcode
     if byte_code.startswith(b'K\x00'):
         byte_code = byte_code[2:]  # remove RETURN_GENERATOR async def opcode in py311
         if byte_code.startswith(b'\x01'):
             byte_code = byte_code[2:]  # remove POP_TOP
     if byte_code.startswith(b'\x97\x00'):
         byte_code = byte_code[2:]  # remove RESUME opcode added in 3.11
+    if byte_code.startswith(b'\t\x00'):
+        byte_code = byte_code[2:]  # remove NOP opcode
     if byte_code in (b'd\x00\x00S', b'd\x00S\x00') and code_obj.co_consts[0] is None:
         return True
     if byte_code in (b'd\x01\x00S', b'd\x01S\x00') and code_obj.co_consts[1] is None:
@@ -189,11 +195,17 @@ def _is_empty_function(func, unwrap=False):
         return True  # this never happens
     if instructions[0].opname == 'GEN_START':
         instructions.pop(0)
+    if instructions[0].opname == 'RESUME':
+        instructions.pop(0)
+    if instructions[0].opname == 'NOP':
+        instructions.pop(0)
     if instructions[0].opname == 'RETURN_GENERATOR':
         instructions.pop(0)
         if instructions[0].opname == 'POP_TOP':
             instructions.pop(0)
     if instructions[0].opname == 'RESUME':
+        instructions.pop(0)
+    if instructions[0].opname == 'NOP':
         instructions.pop(0)
     if instructions[-1].opname == 'RETURN_VALUE':  # returns TOS (top of stack)
         instruction = instructions[-2]
