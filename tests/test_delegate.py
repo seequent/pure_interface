@@ -45,7 +45,7 @@ class DFallback(delegation.Delegate, ITalker):
 
 class DAttrMap(delegation.Delegate, IPoint):
     attr_mapping = {'x': 'a.x',
-                'y': 'b.y',
+                    'y': 'b.y',
                     }
 
     def __init__(self, a, b):
@@ -55,7 +55,7 @@ class DAttrMap(delegation.Delegate, IPoint):
 
 class DDelegateList(delegation.Delegate, IPoint):
     attr_delegates = {'a': ['x'],
-                 'b': ['x', 'y']}
+                      'b': ['x', 'y']}
 
     def __init__(self, a, b):
         self.a = a
@@ -64,7 +64,7 @@ class DDelegateList(delegation.Delegate, IPoint):
 
 class DDelegateIFace(delegation.Delegate, IPoint, ITalker):
     attr_delegates = {'a': IPoint,
-                 'b': ITalker}
+                      'b': ITalker}
 
     def __init__(self, a, b):
         self.a = a

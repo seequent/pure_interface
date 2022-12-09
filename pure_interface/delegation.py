@@ -27,8 +27,11 @@ class _Delegated:
 class Delegate:
     """ Mapping based delegate class
 
-    delegates is a mapping of implmentation -> attr-name-list where implementation is the name
-    of the attribute containing the implementation.  The same attribute is looked up on the delegate.
+    The class attribute attr_delegates is a mapping of implmentation-name -> attr-name-list where
+    implementation-name is the name of the attribute containing the implementation.
+    The same when an attribute in attr-name-list is accessed on the delegate, the attribute is looked up on
+    the implementation.
+
     e.g. Given
         class MyDelegate(Delegate):
             attr_delegates = {'impl': ['foo', 'bar']}
@@ -41,7 +44,7 @@ class Delegate:
         d.foo will access d.impl.foo
         d.bar('baz') will call d.impl.bar('baz')
 
-    attr_delegates can specify an interfaces instead of a list of names.
+    The class attribute attr_delegates values can also contain an interface instead of a list of names.
     For example this is equivalent to the above
 
         class IFoo(Interface):
@@ -49,23 +52,24 @@ class Delegate:
             def bar(self, baz):
                 pass
 
-        class MyDelegate(Delegate):
+        class MyDelegate(Delegate, IFoo):
             attr_delegates = {'impl': IFoo}
             ...
 
 
     This is helpful when the attribute names match.
-    When they don't, you can use the attr_mapping.
+    When they don't, you can use the attr_mapping class atttribute.
 
-    attr_map is a mapping of attr -> dotted-name where dotted-name is looked up on self when attr is accessed.
+    attr_mapping is a mapping of attr -> dotted-name where dotted-name is looked up on self when attr is accessed.
 
     e.g. The following is equivalent to the example above
         attr_mapping = {'foo': 'impl.foo',
-                    'bar': 'impl.bar'}
+                        'bar': 'impl.bar'}
 
 
     attr_fallback is treated a delegate for all attributes defined by base interfaces of the class
     if there is no delegate, mapping or implementation for that attribute.
+    This saves repeating IFoo as it is typically a base class also.
 
         class MyDelegate(Delegate, IFoo):
             attr_fallback = 'impl'
@@ -73,7 +77,7 @@ class Delegate:
             def __init__(self, impl):
                 self.impl = impl
 
-    It is an error to specify the same attribute as a key in attr_map and an attr-name in a delegate
+    It is an error to specify the same attribute as a key in attr_mapping and an attr-name in a delegate
     It is an error to specify a delegate name in attr_map.
     If the same attr appears in two delegate lists, then the first one takes precendence
 
