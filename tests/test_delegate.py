@@ -37,14 +37,14 @@ class Point(IPoint, object):
 
 
 class DFallback(delegation.Delegate, ITalker):
-    attr_fallback = 'impl'
+    pi_attr_fallback = 'impl'
 
     def __init__(self, impl):
         self.impl = impl
 
 
 class DAttrMap(delegation.Delegate, IPoint):
-    attr_mapping = {'x': 'a.x',
+    pi_attr_mapping = {'x': 'a.x',
                     'y': 'b.y',
                     }
 
@@ -54,7 +54,7 @@ class DAttrMap(delegation.Delegate, IPoint):
 
 
 class DDelegateList(delegation.Delegate, IPoint):
-    attr_delegates = {'a': ['x'],
+    pi_attr_delegates = {'a': ['x'],
                       'b': ['x', 'y']}
 
     def __init__(self, a, b):
@@ -63,12 +63,38 @@ class DDelegateList(delegation.Delegate, IPoint):
 
 
 class DDelegateIFace(delegation.Delegate, IPoint, ITalker):
-    attr_delegates = {'a': IPoint,
-                      'b': ITalker}
+    pi_attr_delegates = {'a': IPoint,
+                         'b': ITalker}
 
     def __init__(self, a, b):
         self.a = a
         self.b = b
+
+
+class DelegateOverride(delegation.Delegate, ITalker):
+    pi_attr_delegates = {'a': ITalker}
+
+    def __init__(self, a):
+        self.a = a
+
+    def talk(self):
+        return 'hello'
+
+
+class DelegateAttrOverride(delegation.Delegate, IPoint):
+    pi_attr_fallback = 'a'
+
+    def __init__(self, a):
+        self.a = a
+        self._x = 'x'
+
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, x):
+        self._x = x
 
 
 class DelegateTest(unittest.TestCase):
@@ -147,6 +173,38 @@ class DelegateTest(unittest.TestCase):
         self.assertEqual(5, d.x)
         self.assertEqual(7, b.y)
         self.assertEqual(7, d.y)
+
+    def test_check_duplicate(self):
+        with self.assertRaises(ValueError):
+            class BadDelegate(delegation.Delegate):
+                pi_attr_mapping = {'x': 'a.x'}
+                pi_attr_delegates = {'x': ['foo', 'bar']}
+
+    def test_check_delegate_in_attr_map(self):
+        with self.assertRaises(ValueError):
+            class BadDelegate(delegation.Delegate):
+                pi_attr_mapping = {'foo': 'a.x'}
+                pi_attr_delegates = {'x': ['foo', 'bar']}
+
+    def test_delegate_method_override(self):
+        t = Talker()
+        d = DelegateOverride(t)
+        self.assertEqual('hello', d.talk())
+
+    def test_delegate_override(self):
+        t = Talker()
+        d = DelegateOverride(t)
+        self.assertEqual('hello', d.talk())
+
+    def test_delegate_attr_override(self):
+        p = Point()
+        d = DelegateAttrOverride(p)
+        self.assertEqual('x', d.x)
+        d.x = 'y'
+        self.assertEqual(0, p.x)
+
+
+class CompositionTest(unittest.TestCase):
 
     def test_type_composition(self):
         a = Point(1, 2)

@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-
 import abc
 import unittest
 
@@ -20,7 +16,7 @@ class InnocentBystander(metaclass=SomeOtherMetaClass):
 
 
 class InnocentBystanderWithABC(metaclass=SomeOtherMetaClass):
-    @pure_interface.abstractmethod
+    @abc.abstractmethod
     def method(self):
         pass
 

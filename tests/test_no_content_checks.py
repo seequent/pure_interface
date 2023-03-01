@@ -1,3 +1,4 @@
+import abc
 import pure_interface
 
 import unittest
@@ -19,7 +20,7 @@ class TestNoContentChecks(unittest.TestCase):
                 "a comment"
 
             @property
-            @pure_interface.abstractmethod
+            @abc.abstractmethod
             def weight(self):
                 pass
 
@@ -77,7 +78,7 @@ class TestNoContentChecks(unittest.TestCase):
     def test_abstract_function_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
             class IAnimal(pure_interface.Interface):
-                @pure_interface.abstractmethod
+                @abc.abstractmethod
                 def speak(self, volume):
                     if volume > 0:
                         print('hello' + '!' * int(volume))
@@ -85,7 +86,8 @@ class TestNoContentChecks(unittest.TestCase):
     def test_abstract_classmethod_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
             class IAnimal(pure_interface.Interface):
-                @pure_interface.abstractclassmethod
+                @classmethod
+                @abc.abstractmethod
                 def speak(cls, volume):
                     if volume > 0:
                         print('hello' + '!' * int(volume))

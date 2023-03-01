@@ -76,11 +76,10 @@ ABC-style property definitions are also supported (and equivalent)::
 Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
 all concrete subclasses will be required to have a ``height`` attribute.
 
-For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace.
-However these decorators are optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
+However the ``abstractmethod`` decorator is optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
 In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
-Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
+Including ``abstractmethod`` decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
 the method to raise ``NotImplementedError``.  For this reason methods that just ``raise NotImplementedError`` are also
 considered empty.
@@ -459,15 +458,15 @@ the ``Delegate`` class assists with this task reducing boiler plate code such as
 The ``Delegate`` class provides 3 special attributes to route attributes to a child object.
 Any one or combination of attributes is allowed.
 
-attr_delegates
+pi_attr_delegates
 --------------
-``attr_delegates`` is a dictionary mapping delegate attribute names to either an interface or a list of attribute names.
+``pi_attr_delegates`` is a dictionary mapping delegate attribute names to either an interface or a list of attribute names.
 If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to
  route to the delegate object.
 For example suppose we want to extend an Animal with a new method ``price``::
 
     class ExtendedAnimal(Delegate, IAnimal):
-        attr_delegates = {'a': IAnimal}
+        pi_attr_delegates = {'a': IAnimal}
 
         def __init__(self, a):
             self.a
@@ -485,42 +484,59 @@ For example suppose we want to extend an Animal with a new method ``price``::
 The following code is equivalent but more verbose and won't update with changes to IAnimal::
 
     class ExtendedAnimal(Delegate):
-        attr_delegates = {'a': ['height', 'speak']}
+        pi_attr_delegates = {'a': ['height', 'speak']}
 
         def __init__(self, a):
             self.a
         ...
 
-attr_mapping
+pi_attr_mapping
 ------------
-This is helpful when the attribute names match. When they don't, you can use the ``attr_mapping`` special attribute.
-``attr_mapping`` takes the reverse approach, the key is the attribute and the value is a dotted name of how to route
+This is helpful when the attribute names match. When they don't, you can use the ``pi_attr_mapping`` special attribute.
+``pi_attr_mapping`` takes the reverse approach, the key is the attribute and the value is a dotted name of how to route
 the lookup.  This provides a lot of flexibility as any number of dots are permitted.
 This example is again equivalent to the first Delegate::
 
     class ExtendedAnimal(Delegate):
-        attr_mapping = {'height': 'a.height',
-                        'talk': 'a.talk'}
+        pi_attr_mapping = {'height': 'a.height',
+                           'talk': 'a.talk'}
 
         def __init__(self, a):
             self.a
 
-attr_fallback
+pi_attr_fallback
 -------------
-``attr_fallback``, if not ``None``, is treated a delegate for all attributes defined by base interfaces of the class
+``pi_attr_fallback``, if not ``None``, is treated a delegate for all attributes defined by base interfaces of the class
 if there is no delegate, mapping or implementation for that attribute. Again, this is equivalent to the first Delegate.::
 
     class ExtendedAnimal(Delegate, IAnimal):
-        attr_fallback = 'a'
+        pi_attr_fallback = 'a'
 
         def __init__(self, a):
             self.a
 
-Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``'a'``.
+Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``a``.
+Methods and properties defined on the delegate class itself take precedence (as one would expect)::
+
+    class MyDelegate(Delegate, IFoo):
+        pi_attr_delegates = {'impl': IFoo}
+
+        def __init__(self, impl):
+            self.impl = impl
+
+        @property
+        def foo(self):
+            return self.impl.foo * 2
+
+        def bar(self, baz):
+            return 'my bar'
+
+However, attempting to set an instance attribute as an override will just set the attribute on the underlying delegate
+instead.
 
 Composition
 -----------
-A special case where everything is defined in an ``Interface`` is handled by the ``composed_type`` factory function.
+A special case where all delegated attributes are defined in an ``Interface`` is handled by the ``composed_type`` factory function.
 ``composed_type`` takes 2 or more interfaces and returns a new type that inherits from all the interfaces with a
 constructor that takes instances that implement those interfaces (in the same order).  For exmaple::
 
@@ -557,8 +573,8 @@ For example::
     sa.speak(3) -> 'speaker speak'  # from s.speak
 
 
-Types created in the fashion are Delegate subclasses with an ``provided_by`` method which returns ``True`` if the
-argument provides all the interfaces in the type (even if the argument is not a Delegate subclasses).::
+Types created with ``composed_type`` are ``Delegate`` subclasses with a ``provided_by`` method which returns ``True`` if the
+argument provides all the interfaces in the type (even if the argument is not a ``Delegate`` subclasses).::
 
     AT = composed_type(IAnimal, ITalker)
     TA = composed_type(ITalker, IAnimal)

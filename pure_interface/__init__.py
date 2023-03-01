@@ -1,4 +1,3 @@
-from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
 from .errors import PureInterfaceError, InterfaceError, AdaptionError
 from .interface import Interface, InterfaceType
 from .interface import type_is_interface, type_is_pure_interface, get_type_interfaces

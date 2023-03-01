@@ -6,7 +6,7 @@ from .errors import InterfaceError
 from .interface import get_interface_names, type_is_interface, get_type_interfaces, InterfaceType
 
 _composed_types_map = {}
-_letters = 'abcdefghijklmnopqrstuvwxyz'
+_letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
 class _Delegated:
@@ -27,14 +27,14 @@ class _Delegated:
 class Delegate:
     """ Mapping based delegate class
 
-    The class attribute attr_delegates is a mapping of implmentation-name -> attr-name-list where
+    The class attribute pi_attr_delegates is a mapping of implmentation-name -> attr-name-list where
     implementation-name is the name of the attribute containing the implementation.
     The same when an attribute in attr-name-list is accessed on the delegate, the attribute is looked up on
     the implementation.
 
     e.g. Given
         class MyDelegate(Delegate):
-            attr_delegates = {'impl': ['foo', 'bar']}
+            pi_attr_delegates = {'impl': ['foo', 'bar']}
 
             def __init__(self, impl):
                 self.impl = impl
@@ -44,7 +44,7 @@ class Delegate:
         d.foo will access d.impl.foo
         d.bar('baz') will call d.impl.bar('baz')
 
-    The class attribute attr_delegates values can also contain an interface instead of a list of names.
+    The class attribute pi_attr_delegates values can also contain an interface instead of a list of names.
     For example this is equivalent to the above
 
         class IFoo(Interface):
@@ -53,56 +53,75 @@ class Delegate:
                 pass
 
         class MyDelegate(Delegate, IFoo):
-            attr_delegates = {'impl': IFoo}
+            pi_attr_delegates = {'impl': IFoo}
             ...
 
 
     This is helpful when the attribute names match.
-    When they don't, you can use the attr_mapping class atttribute.
+    When they don't, you can use the pi_attr_mapping class atttribute.
 
-    attr_mapping is a mapping of attr -> dotted-name where dotted-name is looked up on self when attr is accessed.
+    pi_attr_mapping is a mapping of attr -> dotted-name where dotted-name is looked up on self when attr is accessed.
 
     e.g. The following is equivalent to the example above
-        attr_mapping = {'foo': 'impl.foo',
+        pi_attr_mapping = {'foo': 'impl.foo',
                         'bar': 'impl.bar'}
 
 
-    attr_fallback is treated a delegate for all attributes defined by base interfaces of the class
+    pi_attr_fallback is treated a delegate for all attributes defined by base interfaces of the class
     if there is no delegate, mapping or implementation for that attribute.
     This saves repeating IFoo as it is typically a base class also.
 
         class MyDelegate(Delegate, IFoo):
-            attr_fallback = 'impl'
+            pi_attr_fallback = 'impl'
 
             def __init__(self, impl):
                 self.impl = impl
 
-    It is an error to specify the same attribute as a key in attr_mapping and an attr-name in a delegate
-    It is an error to specify a delegate name in attr_map.
+    It is an error to specify the same attribute as a key in pi_attr_mapping and an attr-name in a delegate
+    It is an error to specify a delegate name in pi_attr_map.
     If the same attr appears in two delegate lists, then the first one takes precendence
 
+    Note that in methods and properties defined on the delegate class itself take precedence
+    (as one would expect).
+
+        class MyDelegate(Delegate, IFoo):
+            pi_attr_delegates = {'impl': IFoo}
+
+            def __init__(self, impl):
+                self.impl = impl
+
+            @property
+            def foo(self):
+                return self.impl.foo * 2
+
+            def bar(self, baz):
+                return 'my bar'
+
+    However, attempting to set an instance attribute as an override will just set the property on the underlying
+    delegate.
     """
-    attr_fallback = None
-    attr_delegates = {}
-    attr_mapping = {}
+    pi_attr_fallback = None
+    pi_attr_delegates = {}
+    pi_attr_mapping = {}
 
     def __init_subclass__(cls, **kwargs):
-        for delegate, attr_list in cls.attr_delegates.items():
+        for delegate, attr_list in cls.pi_attr_delegates.items():
             if isinstance(attr_list, type):
-                attr_list = get_interface_names(attr_list)
-            if delegate in cls.attr_mapping:
-                raise ValueError(f'Delegate {delegate} is in attr_map')
+                attr_list = list(get_interface_names(attr_list))
+            if delegate in cls.pi_attr_mapping:
+                raise ValueError(f'Delegate {delegate} is in pi_attr_map')
             for attr in attr_list:
-                if attr in cls.attr_mapping:
-                    raise ValueError(f'{attr} in attr_map and handled by delegate {delegate}')
+                if attr in cls.pi_attr_mapping:
+                    raise ValueError(f'{attr} in pi_attr_map and handled by delegate {delegate}')
                 if attr in cls.__dict__:
                     continue
                 dotted_name = f'{delegate}.{attr}'
                 setattr(cls, attr, _Delegated(dotted_name))
-        for attr, dotted_name in cls.attr_mapping.items():
-            setattr(cls, attr, _Delegated(dotted_name))
-        if cls.attr_fallback:
-            fallback = cls.attr_fallback
+        for attr, dotted_name in cls.pi_attr_mapping.items():
+            if attr not in cls.__dict__:
+                setattr(cls, attr, _Delegated(dotted_name))
+        if cls.pi_attr_fallback:
+            fallback = cls.pi_attr_fallback
             for interface in get_type_interfaces(cls):
                 interface_names = get_interface_names(interface)
                 for attr in interface_names:
@@ -112,7 +131,7 @@ class Delegate:
 
     @classmethod
     def provided_by(cls, obj):
-        if not hasattr(cls, 'composed_interfaces'):
+        if not hasattr(cls, 'pi_composed_interfaces'):
             raise InterfaceError('provided_by() can only be called on composed types')
         if isinstance(obj, cls):
             return True
@@ -126,8 +145,8 @@ class Delegate:
 def __composed_init__(self, *args):
     for i, impl in enumerate(args):
         attr = '_' + _letters[i]
-        if not isinstance(impl, type(self).composed_interfaces[i]):
-            raise ValueError(f'Expected {type(self).composed_interfaces[i]} got {type(impl)} instead')
+        if not isinstance(impl, type(self).pi_composed_interfaces[i]):
+            raise ValueError(f'Expected {type(self).pi_composed_interfaces[i]} got {type(impl)} instead')
         setattr(self, attr, impl)
 
 
@@ -176,8 +195,8 @@ def composed_type(*interfaces: InterfaceType) -> type:
     bases = (Delegate,) + interfaces
     cls_attrs = {'__init__': __composed_init__,
                  '__doc__': f'{name}({arg_names})',
-                 'attr_delegates': delegates,
-                 'composed_interfaces': interfaces,
+                 'pi_attr_delegates': delegates,
+                 'pi_composed_interfaces': interfaces,
                  }
     c_type = type(name, bases, cls_attrs)
     _composed_types_map[interfaces] = c_type

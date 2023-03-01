@@ -20,7 +20,7 @@ class ADescriptor(object):
 
 class IAnimal(Interface):
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def height(self):
         return None
 
@@ -28,12 +28,12 @@ class IAnimal(Interface):
 class IAnimal3(Interface):
     # python 3 style syntax
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def height(self):
         pass
 
     @height.setter
-    @abstractmethod
+    @abc.abstractmethod
     def height(self, height):
         pass
 
@@ -65,7 +65,8 @@ class IGrowingPlant(Interface):
 
 
 class IFunkyMethods(Interface):
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def acm(cls):
         return None
 
@@ -73,7 +74,8 @@ class IFunkyMethods(Interface):
     def cm(cls):
         return None
 
-    @abstractstaticmethod
+    @staticmethod
+    @abc.abstractmethod
     def asm():
         return None
 
