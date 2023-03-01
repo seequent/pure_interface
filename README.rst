@@ -461,8 +461,7 @@ Any one or combination of attributes is allowed.
 pi_attr_delegates
 --------------
 ``pi_attr_delegates`` is a dictionary mapping delegate attribute names to either an interface or a list of attribute names.
-If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to
- route to the delegate object.
+If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to route to the delegate object.
 For example suppose we want to extend an Animal with a new method ``price``::
 
     class ExtendedAnimal(Delegate, IAnimal):
@@ -492,7 +491,7 @@ The following code is equivalent but more verbose and won't update with changes 
 
 pi_attr_mapping
 ------------
-This is helpful when the attribute names match. When they don't, you can use the ``pi_attr_mapping`` special attribute.
+The above works when the attribute names match. When they don't, you can use the ``pi_attr_mapping`` special attribute.
 ``pi_attr_mapping`` takes the reverse approach, the key is the attribute and the value is a dotted name of how to route
 the lookup.  This provides a lot of flexibility as any number of dots are permitted.
 This example is again equivalent to the first Delegate::
@@ -504,6 +503,9 @@ This example is again equivalent to the first Delegate::
         def __init__(self, a):
             self.a
 
+        def price(self):
+            return 'lots'
+
 pi_attr_fallback
 -------------
 ``pi_attr_fallback``, if not ``None``, is treated a delegate for all attributes defined by base interfaces of the class
@@ -514,6 +516,9 @@ if there is no delegate, mapping or implementation for that attribute. Again, th
 
         def __init__(self, a):
             self.a
+
+        def price(self):
+            return 'lots'
 
 Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``a``.
 Methods and properties defined on the delegate class itself take precedence (as one would expect)::
@@ -693,6 +698,45 @@ Classes
         return ``True`` for objects that provide the interface structure but do not inherit from it.
         Raises ``InterfaceError`` if the class is a concrete type.
 
+**Delegate**
+    Helper class for delegating attribute access to one or more objects.  Attribute delegation is defined by
+    using one or more special call attributes ``pi_attr_delegates``, ``pi_attr_mapping`` or ``pi_attr_fallback``.
+
+    **pi_attr_delegates**
+        A dictionary mapping implementation attribute to either a list of attributes to delegate to that implementation,
+        or an ``Interface`` subclass.  If an ``Interface`` subclass is specifed the names returned by
+        ``get_interface_names`` are used instead. For example::
+
+            pi_attr_delegates = {'_impl': ['foo', 'bar']}
+
+        creates implmentations of ``obj.foo`` as ``obj._impl.foo`` and ``obj.bar`` as ``obj._impl.bar``.
+
+    **pi_attr_mapping**
+        A dictionary mapping attribute name to dotted lookup path.  Use this if the exposed attribute does not match
+        the attribute name on the delegatee or if multiple levels of indirection are requried.  For example::
+
+            pi_attr_mapping = {'foo': '_impl.x',
+                               'bar': '_impl.z.y'}
+
+        creates implmentations of ``obj.foo`` as ``obj._impl.x`` and ``obj.bar`` as ``obj._impl.z.y``.
+
+    **pi_attr_fallback**
+        When a delegate class implements an interface (or interfaces), ``pi_attr_fallback`` may be used to specify the name the
+        implementation attribute for all attributes not otherwise defined on the class or by the methods above.  For example::
+
+            class MyDelgate(Delegate, IAnimal):
+                pi_attr_fallback = 'impl'
+
+                def __init__(self, animal):
+                    self.impl = animal
+
+        If the delegate does not inherit from an interface then ``pi_attr_fallback`` does nothing.
+
+    **provided_by** *(obj)*
+        ``Interface.provided_by`` equivalent for delegates created by ``composed_type``.  It returns ``True``
+        if obj provides all the interfaces in the composed type and ``False`` otherwise.
+
+
 Functions
 ---------
 **adapts** *(from_type, to_interface=None)*
@@ -731,6 +775,8 @@ Functions
     See the Python dataclasses_ documentation for details on the arguments, they are exactly the same.
 
 **get_is_development()**
+    Returns the current value of the "is development" flag.
+
 **set_is_devlopment** *(is_dev)*
     Set to ``True`` to enable all checks and warnings.
     If set to ``False`` then:
@@ -744,6 +790,9 @@ Functions
 **get_missing_method_warnings** *()*
     The list of warning messages for concrete classes with missing interface (abstract) method overrides.
     Note that missing properties are NOT checked for as they may be provided by instance attributes.
+
+**composed_type** *(*interface_types)*
+    Type factory function that creates a ``Delegate`` subclass that implements all the interfaces via delegates.
 
 
 Exceptions

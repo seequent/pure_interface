@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import unittest
 from unittest import mock
+import warnings
 
 import pure_interface
 from pure_interface import interface
@@ -146,7 +144,9 @@ class TestAdaption(unittest.TestCase):
         s = ISpeaker.adapt_or_none(talker, interface_only=False)
         self.assertIsNone(s)
 
-        s = ISpeaker.adapt_or_none(talker, allow_implicit=True, interface_only=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            s = ISpeaker.adapt_or_none(talker, allow_implicit=True, interface_only=False)
         self.assertTrue(ISpeaker.provided_by(s, allow_implicit=True))
         self.assertEqual(s.speak(5), 'talk')
 
@@ -222,7 +222,9 @@ class TestAdaption(unittest.TestCase):
         a_talker = Talker()
         input = [None, Talker4(), a_talker, a_speaker, 'text']
         # act
-        output = list(ISpeaker.filter_adapt(input, allow_implicit=True, interface_only=False))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            output = list(ISpeaker.filter_adapt(input, allow_implicit=True, interface_only=False))
         # assert
         self.assertEqual(len(output), 3)
         self.assertIsInstance(output[0], Speaker)

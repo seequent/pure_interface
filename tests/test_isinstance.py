@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import io
 import unittest
 from unittest import mock
+import warnings
 
 import pure_interface
 from pure_interface import interface
@@ -32,7 +30,9 @@ class TestIsInstanceChecks(unittest.TestCase):
         a = Animal2()
         self.assertFalse(isinstance(a, IAnimal))
         self.assertFalse(IAnimal.provided_by(a, allow_implicit=False))
-        self.assertTrue(IAnimal.provided_by(a, allow_implicit=True))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            self.assertTrue(IAnimal.provided_by(a, allow_implicit=True))
         self.assertIn(Animal2, IAnimal._pi.structural_subclasses)
 
     def test_duck_type_fallback_can_fail(self):
