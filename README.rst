@@ -76,11 +76,10 @@ ABC-style property definitions are also supported (and equivalent)::
 Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
 all concrete subclasses will be required to have a ``height`` attribute.
 
-For convenience the ``abc`` module abstract decorators are included in the ``pure_interface`` namespace.
-However these decorators are optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
+However the ``abstractmethod`` decorator is optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
 In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
-Including abstract decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
+Including ``abstractmethod`` decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
 the method to raise ``NotImplementedError``.  For this reason methods that just ``raise NotImplementedError`` are also
 considered empty.
@@ -137,7 +136,7 @@ and properties that satisfy the empty method criteria will result in a type that
 Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties or
 custom descriptors, provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
 
-    class Animal2(IAnimal, object):
+    class Animal(IAnimal, object):
         def __init__(self, height):
             self._height = height
 
@@ -203,11 +202,11 @@ the class.  For example::
 will not issue any warnings.
 
 The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
-module filters (but only if ``is_development=True``).  This provides an alternative to raising warnings as errors.
+module filters (but only if ``get_is_development() returns True``).  This provides an alternative to raising warnings as errors.
 When all your imports are complete you can check if this list is empty.::
 
     if pure_iterface.missing_method_warnings:
-        for warning in pure_iterface.missing_method_warnings:
+        for warning in pure_iterface.get_missing_method_warnings():
             print(warning)
         exit(1)
 
@@ -388,11 +387,11 @@ Dataclass Support
             pass
 
     @dataclass
-    class Animal(IAnimal2, object):
+    class Animal2(IAnimal2, object):
         def speak(self):
             print('Hello, I am a {} metre tall {}', self.height, self.species)
 
-    a = Animal(height=4.5, species='Giraffe')
+    a = Animal2(height=4.5, species='Giraffe')
 
 The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the
 ``height`` and ``species`` annotations on the interface base class ``IAnimal2``.
@@ -447,19 +446,166 @@ All arguments must be specified as keyword arguments::
     def other_func(foo, bar):
         pass
 
+Delegation and Composition
+==========================
+
+Sometimes when adapting objects to an interface the adapter has to route attributes and methods to another object.
+the ``Delegate`` class assists with this task reducing boiler plate code such as::
+
+    def method(self):
+        return self.impl.method()
+
+The ``Delegate`` class provides 3 special attributes to route attributes to a child object.
+Any one or combination of attributes is allowed.
+
+pi_attr_delegates
+--------------
+``pi_attr_delegates`` is a dictionary mapping delegate attribute names to either an interface or a list of attribute names.
+If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to
+ route to the delegate object.
+For example suppose we want to extend an Animal with a new method ``price``::
+
+    class ExtendedAnimal(Delegate, IAnimal):
+        pi_attr_delegates = {'a': IAnimal}
+
+        def __init__(self, a):
+            self.a
+
+        def price(self):
+            return 'lots'
+
+    a = Animal(5)
+    ea = ExtendedAnimal(a)
+
+    ea.height -> 5  # height is in IAnimal and routed to 'ea.a.height'
+    ea.speak() -> 'hello'  # speak is in IAnimal and routed to 'ea.a.speak()'
+    ea.price() -> 'lots'
+
+The following code is equivalent but more verbose and won't update with changes to IAnimal::
+
+    class ExtendedAnimal(Delegate):
+        pi_attr_delegates = {'a': ['height', 'speak']}
+
+        def __init__(self, a):
+            self.a
+        ...
+
+pi_attr_mapping
+------------
+This is helpful when the attribute names match. When they don't, you can use the ``pi_attr_mapping`` special attribute.
+``pi_attr_mapping`` takes the reverse approach, the key is the attribute and the value is a dotted name of how to route
+the lookup.  This provides a lot of flexibility as any number of dots are permitted.
+This example is again equivalent to the first Delegate::
+
+    class ExtendedAnimal(Delegate):
+        pi_attr_mapping = {'height': 'a.height',
+                           'talk': 'a.talk'}
+
+        def __init__(self, a):
+            self.a
+
+pi_attr_fallback
+-------------
+``pi_attr_fallback``, if not ``None``, is treated a delegate for all attributes defined by base interfaces of the class
+if there is no delegate, mapping or implementation for that attribute. Again, this is equivalent to the first Delegate.::
+
+    class ExtendedAnimal(Delegate, IAnimal):
+        pi_attr_fallback = 'a'
+
+        def __init__(self, a):
+            self.a
+
+Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``a``.
+Methods and properties defined on the delegate class itself take precedence (as one would expect)::
+
+    class MyDelegate(Delegate, IFoo):
+        pi_attr_delegates = {'impl': IFoo}
+
+        def __init__(self, impl):
+            self.impl = impl
+
+        @property
+        def foo(self):
+            return self.impl.foo * 2
+
+        def bar(self, baz):
+            return 'my bar'
+
+However, attempting to set an instance attribute as an override will just set the attribute on the underlying delegate
+instead.
+
+Composition
+-----------
+A special case where all delegated attributes are defined in an ``Interface`` is handled by the ``composed_type`` factory function.
+``composed_type`` takes 2 or more interfaces and returns a new type that inherits from all the interfaces with a
+constructor that takes instances that implement those interfaces (in the same order).  For exmaple::
+
+    AT = composed_type(IAnimal, ITalker)
+
+    a = Animal(5)
+    t = Talker()
+    a_t = AT(a, t)
+
+    a_t.height
+    a_t.talk
+
+    # AT(t, a) -> ValueError - arguments in wrong order.
+
+If the same arguments are passed to ``composed_type`` again the same type is returned. For example::
+
+    AT = composed_type(IAnimal, ITalker)
+    AT2 = composed_type(IAnimal, ITalker)
+
+    AT is AT2 -> True
+
+If the interfaces share method or attribute names, then the attribute is routed to the first encountered interface.
+For example::
+
+    class Speaker(ISpeaker, object):
+        def speak(self, volume):
+            return 'speaker speak'
+
+    SA = composed_type(ISpeaker, IAnimal)
+    s = Speaker()
+    a = Animal(5)
+
+    sa = SA(s, a)
+    sa.speak(3) -> 'speaker speak'  # from s.speak
+
+
+Types created with ``composed_type`` are ``Delegate`` subclasses with a ``provided_by`` method which returns ``True`` if the
+argument provides all the interfaces in the type (even if the argument is not a ``Delegate`` subclasses).::
+
+    AT = composed_type(IAnimal, ITalker)
+    TA = composed_type(ITalker, IAnimal)
+
+    a_t = AT(Animal(5), Talker())
+
+    isinstance(a_t, AT) -> True
+    isinstance(a_t, TA) -> False
+    AT.provided_by(a_t) -> True
+    TA.provided_by(a_t) -> True
+
+    class X(IAnimal, ITalker):
+        ...
+
+    AT.provided_by(X()) -> True
+
+
 Development Flag
 ================
 
 Much of the empty function and other checking is awesome whilst writing your code but
 ultimately slows down production code.
-For this reason the ``pure_interface`` module has an ``is_development`` switch.::
+For this reason the ``pure_interface`` module has an ``is_development`` switch with accessor functions.::
 
-    is_development = not hasattr(sys, 'frozen')
+    get_is_development()
+    set_is_development(is_dev)
 
 ``is_development`` defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
 py2exe_, cx_Freeze_ or similar tools.
 
-If you manually change this flag it must be set before modules using the ``Interface`` type
+If you call ``set_is_development`` to change this flag it must be set before modules using the ``Interface`` type
 are imported or else the change will not have any effect.
 
 If ``is_development`` if ``False`` then:
@@ -584,6 +730,21 @@ Functions
     In addition to the fields on the decorated class, all annotations on interface base classes are added as fields.
     See the Python dataclasses_ documentation for details on the arguments, they are exactly the same.
 
+**get_is_development()**
+**set_is_devlopment** *(is_dev)*
+    Set to ``True`` to enable all checks and warnings.
+    If set to ``False`` then:
+
+    * Signatures of overriding methods are not checked
+    * No warnings are issued by the adaption functions
+    * No incomplete implementation warnings are issued
+    * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
+
+
+**get_missing_method_warnings** *()*
+    The list of warning messages for concrete classes with missing interface (abstract) method overrides.
+    Note that missing properties are NOT checked for as they may be provided by instance attributes.
+
 
 Exceptions
 ----------
@@ -596,22 +757,6 @@ Exceptions
 **AdaptionError**
     Exception raised for problems with adapters or adapting.
 
-
-Module Attributes
------------------
-**is_development**
-    Set to ``True`` to enable all checks and warnings.
-    If set to ``False`` then:
-
-    * Signatures of overriding methods are not checked
-    * No warnings are issued by the adaption functions
-    * No incomplete implementation warnings are issued
-    * The default value of ``interface_only`` is set to ``False``, so that interface wrappers are not created.
-
-
-**missing_method_warnings**
-    The list of warning messages for concrete classes with missing interface (abstract) method overrides.
-    Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
 -----------
 

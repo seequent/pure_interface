@@ -6,6 +6,8 @@ import pure_interface
 import unittest
 import types
 
+from pure_interface import interface
+
 
 class IAnimal(pure_interface.Interface):
     def speak(self, volume):
@@ -88,8 +90,8 @@ def test_call(spec_func, impl_func):
     # type: (types.FunctionType, types.FunctionType) -> bool
     """ call the function with parameters as indicated by the parameter list
     """
-    spec_sig = pure_interface.signature(spec_func)
-    impl_sig = pure_interface.signature(impl_func)
+    spec_sig = pure_interface.interface.signature(spec_func)
+    impl_sig = pure_interface.interface.signature(impl_func)
     pos_or_kw = [p for p in spec_sig.parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD]
     pok_args = [p.name for p in pos_or_kw]
     pok_def = {p.name: p.name for p in pos_or_kw if p.default is not p.empty}
@@ -126,15 +128,15 @@ def test_call(spec_func, impl_func):
 class TestFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.is_development = True
+        interface.is_development = True
 
     def check_signatures(self, int_func, impl_func, expected_result):
-        interface_sig = pure_interface.signature(int_func)
-        concrete_sig = pure_interface.signature(impl_func)
+        interface_sig = pure_interface.interface.signature(int_func)
+        concrete_sig = pure_interface.interface.signature(impl_func)
         reality = test_call(int_func, impl_func)
         self.assertEqual(expected_result, reality,
                          '{}, {}. Reality does not match expectations'.format(int_func.__name__, impl_func.__name__))
-        result = pure_interface._signatures_are_consistent(concrete_sig, interface_sig)
+        result = pure_interface.interface._signatures_are_consistent(concrete_sig, interface_sig)
         self.assertEqual(expected_result, result,
                          '{}, {}. Signature test gave wrong answer'.format(int_func.__name__, impl_func.__name__))
 
@@ -337,7 +339,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
 class TestDisableFunctionSignatureChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.is_development = False
+        interface.is_development = False
 
     def test_too_many_passes(self):
         try:

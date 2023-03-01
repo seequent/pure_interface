@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import pure_interface
-
 import unittest
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
+
+import pure_interface
+from pure_interface import interface
 
 
 class ITalker(pure_interface.Interface):
@@ -134,7 +132,7 @@ class DunderClass(DunderInterface, object):
 class TestAdaption(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.is_development = True
+        interface.is_development = True
 
     def test_adaption_passes(self):
         talker = Talker()
@@ -237,7 +235,7 @@ class TestAdaption(unittest.TestCase):
 class TestAdaptionToInterfaceOnly(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.is_development = True
+        interface.is_development = True
 
     def test_wrapping_works(self):
         topic_speaker = TopicSpeaker('Python')
@@ -245,7 +243,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         topic_speaker2 = TopicSpeaker('Interfaces')
         t = ITopicSpeaker.adapt(topic_speaker2)
 
-        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(s, interface._ImplementationWrapper)
         self.assertIsInstance(s, ITopicSpeaker)
         self.assertEqual(s.speak(5), 'speak')
         self.assertEqual(s.topic, 'Python')
@@ -257,7 +255,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         s.topic = 'Snakes'
 
         self.assertEqual('Snakes', topic_speaker.topic)
-        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(s, interface._ImplementationWrapper)
         with self.assertRaises(AttributeError):
             s._ImplementationWrapper__interface_name = 'hello'
 
@@ -265,7 +263,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         topic_speaker = TopicSpeaker('Python')
         s = ISpeaker.adapt(topic_speaker)
 
-        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(s, interface._ImplementationWrapper)
         self.assertIsInstance(s, ISpeaker)
         self.assertNotIsInstance(s, ITopicSpeaker)
         with self.assertRaises(AttributeError):
@@ -275,7 +273,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         talker = Talker2()
         s = ISpeaker.adapt(talker, allow_implicit=True)
 
-        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(s, interface._ImplementationWrapper)
         self.assertIsInstance(s, ISpeaker)
         self.assertEqual(s.speak(5), 'talk')
 
@@ -283,7 +281,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         talker = Talker3()
         s = ISpeaker.adapt(talker)
 
-        self.assertIsInstance(s, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(s, interface._ImplementationWrapper)
         self.assertIsInstance(s, ISpeaker)
         self.assertEqual(s.speak(5), 'talk')
 
@@ -362,7 +360,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
     def test_adapt_interface_only(self):
         talker = Talker()
         talker_only = ITalker.adapt(talker)
-        self.assertIsInstance(talker_only, pure_interface._ImplementationWrapper)
+        self.assertIsInstance(talker_only, interface._ImplementationWrapper)
         try:
             ISpeaker.adapt(talker_only)
         except:

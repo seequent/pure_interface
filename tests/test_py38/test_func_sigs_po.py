@@ -82,15 +82,15 @@ def func5ex2(a, b='b', c='c'):
 class TestFunctionSigsPositionalOnly(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.is_development = True
+        pure_interface.interface.is_development = True
 
     def check_signatures(self, int_func, impl_func, expected_result):
         reality = test_func_sigs3.test_call(int_func, impl_func)
         self.assertEqual(expected_result, reality,
                          '{}, {}. Reality does not match expectations'.format(int_func.__name__, impl_func.__name__))
-        interface_sig = pure_interface.signature(int_func)
-        concrete_sig = pure_interface.signature(impl_func)
-        result = pure_interface._signatures_are_consistent(concrete_sig, interface_sig)
+        interface_sig = pure_interface.interface.signature(int_func)
+        concrete_sig = pure_interface.interface.signature(impl_func)
+        result = pure_interface.interface._signatures_are_consistent(concrete_sig, interface_sig)
         self.assertEqual(expected_result, result,
                          '{}, {}. Signature test gave wrong answer'.format(int_func.__name__, impl_func.__name__))
 

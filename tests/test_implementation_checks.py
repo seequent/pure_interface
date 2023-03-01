@@ -1,8 +1,9 @@
-import pure_interface
-from pure_interface import *
-
 import abc
 import unittest
+
+import pure_interface
+from pure_interface import *
+from pure_interface import interface
 
 try:
     from unittest import mock
@@ -19,7 +20,7 @@ class ADescriptor(object):
 
 class IAnimal(Interface):
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def height(self):
         return None
 
@@ -27,12 +28,12 @@ class IAnimal(Interface):
 class IAnimal3(Interface):
     # python 3 style syntax
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def height(self):
         pass
 
     @height.setter
-    @abstractmethod
+    @abc.abstractmethod
     def height(self, height):
         pass
 
@@ -64,7 +65,8 @@ class IGrowingPlant(Interface):
 
 
 class IFunkyMethods(Interface):
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def acm(cls):
         return None
 
@@ -72,7 +74,8 @@ class IFunkyMethods(Interface):
     def cm(cls):
         return None
 
-    @abstractstaticmethod
+    @staticmethod
+    @abc.abstractmethod
     def asm():
         return None
 
@@ -220,21 +223,21 @@ class TestImplementationChecks(unittest.TestCase):
 
     def test_missing_methods_warning(self):
         # assemble
-        pure_interface.is_development = True
-        pure_interface.missing_method_warnings = []
+        interface.is_development = True
+        interface.missing_method_warnings = []
         # act
 
         class SimpleSimon(ISimple, object):
             pass
 
         # assert
-        self.assertEqual(len(pure_interface.missing_method_warnings), 1)
-        msg = pure_interface.missing_method_warnings[0]
+        self.assertEqual(len(interface.missing_method_warnings), 1)
+        msg = interface.missing_method_warnings[0]
         self.assertIn('SimpleSimon', msg)
         self.assertIn('foo', msg)
 
     def test_inconsistent_mro_warning(self):
-        pure_interface.is_development = True
+        interface.is_development = True
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
@@ -246,7 +249,7 @@ class TestImplementationChecks(unittest.TestCase):
         self.assertTrue(warn.call_args[0][0].startswith('object should come after ISimple'))
 
     def test_is_development_flag_stops_warnings(self):
-        pure_interface.is_development = False
+        interface.is_development = False
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
@@ -256,7 +259,7 @@ class TestImplementationChecks(unittest.TestCase):
         warn.assert_not_called()
 
     def test_partial_implementation_attribute(self):
-        pure_interface.is_development = True
+        interface.is_development = True
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
@@ -266,7 +269,7 @@ class TestImplementationChecks(unittest.TestCase):
         warn.assert_not_called()
 
     def test_partial_implementation_warning(self):
-        pure_interface.is_development = True
+        interface.is_development = True
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
@@ -284,17 +287,6 @@ class TestImplementationChecks(unittest.TestCase):
             pass
 
         self.assertEqual(frozenset([]), Test._pi.abstractproperties)
-
-    def test_pureinterface_warning(self):
-        pure_interface.is_development = True
-
-        warn = mock.MagicMock()
-        with mock.patch('warnings.warn', warn):
-            class OldInterface(pure_interface.PureInterface):
-                pass
-
-        self.assertEqual(warn.call_count, 1)
-        self.assertTrue(warn.call_args[0][0].startswith('PureInterface class has been renamed to Interface'))
 
 
 class TestPropertyImplementations(unittest.TestCase):
