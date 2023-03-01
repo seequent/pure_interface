@@ -1,7 +1,7 @@
 import abc
 import unittest
+import warnings
 
-import pure_interface
 from pure_interface import *
 from pure_interface import interface
 
@@ -227,8 +227,11 @@ class TestImplementationChecks(unittest.TestCase):
         interface.missing_method_warnings = []
         # act
 
-        class SimpleSimon(ISimple, object):
-            pass
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+
+            class SimpleSimon(ISimple, object):
+                pass
 
         # assert
         self.assertEqual(len(interface.missing_method_warnings), 1)

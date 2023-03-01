@@ -1,6 +1,5 @@
 import unittest
 import pure_interface
-import collections.abc
 from typing import TypeVar, List, Iterable
 
 T = TypeVar('T')
