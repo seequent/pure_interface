@@ -97,6 +97,19 @@ class DelegateAttrOverride(delegation.Delegate, IPoint):
         self._x = x
 
 
+class DoubleDottedDelegate(delegation.Delegate):
+    x: int
+    y: int
+
+    pi_attr_mapping = {'x': 'a.b.x',
+                       'y': 'a.b.y'}
+
+    def __init__(self):
+        a = Talker()
+        a.b = Point(3, 4)
+        self.a = a
+
+
 class DelegateTest(unittest.TestCase):
     def test_descriptor_get_class(self):
         d = pure_interface.delegation._Delegated('foo.bar')
@@ -203,6 +216,13 @@ class DelegateTest(unittest.TestCase):
         d.x = 'y'
         self.assertEqual(0, p.x)
 
+    def test_double_dotted_delegate(self):
+        d = DoubleDottedDelegate()
+        self.assertEqual(3, d.x)
+        self.assertEqual(4, d.y)
+        d.x = 1
+        self.assertEqual(1, d.a.b.x)
+
 
 class CompositionTest(unittest.TestCase):
 
@@ -265,3 +285,16 @@ class CompositionTest(unittest.TestCase):
         self.assertTrue(T.provided_by(t))
         self.assertTrue(S.provided_by(s))
         self.assertFalse(T.provided_by(s))
+
+    def test_unused_fallback_is_benign(self):
+        try:
+            class UnusedFallbackDelegate(delegation.Delegate):
+                pi_attr_fallback = 'a'
+
+                def __init__(self):
+                    self.a = Talker()
+
+            x = UnusedFallbackDelegate()
+
+        except Exception as exc:
+            self.fail(str(exc))

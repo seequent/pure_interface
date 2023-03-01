@@ -150,7 +150,7 @@ def __composed_init__(self, *args):
         setattr(self, attr, impl)
 
 
-def composed_type(*interfaces: InterfaceType) -> type:
+def composed_type(*interface_types: InterfaceType) -> type:
     """Returns a new class which implements all the passed interfaces.
     If the interfaces have duplicate attribute or method names, the first enountered implementation is used.
     Instances of the returned type are passed implementations of the given interfaces in the same order.
@@ -172,17 +172,17 @@ def composed_type(*interfaces: InterfaceType) -> type:
     t.foo -> 4
     t.bar -> 1
     """
-    if len(interfaces) < 2:
+    if len(interface_types) < 2:
         raise ValueError('2 or more interfaces required')
-    if len(interfaces) > len(_letters):
+    if len(interface_types) > len(_letters):
         raise ValueError(f'Too many interfaces.  Use {len(_letters)} or fewer.')
-    interfaces = tuple(interfaces)
-    c_type = _composed_types_map.get(interfaces)
+    interface_types = tuple(interface_types)
+    c_type = _composed_types_map.get(interface_types)
     if c_type is not None:
         return c_type
     delegates = {}
     all_names = set()
-    for i, interface in enumerate(interfaces):
+    for i, interface in enumerate(interface_types):
         if not type_is_interface(interface):
             raise ValueError('all arguments to composed_type must be Interface classes')
         attr = '_' + _letters[i]
@@ -190,14 +190,14 @@ def composed_type(*interfaces: InterfaceType) -> type:
         delegates[attr] = [name for name in int_names if name not in all_names]
         all_names.update(int_names)
 
-    name = ''.join((cls.__name__ for cls in interfaces))
-    arg_names = ', '.join((cls.__name__.lower() for cls in interfaces))
-    bases = (Delegate,) + interfaces
+    name = ''.join((cls.__name__ for cls in interface_types))
+    arg_names = ', '.join((cls.__name__.lower() for cls in interface_types))
+    bases = (Delegate,) + interface_types
     cls_attrs = {'__init__': __composed_init__,
                  '__doc__': f'{name}({arg_names})',
                  'pi_attr_delegates': delegates,
-                 'pi_composed_interfaces': interfaces,
+                 'pi_composed_interfaces': interface_types,
                  }
     c_type = type(name, bases, cls_attrs)
-    _composed_types_map[interfaces] = c_type
+    _composed_types_map[interface_types] = c_type
     return c_type
