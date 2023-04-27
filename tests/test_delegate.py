@@ -1,3 +1,5 @@
+import dataclasses
+
 import pure_interface
 import unittest
 from unittest import mock
@@ -29,11 +31,28 @@ class IPoint(pure_interface.Interface):
     x: int
     y: int
 
+    def to_str(self) -> str:
+        pass
+
+
+class IPoint3(IPoint):
+    z: int
+
+
+@dataclasses.dataclass
+class PointImpl:
+    x: int
+    y: int
+    z: int
+
 
 class Point(IPoint, object):
     def __init__(self, x=0, y=1):
         self.x = int(x)
         self.y = int(y)
+
+    def to_str(self) -> str:
+        return f'{self.x}, {self.y}'
 
 
 class DFallback(delegation.Delegate, ITalker):
@@ -45,8 +64,9 @@ class DFallback(delegation.Delegate, ITalker):
 
 class DAttrMap(delegation.Delegate, IPoint):
     pi_attr_mapping = {'x': 'a.x',
-                    'y': 'b.y',
-                    }
+                       'y': 'b.y',
+                       'to_str': 'b.to_str',
+                       }
 
     def __init__(self, a, b):
         self.a = a
@@ -54,8 +74,8 @@ class DAttrMap(delegation.Delegate, IPoint):
 
 
 class DDelegateList(delegation.Delegate, IPoint):
-    pi_attr_delegates = {'a': ['x'],
-                      'b': ['x', 'y']}
+    pi_attr_delegates = {'a': ['x', 'to_str'],
+                         'b': ['x', 'y']}
 
     def __init__(self, a, b):
         self.a = a
@@ -108,6 +128,28 @@ class DoubleDottedDelegate(delegation.Delegate):
         a = Talker()
         a.b = Point(3, 4)
         self.a = a
+
+
+class ScaledPoint(pure_interface.Delegate, IPoint):
+    pi_attr_fallback = '_p'
+
+    def __init__(self, point):
+        self._p = point
+
+    @property
+    def y(self):
+        return self._p.y * 2
+
+    @y.setter
+    def y(self, value):
+        self._p.y = int(value // 2)
+
+    def to_str(self) -> str:
+        return f'{self.x}, {self.y}'
+
+
+class ScaledPoint3(ScaledPoint, IPoint3):
+    pi_attr_fallback = '_p'
 
 
 class DelegateTest(unittest.TestCase):
@@ -222,6 +264,16 @@ class DelegateTest(unittest.TestCase):
         self.assertEqual(4, d.y)
         d.x = 1
         self.assertEqual(1, d.a.b.x)
+
+    def test_delegate_subclass(self):
+        """test that subclass methods are not delegated """
+        p = PointImpl(1, 2, 3)
+        d3 = ScaledPoint3(p)
+        self.assertEqual(4, d3.y)
+        self.assertEqual('1, 4', d3.to_str())
+        d3.y = 8  # delegates to p
+        self.assertEqual(4, p.y)
+        self.assertEqual(3, d3.z)
 
 
 class CompositionTest(unittest.TestCase):
