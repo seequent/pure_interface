@@ -455,7 +455,9 @@ the ``Delegate`` class assists with this task reducing boiler plate code such as
     def method(self):
         return self.impl.method()
 
-The ``Delegate`` class provides 3 special attributes to route attributes to a child object.
+The ``Delegate`` class provides 3 special attributes to route attributes to a child object.  Only attributes and mothods
+not defined on the class (or super-classes) are routed.  (Attributes and methods defined on an interface sub-class are not
+considered part of the implementation and these attributes are routed.)
 Any one or combination of attributes is allowed.
 
 pi_attr_delegates
@@ -537,7 +539,20 @@ Methods and properties defined on the delegate class itself take precedence (as 
             return 'my bar'
 
 However, attempting to set an instance attribute as an override will just set the attribute on the underlying delegate
-instead.
+instead.  If you want to override using an instance attribute, first define it as a class attribute::
+
+    class MyDelegate(Delegate, IFoo):
+        pi_attr_delegates = {'impl': IFoo}
+        foo = None  # prevents delegation of foo to `impl`
+
+        def __init__(self, impl):
+            self.impl = impl
+            self.foo = 3
+
+If you supply more than one delegation rule (e.g. both ``pi_attr_mapping`` and ``pi_attr_fallack``) then
+ ``pi_attr_delegates`` delegates are created first and any attributes defined there are now part of the class.
+Then ``pi_attr_mapping`` delegates are created (and become part of the class) and finally ``pi_attr_fallback`` is processed.
+Thus if there are duplicate delegates defined, the one defined first takes precedence.
 
 Composition
 -----------

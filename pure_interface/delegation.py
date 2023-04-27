@@ -98,13 +98,31 @@ class Delegate:
                 return 'my bar'
 
     However, attempting to set an instance attribute as an override will just set the property on the underlying
-    delegate.
+    delegate.  If you want to override using an instance attribute, first define it as a class attribute
+
+        class MyDelegate(Delegate, IFoo):
+            pi_attr_delegates = {'impl': IFoo}
+            foo = None  # prevents delegation of foo to `impl`
+
+            def __init__(self, impl):
+                self.impl = impl
+                self.foo = 3
+
     """
     pi_attr_fallback = None
     pi_attr_delegates = {}
     pi_attr_mapping = {}
 
     def __init_subclass__(cls, **kwargs):
+        # get non-interface base class ignoring abc.ABC and object.
+        non_interface_bases = [base for base in cls.mro()[:-2] if not type_is_interface(base)]
+
+        def i_have_attribute(attrib):
+            for klass in non_interface_bases:
+                if attrib in klass.__dict__:
+                    return True
+            return False
+
         for delegate, attr_list in cls.pi_attr_delegates.items():
             if isinstance(attr_list, type):
                 attr_list = list(get_interface_names(attr_list))
@@ -113,19 +131,19 @@ class Delegate:
             for attr in attr_list:
                 if attr in cls.pi_attr_mapping:
                     raise ValueError(f'{attr} in pi_attr_map and handled by delegate {delegate}')
-                if attr in cls.__dict__:
+                if i_have_attribute(attr):
                     continue
                 dotted_name = f'{delegate}.{attr}'
                 setattr(cls, attr, _Delegated(dotted_name))
         for attr, dotted_name in cls.pi_attr_mapping.items():
-            if attr not in cls.__dict__:
+            if not i_have_attribute(attr):
                 setattr(cls, attr, _Delegated(dotted_name))
         if cls.pi_attr_fallback:
             fallback = cls.pi_attr_fallback
             for interface in get_type_interfaces(cls):
                 interface_names = get_interface_names(interface)
                 for attr in interface_names:
-                    if attr not in cls.__dict__:
+                    if not i_have_attribute(attr):
                         dotted_name = f'{fallback}.{attr}'
                         setattr(cls, attr, _Delegated(dotted_name))
 
