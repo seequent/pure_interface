@@ -6,12 +6,11 @@ from __future__ import division, print_function, absolute_import
 import abc
 from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
 import collections
-import dataclasses
 import dis
 import inspect
 from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic
 import sys
 import warnings
 import weakref
@@ -105,6 +104,8 @@ def _type_is_interface(cls):
         return False
     if hasattr(cls, '_pi'):
         return cls._pi.type_is_interface
+    if cls is Generic:
+        return True  # this class is just for type hinting
     if issubclass(type(cls), abc.ABCMeta):
         for attr, value in cls.__dict__.items():
             if _builtin_attrs(attr):
@@ -545,11 +546,6 @@ class InterfaceType(abc.ABCMeta):
 
         if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
             type_is_interface = True
-        if len(bases) > 1 and bases[0] is object:
-            warnings.warn('object should come after {} in base list of {}. '
-                          'Fixing inconsistent MRO is deprecated'.format(bases[1].__name__, clsname))
-            bases = bases[1:]  # create a consistent MRO order
-            base_types = base_types[1:]
 
         interface_method_signatures = dict()
         interface_attribute_names = set()

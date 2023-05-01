@@ -11,6 +11,10 @@ class ITalker(pure_interface.Interface):
     def talk(self):
         pass
 
+class ISubTalker(ITalker):
+    def chat(self):
+        pass
+
 
 class ISpeaker(pure_interface.Interface):
     def speak(self, volume):
@@ -25,6 +29,9 @@ class Speaker(ISpeaker, object):
 class Talker(ITalker, object):
     def talk(self):
         return 'talk'
+
+    def chat(self):
+        return 'chat'
 
 
 class IPoint(pure_interface.Interface):
@@ -60,6 +67,10 @@ class DFallback(delegation.Delegate, ITalker):
 
     def __init__(self, impl):
         self.impl = impl
+
+
+class DSubFallback(DFallback, ISubTalker):
+    pass
 
 
 class DAttrMap(delegation.Delegate, IPoint):
@@ -274,6 +285,11 @@ class DelegateTest(unittest.TestCase):
         d3.y = 8  # delegates to p
         self.assertEqual(4, p.y)
         self.assertEqual(3, d3.z)
+
+    def test_delegate_subclass_fallback(self):
+        """Fallback delegates are used for subclass interface attributes too."""
+        d = DSubFallback(Talker())
+        self.assertEqual('chat', d.chat())
 
 
 class CompositionTest(unittest.TestCase):

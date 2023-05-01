@@ -239,18 +239,6 @@ class TestImplementationChecks(unittest.TestCase):
         self.assertIn('SimpleSimon', msg)
         self.assertIn('foo', msg)
 
-    def test_inconsistent_mro_warning(self):
-        interface.is_development = True
-
-        warn = mock.MagicMock()
-        with mock.patch('warnings.warn', warn):
-            class SimpleSimon(object, ISimple):
-                def foo(self):
-                    pass
-
-        self.assertEqual(warn.call_count, 1)
-        self.assertTrue(warn.call_args[0][0].startswith('object should come after ISimple'))
-
     def test_is_development_flag_stops_warnings(self):
         interface.is_development = False
 

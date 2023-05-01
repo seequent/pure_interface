@@ -4,29 +4,34 @@ from typing import TypeVar, List, Iterable
 
 T = TypeVar('T')
 
-class MyInterface(pure_interface.Interface, Iterable[str]):
+class IMyInterface(pure_interface.Interface, Iterable[str]):
     def foo(self) -> T:
         pass
 
-class MyGenericInterface(pure_interface.Interface, Iterable[T]):
+class IMyGenericInterface(pure_interface.Interface, Iterable[T]):
     def foo(self) -> T:
         pass
 
-class Impl(List[str], MyInterface):
+class Impl(List[str], IMyInterface):
     def foo(self):
         return 'foo'
 
-class StrImpl(List[str], MyGenericInterface[str]):
+class StrImpl(List[str], IMyGenericInterface[str]):
     def foo(self):
         return 'foo'
 
 
-class GenericImpl(List[T], MyGenericInterface[T]):
+class GenericImpl(List[T], IMyGenericInterface[T]):
     def foo(self):
         return T('foo')
 
 
 class TestGenericSupport(unittest.TestCase):
+
+    def test_generics_are_interfaces(self):
+        self.assertTrue(pure_interface.type_is_interface(IMyInterface))
+        self.assertTrue(pure_interface.type_is_interface(IMyGenericInterface))
+
     def test_can_use_iterable(self):
         imp = Impl()
         imp.append('hello')
