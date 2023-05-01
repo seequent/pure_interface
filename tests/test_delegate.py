@@ -73,6 +73,11 @@ class DSubFallback(DFallback, ISubTalker):
     pass
 
 
+class DSubFallback2(DFallback, ISubTalker):
+    pi_attr_fallback = 'impl'
+
+
+
 class DAttrMap(delegation.Delegate, IPoint):
     pi_attr_mapping = {'x': 'a.x',
                        'y': 'b.y',
@@ -287,8 +292,13 @@ class DelegateTest(unittest.TestCase):
         self.assertEqual(3, d3.z)
 
     def test_delegate_subclass_fallback(self):
-        """Fallback delegates are used for subclass interface attributes too."""
-        d = DSubFallback(Talker())
+        """Check fallback delegates are not used for subclass interface attributes too."""
+        with self.assertRaises(TypeError):
+            DSubFallback(Talker())  # no implementation of chat
+
+    def test_delegate_subclass_fallback2(self):
+        """Check subclass fallbacks are used for missing attributes."""
+        d = DSubFallback2(Talker())
         self.assertEqual('chat', d.chat())
 
 

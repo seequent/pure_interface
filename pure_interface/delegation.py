@@ -2,6 +2,7 @@ from __future__ import division, absolute_import, print_function
 
 import operator
 
+import pure_interface
 from .errors import InterfaceError
 from .interface import get_interface_names, type_is_interface, get_type_interfaces, InterfaceType
 
@@ -123,7 +124,7 @@ class Delegate:
                     return True
             return False
 
-        for delegate, attr_list in cls.pi_attr_delegates.items():
+        for delegate, attr_list in cls.__dict__.get('pi_attr_delegates', {}).items():
             if isinstance(attr_list, type):
                 attr_list = list(get_interface_names(attr_list))
             if delegate in cls.pi_attr_mapping:
@@ -135,11 +136,11 @@ class Delegate:
                     continue
                 dotted_name = f'{delegate}.{attr}'
                 setattr(cls, attr, _Delegated(dotted_name))
-        for attr, dotted_name in cls.pi_attr_mapping.items():
+        for attr, dotted_name in cls.__dict__.get('pi_attr_mapping', {}).items():
             if not i_have_attribute(attr):
                 setattr(cls, attr, _Delegated(dotted_name))
-        if cls.pi_attr_fallback:
-            fallback = cls.pi_attr_fallback
+        fallback = cls.__dict__.get('pi_attr_fallback', None)
+        if fallback is not None:
             for interface in get_type_interfaces(cls):
                 interface_names = get_interface_names(interface)
                 for attr in interface_names:

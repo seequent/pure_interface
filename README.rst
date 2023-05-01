@@ -539,7 +539,7 @@ Methods and properties defined on the delegate class itself take precedence (as 
             return 'my bar'
 
 However, attempting to set an instance attribute as an override will just set the attribute on the underlying delegate
-instead.  If you want to override using an instance attribute, first define it as a class attribute::
+instead.  If you want to override an interface attribute using an instance attribute, first define it as a class attribute::
 
     class MyDelegate(Delegate, IFoo):
         pi_attr_delegates = {'impl': IFoo}
