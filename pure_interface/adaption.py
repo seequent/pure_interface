@@ -3,17 +3,16 @@ from __future__ import division, absolute_import, print_function
 import functools
 import inspect
 import types
-from typing import Any, Type, Callable
+from typing import Any, Type, Callable, Optional
 import typing
 import warnings
 
 from .errors import InterfaceError, AdaptionError
-from .interface import PI, Interface, InterfaceType
+from .interface import AnInterface, Interface, InterfaceType, AnInterfaceType
 from .interface import get_type_interfaces, get_pi_attribute
 
 
-def adapts(from_type, to_interface=None):
-    # type: (Any, Type[PI]) -> Callable[[Any], Any]
+def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> Callable[[Any], Any]:
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
@@ -47,8 +46,7 @@ def adapts(from_type, to_interface=None):
     return decorator
 
 
-def register_adapter(adapter, from_type, to_interface):
-    # type: (Callable, Any, Type[Interface]) -> None
+def register_adapter(adapter: Callable, from_type: Type, to_interface: AnInterfaceType) -> None:
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
@@ -79,25 +77,25 @@ class AdapterTracker(object):
         self._factory = mapping_factory
         self._adapters = mapping_factory()
 
-    def adapt(self, obj, interface):
+    def adapt(self, obj: Any, interface: Type[AnInterface]) -> AnInterface:
         """ Adapts `obj` to `interface`"""
         try:
             return self._adapters[interface][obj]
         except KeyError:
             return self._adapt(obj, interface)
 
-    def adapt_or_none(self, obj, interface):
+    def adapt_or_none(self, obj: Any, interface: Type[AnInterface]) -> Optional[AnInterface]:
         """ Adapt obj to interface returning None on failure."""
         try:
             return self.adapt(obj, interface)
         except ValueError:
             return None
 
-    def clear(self):
+    def clear(self) -> None:
         """ Clears the cached adapters."""
         self._adapters = self._factory()
 
-    def _adapt(self, obj, interface):
+    def _adapt(self, obj: Any, interface: Type[AnInterface]) -> AnInterface:
         adapted = interface.adapt(obj)
         try:
             adapters = self._adapters[interface]
@@ -107,7 +105,7 @@ class AdapterTracker(object):
         return adapted
 
 
-def _interface_from_anno(annotation):
+def _interface_from_anno(annotation: Any) -> Optional[AnInterfaceType]:
     """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
     a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
     """
