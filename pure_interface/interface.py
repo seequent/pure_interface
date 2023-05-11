@@ -10,7 +10,7 @@ import dis
 import inspect
 from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, Union
 import sys
 import warnings
 import weakref
@@ -18,71 +18,77 @@ import weakref
 from .errors import InterfaceError, AdaptionError
 
 is_development = not hasattr(sys, 'frozen')
-missing_method_warnings = []
+missing_method_warnings: List[str] = []
+
+_T = TypeVar('_T')
 
 
-def set_is_development(is_dev):
+def set_is_development(is_dev: bool) -> None:
     global is_development
     is_development = is_dev
 
 
-def get_is_development():
+def get_is_development() -> bool:
     return is_development
 
 
-def get_missing_method_warnings():
+def get_missing_method_warnings() -> List[str]:
     return missing_method_warnings
 
 
-def no_adaption(obj):
+def no_adaption(obj: _T) -> _T:
     return obj
 
 
-PI = TypeVar('PI', bound='Interface')
+AnInterface = TypeVar('AnInterface', bound='Interface')
+AnInterfaceType = TypeVar('AnInterfaceType', bound=Type['Interface'])
 
 
 class _PIAttributes(object):
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
 
-    def __init__(self, type_is_interface, abstract_properties, interface_method_signatures, interface_attribute_names):
-        self.type_is_interface = type_is_interface
+    def __init__(self, type_is_interface: bool,
+                 abstract_properties: Set[str],
+                 interface_method_signatures: Dict[str, Signature],
+                 interface_attribute_names: Set[str]):
+        self.type_is_interface: bool = type_is_interface
         # abstractproperties are checked for at instantiation.
         # When concrete classes use a @property then they are removed from this set
         self.abstractproperties = frozenset(abstract_properties)
-        self.interface_method_names = frozenset(interface_method_signatures.keys())  # type: FrozenSet[str]
-        self.interface_attribute_names = frozenset(interface_attribute_names)  # type: FrozenSet[str]
+        self.interface_method_names = frozenset(interface_method_signatures.keys())
+        self.interface_attribute_names = frozenset(interface_attribute_names)
         self.interface_method_signatures = interface_method_signatures
-        self.adapters = weakref.WeakKeyDictionary()
-        self.structural_subclasses = set()
-        self.impl_wrapper_type = None
+        self.adapters = weakref.WeakKeyDictionary()  # type: ignore
+        self.structural_subclasses: Set[type] = set()
+        self.impl_wrapper_type: Optional[type] = None
 
     @property
-    def interface_names(self):
+    def interface_names(self) -> FrozenSet[str]:
         return self.interface_method_names.union(self.interface_attribute_names)
 
 
 class _ImplementationWrapper(object):
-    def __init__(self, implementation, interface):
+    def __init__(self, implementation: Any, interface: AnInterfaceType):
         object.__setattr__(self, '_ImplementationWrapper__impl', implementation)
         object.__setattr__(self, '_ImplementationWrapper__interface', interface)
         object.__setattr__(self, '_ImplementationWrapper__interface_attrs', interface._pi.interface_names)
         object.__setattr__(self, '_ImplementationWrapper__interface_name', interface.__name__)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         impl = self.__impl
         if attr in self.__interface_attrs:
             return getattr(impl, attr)
         else:
             raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, attr))
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         if key in self.__interface_attrs:
             setattr(self.__impl, key, value)
         else:
             raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, key))
 
 
-def _builtin_attrs(name):
+def _builtin_attrs(name: str) -> bool:
     """ These attributes are ignored when checking ABC types for emptyness.
     """
     return name in ('__doc__', '__module__', '__qualname__', '__abstractmethods__', '__dict__',
@@ -91,14 +97,14 @@ def _builtin_attrs(name):
                     '_pi', '_pi_unwrap_decorators')
 
 
-def get_pi_attribute(cls, attr_name, default=None):
+def get_pi_attribute(cls: Type, attr_name: str, default: Any = None) -> Any:
     if hasattr(cls, '_pi'):
         return getattr(cls._pi, attr_name)
     else:
         return default
 
 
-def _type_is_interface(cls):
+def _type_is_interface(cls: type) -> bool:
     """ Return True if cls is a pure interface or an empty ABC class"""
     if cls is object:
         return False
@@ -122,9 +128,9 @@ def _type_is_interface(cls):
     return False
 
 
-def _get_abc_interface_props_and_funcs(cls):
-    properties = set()
-    function_sigs = {}
+def _get_abc_interface_props_and_funcs(cls: Type[abc.ABC]) -> Tuple[Set[str], Dict[str, Signature]]:
+    properties: Set[str] = set()
+    function_sigs: Dict[str, Signature] = {}
     if not hasattr(cls, '__abstractmethods__'):
         return properties, function_sigs
     for name in cls.__abstractmethods__:
@@ -142,7 +148,7 @@ def _get_abc_interface_props_and_funcs(cls):
     return properties, function_sigs
 
 
-def _unwrap_function(func):
+def _unwrap_function(func: Any) -> Any:
     """ Look for decorated functions and return the wrapped function.
     """
     while hasattr(func, '__wrapped__'):
@@ -150,7 +156,7 @@ def _unwrap_function(func):
     return func
 
 
-def _is_empty_function(func, unwrap=False):
+def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
     """ Return True if func is considered empty.
      All functions with no return statement have an implicit return None - this is explicit in the code object.
     """
@@ -217,7 +223,7 @@ def _is_empty_function(func, unwrap=False):
         if instructions[-2].opname in ('CALL_FUNCTION', 'CALL'):
             for instr in instructions[-3::-1]:
                 if instr.opname == 'LOAD_GLOBAL':
-                    return instr.argval == 'NotImplementedError'
+                    return bool(instr.argval == 'NotImplementedError')
 
     return False
 
@@ -225,7 +231,7 @@ def _is_empty_function(func, unwrap=False):
 _Instruction = collections.namedtuple('_Instruction', ('opcode', 'opname', 'arg', 'argval'))
 
 
-def _get_instructions(code_obj):
+def _get_instructions(code_obj: Any) -> Union[List[_Instruction], List[dis.Instruction]]:
     if hasattr(dis, 'get_instructions'):
         return list(dis.get_instructions(code_obj))
 
@@ -248,12 +254,13 @@ def _get_instructions(code_obj):
     return instructions
 
 
-def _is_descriptor(obj):  # in our context we only care about __get__
+def _is_descriptor(obj: Any) -> bool:  # in our context we only care about __get__
     return hasattr(obj, '__get__')
 
 
 class _ParamTypes(object):
-    def __init__(self, pos_only, pos_or_kw, vararg, kw_only, varkw):
+    def __init__(self, pos_only: List[Parameter], pos_or_kw: List[Parameter],
+                 vararg: List[Parameter], kw_only: List[Parameter], varkw: List[Parameter]):
         self.pos_only = pos_only
         self.pos_or_kw = pos_or_kw
         self.vararg = vararg
@@ -263,8 +270,7 @@ class _ParamTypes(object):
         self.keyword = pos_or_kw + kw_only
 
 
-def _signature_info(arg_spec):
-    # type: (List[Parameter]) -> _ParamTypes
+def _signature_info(arg_spec: Iterable[Parameter]) -> _ParamTypes:
     param_types = collections.defaultdict(list)
     for param in arg_spec:
         param_types[param.kind].append(param)
@@ -277,7 +283,7 @@ def _signature_info(arg_spec):
                        )
 
 
-def _required_params(param_list):
+def _required_params(param_list: List[Parameter]) -> List[Parameter]:
     """ return params without a default"""
     # params with defaults come last
     for i, p in enumerate(param_list):
@@ -346,8 +352,7 @@ def _keyword_args_match(func_list, base_list, varkw, num_pos):
     return True
 
 
-def _signatures_are_consistent(func_sig, base_sig):
-    # type: (Signature, Signature) -> bool
+def _signatures_are_consistent(func_sig: Signature, base_sig: Signature) -> bool:
     """
     :param func_sig: Signature of overriding function
     :param base_sig: Signature of base class function
@@ -498,11 +503,10 @@ def _class_structural_type_check(cls, subclass):
     return True
 
 
-def _get_adapter(cls, obj_type):
-    # type: (Type[PI], Type[Any]) -> Optional[Callable]
+def _get_adapter(cls: AnInterfaceType, obj_type: Type) -> Optional[Callable]:
     """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
     """
-    adapters = {}
+    adapters = {}  # type: ignore
     candidate_interfaces = [cls] + cls.__subclasses__()
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
@@ -704,10 +708,10 @@ class InterfaceType(abc.ABCMeta):
 class Interface(abc.ABC, metaclass=InterfaceType):
     # These methods don't need to be here, as they would resolve to the meta-class methods anyway.
     # However including them here means we can add type hints that would otherwise be ambiguous on the meta-class.
+    _pi: _PIAttributes
 
     @classmethod
-    def provided_by(cls, obj, allow_implicit=True):
-        # type: (Any, bool) -> bool
+    def provided_by(cls, obj, allow_implicit: bool = True) -> bool:
         """ Returns True if obj provides this interface.
         provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
         If allow_implicit is True then returns True if interface duck-type check passes.
@@ -716,14 +720,13 @@ class Interface(abc.ABC, metaclass=InterfaceType):
         return InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit)
 
     @classmethod
-    def interface_only(cls, implementation):
-        # type: (Type[PI], PI) -> PI
+    def interface_only(cls: Type[AnInterface], implementation: AnInterface) -> AnInterface:
         """ Returns a wrapper around implementation that provides ONLY this interface. """
         return InterfaceType.interface_only(cls, implementation)
 
     @classmethod
-    def adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Type[PI], Any, bool, Optional[bool]) -> PI
+    def adapt(cls: Type[AnInterface], obj: Any,
+              allow_implicit: bool = False, interface_only: Optional[bool] = None) -> AnInterface:
         """ Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
         If interface_only is True, or interface_only is None and is_development is True then the
@@ -732,20 +735,19 @@ class Interface(abc.ABC, metaclass=InterfaceType):
         return InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
     @classmethod
-    def adapt_or_none(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
+    def adapt_or_none(cls: Type[AnInterface], obj,
+                      allow_implicit: bool = False, interface_only: Optional[bool] = None) -> Optional[AnInterface]:
         """ Adapt obj to to_interface or return None if adaption fails """
         return InterfaceType.adapt_or_none(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
     @classmethod
-    def can_adapt(cls, obj, allow_implicit=False):
-        # type: (Any, bool) -> bool
+    def can_adapt(cls, obj, allow_implicit: bool = False) -> bool:
         """ Returns True if adapt(obj, allow_implicit) will succeed."""
         return InterfaceType.can_adapt(cls, obj, allow_implicit=allow_implicit)
 
     @classmethod
-    def filter_adapt(cls, objects, allow_implicit=False, interface_only=None):
-        # type: (Type[PI], Iterable[Any], bool, Optional[bool]) -> Iterable[PI]
+    def filter_adapt(cls: Type[AnInterface], objects: Iterable,
+                     allow_implicit: bool = False, interface_only: Optional[bool] = None) -> Iterable[AnInterface]:
         """ Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
         """
@@ -753,14 +755,13 @@ class Interface(abc.ABC, metaclass=InterfaceType):
                                           interface_only=interface_only)
 
     @classmethod
-    def optional_adapt(cls, obj, allow_implicit=False, interface_only=None):
-        # type: (Type[PI], Any, bool, Optional[bool]) -> Optional[PI]
+    def optional_adapt(cls: Type[AnInterface], obj,
+                       allow_implicit: bool = False, interface_only: Optional[bool] = None) -> Optional[AnInterface]:
         """ Adapt obj to to_interface or return None if adaption fails """
         return InterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
 
-def type_is_interface(cls):
-    # type: (Type[Any]) -> bool
+def type_is_interface(cls: Type) -> bool:  # -> TypeGuard[AnInterfaceType]
     """ Return True if cls is a pure interface"""
     try:
         if not issubclass(cls, Interface):
@@ -770,23 +771,22 @@ def type_is_interface(cls):
     return get_pi_attribute(cls, 'type_is_interface', False)
 
 
-def type_is_pure_interface(cls):
+def type_is_pure_interface(cls: Type):
     warnings.warn('type_is_pure_interface has been renamed to type_is_interface.')
     return type_is_pure_interface(cls)
 
 
-def get_type_interfaces(cls):
-    # type: (Type[Any]) -> List[Type[Interface]]
+def get_type_interfaces(cls: Type) -> List[AnInterfaceType]:
     """ Returns all interfaces in the cls mro including cls itself if it is an interface """
     try:
         bases = cls.mro()
     except AttributeError:  # handle non-classes
         return []
-    return [base for base in bases if type_is_interface(base) and base is not Interface]
+    # type_is_interface ensures returned types are Interface subclasses by mypy doesn't know this
+    return [base for base in bases if type_is_interface(base) and base is not Interface]  # type: ignore [misc]
 
 
-def get_interface_names(interface):
-    # type: (Type[Interface]) -> FrozenSet[str]
+def get_interface_names(interface: Type) -> FrozenSet[str]:
     """ returns a frozen set of names (methods and attributes) defined by the interface.
     if interface is not a Interface subtype then an empty set is returned.
     """
@@ -796,8 +796,7 @@ def get_interface_names(interface):
         return frozenset()
 
 
-def get_interface_method_names(interface):
-    # type: (Type[Interface]) -> FrozenSet[str]
+def get_interface_method_names(interface: Type) -> FrozenSet[str]:
     """ returns a frozen set of names of methods defined by the interface.
     if interface is not a Interface subtype then an empty set is returned
     """
@@ -807,8 +806,7 @@ def get_interface_method_names(interface):
         return frozenset()
 
 
-def get_interface_attribute_names(interface):
-    # type: (Type[Interface]) -> FrozenSet[str]
+def get_interface_attribute_names(interface: Type) -> FrozenSet[str]:
     """ returns a frozen set of names of attributes defined by the interface
     if interface is not a Interface subtype then an empty set is returned
     """

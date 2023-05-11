@@ -92,8 +92,7 @@ def _test_call(spec_func, spec_sig, impl_func, impl_sig, args, kwargs):
     return True
 
 
-def test_call(spec_func, impl_func):
-    # type: (types.FunctionType, types.FunctionType) -> bool
+def test_call(spec_func: types.FunctionType, impl_func: types.FunctionType) -> bool:
     """ call the function with parameters as indicated by the parameter list
     """
     spec_sig = pure_interface.interface.signature(spec_func)

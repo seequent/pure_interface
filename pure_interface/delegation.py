@@ -1,17 +1,17 @@
 from __future__ import division, absolute_import, print_function
 
 import operator
+from typing import Dict, Union, Sequence, Type, Set, Tuple, Any
 
-import pure_interface
 from .errors import InterfaceError
-from .interface import get_interface_names, type_is_interface, get_type_interfaces, InterfaceType
+from .interface import get_interface_names, type_is_interface, get_type_interfaces, AnInterfaceType, AnInterface
 
-_composed_types_map = {}
+_composed_types_map: Dict[Tuple[Type, ...], Type] = {}
 _letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
 class _Delegated:
-    def __init__(self, dotted_name):
+    def __init__(self, dotted_name: str):
         self._getter = operator.attrgetter(dotted_name)
         self._impl_name, self._attr_name = dotted_name.rsplit('.', 1)
 
@@ -111,14 +111,14 @@ class Delegate:
 
     """
     pi_attr_fallback = None
-    pi_attr_delegates = {}
-    pi_attr_mapping = {}
+    pi_attr_delegates: Dict[str, Union[str, type]] = {}
+    pi_attr_mapping: Dict[str, Sequence[str]] = {}
 
     def __init_subclass__(cls, **kwargs):
         # get non-interface base class ignoring abc.ABC and object.
         non_interface_bases = [base for base in cls.mro()[:-2] if not type_is_interface(base)]
 
-        def i_have_attribute(attrib):
+        def i_have_attribute(attrib: str) -> bool:
             for klass in non_interface_bases:
                 if attrib in klass.__dict__:
                     return True
@@ -149,7 +149,7 @@ class Delegate:
                         setattr(cls, attr, _Delegated(dotted_name))
 
     @classmethod
-    def provided_by(cls, obj):
+    def provided_by(cls, obj: Any):
         if not hasattr(cls, 'pi_composed_interfaces'):
             raise InterfaceError('provided_by() can only be called on composed types')
         if isinstance(obj, cls):
@@ -169,7 +169,7 @@ def __composed_init__(self, *args):
         setattr(self, attr, impl)
 
 
-def composed_type(*interface_types: InterfaceType) -> type:
+def composed_type(*interface_types: AnInterfaceType) -> type:
     """Returns a new class which implements all the passed interfaces.
     If the interfaces have duplicate attribute or method names, the first enountered implementation is used.
     Instances of the returned type are passed implementations of the given interfaces in the same order.
@@ -200,7 +200,7 @@ def composed_type(*interface_types: InterfaceType) -> type:
     if c_type is not None:
         return c_type
     delegates = {}
-    all_names = set()
+    all_names: Set[str] = set()
     for i, interface in enumerate(interface_types):
         if not type_is_interface(interface):
             raise ValueError('all arguments to composed_type must be Interface classes')

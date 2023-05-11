@@ -32,7 +32,7 @@ else:
                        'match_args', 'kw_only', 'slots', 'weakref_slot')
 
 
-def dataclass(_cls=None, **kwargs):
+def dataclass(_cls: typing.Union[type, None] = None, **kwargs):
     """Returns the same class as was passed in, with dunder methods
     added based on the fields defined in the class.
     """
