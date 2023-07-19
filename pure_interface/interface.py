@@ -192,8 +192,10 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
         return True
     if byte_code in (b'd\x01\x00S', b'd\x01S\x00') and code_obj.co_consts[1] is None:
         return True
+    if byte_code == b'y\x00' and code_obj.co_consts[0] is None:  # RETURN_CONST in 3.12+
+        return True
     # convert bytes to instructions
-    instructions = _get_instructions(code_obj)
+    instructions = list(dis.get_instructions(code_obj))
     if len(instructions) < 2:
         return True  # this never happens
     if instructions[0].opname == 'GEN_START':
@@ -206,6 +208,11 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
         instructions.pop(0)
         if instructions[0].opname == 'POP_TOP':
             instructions.pop(0)
+        # All generator functions end with these 2 opcodes in 3.12+
+        if (len(instructions) > 2 and
+                instructions[-2].opname == 'CALL_INTRINSIC_1' and
+                instructions[-1].opname == 'RERAISE'):
+            instructions = instructions[:-2]  # remove last 2 instructions
     if instructions[0].opname == 'RESUME':
         instructions.pop(0)
     if instructions[0].opname == 'NOP':
@@ -215,6 +222,8 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
         if not (instruction.opname == 'LOAD_CONST' and code_obj.co_consts[instruction.arg] is None):  # TOS is None
             return False  # return is not None
         instructions = instructions[:-2]
+    if instructions[-1].opname == 'RETURN_CONST' and instructions[-1].argval is None:  # returns constant
+        instructions.pop(-1)
     if len(instructions) == 0:
         return True
     # look for raise NotImplementedError
@@ -226,32 +235,6 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
                     return bool(instr.argval == 'NotImplementedError')
 
     return False
-
-
-_Instruction = collections.namedtuple('_Instruction', ('opcode', 'opname', 'arg', 'argval'))
-
-
-def _get_instructions(code_obj: Any) -> Union[List[_Instruction], List[dis.Instruction]]:
-    if hasattr(dis, 'get_instructions'):
-        return list(dis.get_instructions(code_obj))
-
-    instructions = []
-    instruction = None
-    for byte in code_obj.co_code:
-        if instruction is None:
-            instruction = [byte]
-        else:
-            instruction.append(byte)
-        if instruction[0] < dis.HAVE_ARGUMENT or len(instruction) == 3:
-            op_code = instruction[0]
-            op_name = dis.opname[op_code]
-            if instruction[0] < dis.HAVE_ARGUMENT:
-                instructions.append(_Instruction(op_code, op_name, None, None))
-            else:
-                arg = instruction[1]
-                instructions.append(_Instruction(op_code, op_name, arg, arg))
-            instruction = None
-    return instructions
 
 
 def _is_descriptor(obj: Any) -> bool:  # in our context we only care about __get__
