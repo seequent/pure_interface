@@ -15,7 +15,7 @@ Features
 * ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
   attributes and methods defined by ``Interface``.
 * Warns if ``provided_by`` did a structural type check when inheritance would work.
-* Supports python 3.7+
+* Supports python 3.8+
 
 A note on the name
 ------------------
