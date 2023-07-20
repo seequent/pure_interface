@@ -169,7 +169,7 @@ def __composed_init__(self, *args):
         setattr(self, attr, impl)
 
 
-def composed_type(*interface_types: AnInterfaceType) -> type[Delegate]:
+def composed_type(*interface_types: AnInterfaceType) -> Type[Delegate]:
     """Returns a new class which implements all the passed interfaces.
     If the interfaces have duplicate attribute or method names, the first enountered implementation is used.
     Instances of the returned type are passed implementations of the given interfaces in the same order.

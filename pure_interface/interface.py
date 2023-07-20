@@ -676,7 +676,7 @@ class InterfaceType(abc.ABCMeta):
             return None
         return InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
-    def register(cls, subclass: type[_T]) -> type[_T]:
+    def register(cls, subclass: Type[_T]) -> Type[_T]:
         if type_is_interface(cls):
             cls._pi.registered_types.add(subclass)  # type: ignore[attr-defined]
         return super().register(subclass)
