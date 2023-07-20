@@ -5,10 +5,8 @@ import warnings
 from pure_interface import *
 from pure_interface import interface
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
+
 
 class ADescriptor(object):
     def __init__(self, value):
@@ -223,7 +221,7 @@ class TestImplementationChecks(unittest.TestCase):
 
     def test_missing_methods_warning(self):
         # assemble
-        interface.is_development = True
+        set_is_development(True)
         interface.missing_method_warnings = []
         # act
 
@@ -278,6 +276,11 @@ class TestImplementationChecks(unittest.TestCase):
             pass
 
         self.assertEqual(frozenset([]), Test._pi.abstractproperties)
+
+    def test_set_development(self):
+        for value in True, False:
+            set_is_development(value)
+            self.assertEqual(value, get_is_development())
 
 
 class TestPropertyImplementations(unittest.TestCase):

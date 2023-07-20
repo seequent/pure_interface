@@ -4,7 +4,6 @@ from unittest import mock
 import warnings
 
 import pure_interface
-from pure_interface import interface
 from tests.interface_module import IAnimal
 
 
@@ -61,7 +60,7 @@ class TestIsInstanceChecks(unittest.TestCase):
             Cat.provided_by(c, allow_implicit=False)
 
     def test_warning_issued_once(self):
-        interface.is_development = True
+        pure_interface.set_is_development(True)
 
         class Cat2(object):
             def speak(self, volume):
@@ -79,7 +78,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertEqual(warn.call_count, 1)
 
     def test_warning_not_issued(self):
-        interface.is_development = False
+        pure_interface.set_is_development(False)
 
         class Cat3(object):
             def speak(self, volume):
@@ -96,7 +95,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         warn.assert_not_called()
 
     def test_warning_contents(self):
-        interface.is_development = True
+        pure_interface.set_is_development(True)
 
         class Cat4(object):
             def speak(self, volume):
@@ -117,7 +116,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertIn('IAnimal', msg)
 
     def test_warning_contents_adapt(self):
-        interface.is_development = True
+        pure_interface.set_is_development(True)
 
         class Cat5(object):
             def speak(self, volume):
