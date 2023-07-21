@@ -478,8 +478,7 @@ def _get_adapter(cls: AnInterfaceType, obj_type: Type) -> Optional[Callable]:
     """
     adapters = {}  # type: ignore
     # registered interfaces can come from cls.register(AnotherInterface) or @sub_interface_of(AnotherInterface)(cls)
-    registered_interfaces = [iface for iface in cls._pi.registered_types if type_is_interface(iface)]
-    candidate_interfaces = [cls] + cls.__subclasses__() + registered_interfaces
+    candidate_interfaces = [cls] + cls.__subclasses__() + list(cls._pi.registered_types)
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
         if type_is_interface(subcls):
