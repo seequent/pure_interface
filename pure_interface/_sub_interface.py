@@ -37,7 +37,7 @@ def _check_interfaces_match(large_interface, small_interface):
         small_method = getattr(small_interface, method_name)
         if signature(large_method) != signature(small_method):
             msg = (f'Signature of method {method_name} on {large_interface.__name__} '
-                   f'and {small_interface.__name__} must match')
+                   f'and {small_interface.__name__} must match exactly')
             raise interface.InterfaceError(msg)
 
 

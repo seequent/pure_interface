@@ -99,7 +99,7 @@ class TestAdaption(unittest.TestCase):
 
     def test_fails_when_signatures_mismatch(self):
         with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    'Signature of method f on ILarger and INotSmaller must match'):
+                                    'Signature of method f on ILarger and INotSmaller must match exactly'):
             @pure_interface.sub_interface_of(ILarger)
             class INotSmaller(pure_interface.Interface):
                 def f(self, arg1, arg2, foo=3):

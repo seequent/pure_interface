@@ -8,4 +8,4 @@ from .adaption import adapts, register_adapter, AdapterTracker, adapt_args
 from .delegation import Delegate
 from .data_classes import dataclass
 
-__version__ = '7.2.0'
+__version__ = '7.3.0'

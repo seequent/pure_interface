@@ -214,15 +214,15 @@ Note that missing properties are NOT checked for as they may be provided by inst
 
 Sub-Interfaces
 ==============
-Sometimes your code only uses a smaller part of a large interface.  It can be useful (eg. for test mocking) to specify
-the sub part of the interface that your code requires.  This can be done with teh ``sub_interface_of`` decorator.::
+Sometimes your code only uses a small part of a large interface.  It can be useful (eg. for test mocking) to specify
+the sub part of the interface that your code requires.  This can be done with the ``sub_interface_of`` decorator.::
 
     @sub_interface_of(IAnimal)
     class IHeight(pure_interface.Interface):
         height: float
 
     def my_code(h: IHeight):
-        return 'That's tall' if h.height > 100 else 'Shorty'
+        return "That's tall" if h.height > 100 else "Not so tall"
 
 The ``sub_interface_of`` decorator checks that the attributes and methods of the smaller interface match the larger interface.
 Function signatures must match exactly (not just be compatible).  The decorator will also use ``abc.register`` so that
