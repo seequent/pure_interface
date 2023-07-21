@@ -301,6 +301,10 @@ class DelegateTest(unittest.TestCase):
         d = DSubFallback2(Talker())
         self.assertEqual('chat', d.chat())
 
+    def test_delegate_provides_fails(self):
+        with self.assertRaises(pure_interface.InterfaceError):
+            DFallback.provided_by(ITalker)
+
 
 class CompositionTest(unittest.TestCase):
 
@@ -376,3 +380,12 @@ class CompositionTest(unittest.TestCase):
 
         except Exception as exc:
             self.fail(str(exc))
+
+    def test_fail_on_unsupported_type(self):
+        with self.assertRaises(ValueError):
+            delegation.composed_type(str, int)
+
+    def test_too_many_interfaces(self):
+        with mock.patch('pure_interface.delegation._letters', 'a'):
+            with self.assertRaises(ValueError):
+                delegation.composed_type(ITalker, IPoint)

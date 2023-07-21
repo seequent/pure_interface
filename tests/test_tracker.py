@@ -82,3 +82,29 @@ class TestAdapterTracker(unittest.TestCase):
 
         tracker.adapt(t, ISpeaker)
         self.assertTrue(len(mocks) > 1)
+
+    def test_adapt_or_none_works(self):
+        tracker = AdapterTracker()
+        t = Talker()
+
+        speaker = tracker.adapt_or_none(t, ISpeaker)
+
+        self.assertIsInstance(speaker, ISpeaker)
+
+    def test_adapt_or_none_returns_none(self):
+        tracker = AdapterTracker()
+
+        speaker = tracker.adapt_or_none('hello', ISpeaker)
+
+        self.assertIsNone(speaker)
+
+    def test_clear(self):
+        tracker = AdapterTracker()
+        t = Talker()
+        speaker1 = tracker.adapt_or_none(t, ISpeaker)
+
+        tracker.clear()
+
+        speaker2 = tracker.adapt_or_none(t, ISpeaker)
+        self.assertIsNot(speaker1, speaker2)
+

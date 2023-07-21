@@ -10,7 +10,8 @@ import dis
 import inspect
 from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, Union
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, cast, \
+    Union
 import sys
 import warnings
 import weakref
@@ -59,6 +60,7 @@ class _PIAttributes(object):
         self.interface_attribute_names = frozenset(interface_attribute_names)
         self.interface_method_signatures = interface_method_signatures
         self.adapters = weakref.WeakKeyDictionary()  # type: ignore
+        self.registered_types = weakref.WeakSet()  # type: ignore
         self.structural_subclasses: Set[type] = set()
         self.impl_wrapper_type: Optional[type] = None
 
@@ -222,7 +224,7 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
         if not (instruction.opname == 'LOAD_CONST' and code_obj.co_consts[instruction.arg] is None):  # TOS is None
             return False  # return is not None
         instructions = instructions[:-2]
-    if instructions[-1].opname == 'RETURN_CONST' and instructions[-1].argval is None:  # returns constant
+    if len(instructions) > 0 and instructions[-1].opname == 'RETURN_CONST' and instructions[-1].argval is None:  # returns constant
         instructions.pop(-1)
     if len(instructions) == 0:
         return True
@@ -264,21 +266,6 @@ def _signature_info(arg_spec: Iterable[Parameter]) -> _ParamTypes:
                        param_types[Parameter.KEYWORD_ONLY],
                        param_types[Parameter.VAR_KEYWORD]
                        )
-
-
-def _required_params(param_list: List[Parameter]) -> List[Parameter]:
-    """ return params without a default"""
-    # params with defaults come last
-    for i, p in enumerate(param_list):
-        if p.default is not Parameter.empty:
-            return param_list[:i]
-    # no defaults
-    return param_list
-
-
-def _kw_names_match(func, base):
-    func_names = set(p.name for p in func)
-    return all(p.name in func_names for p in base)
 
 
 def _positional_args_match(func_list, base_list, vararg, base_kwo):
@@ -490,7 +477,8 @@ def _get_adapter(cls: AnInterfaceType, obj_type: Type) -> Optional[Callable]:
     """ Returns a callable that adapts objects of type obj_type to this interface or None if no adapter exists.
     """
     adapters = {}  # type: ignore
-    candidate_interfaces = [cls] + cls.__subclasses__()
+    # registered interfaces can come from cls.register(AnotherInterface) or @sub_interface_of(AnotherInterface)(cls)
+    candidate_interfaces = [cls] + cls.__subclasses__() + list(cls._pi.registered_types)
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
         if type_is_interface(subcls):
@@ -687,10 +675,15 @@ class InterfaceType(abc.ABCMeta):
             return None
         return InterfaceType.adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
 
+    def register(cls, subclass: Type[_T]) -> Type[_T]:
+        if type_is_interface(cls):
+            cls._pi.registered_types.add(subclass)  # type: ignore[attr-defined]
+        return super().register(subclass)
+
 
 class Interface(abc.ABC, metaclass=InterfaceType):
     # These methods don't need to be here, as they would resolve to the meta-class methods anyway.
-    # However including them here means we can add type hints that would otherwise be ambiguous on the meta-class.
+    # However, including them here means we can add type hints that would otherwise be ambiguous on the meta-class.
     _pi: _PIAttributes
 
     @classmethod
@@ -752,11 +745,6 @@ def type_is_interface(cls: Type) -> bool:  # -> TypeGuard[AnInterfaceType]
     except TypeError:  # handle non-classes
         return False
     return get_pi_attribute(cls, 'type_is_interface', False)
-
-
-def type_is_pure_interface(cls: Type):
-    warnings.warn('type_is_pure_interface has been renamed to type_is_interface.')
-    return type_is_pure_interface(cls)
 
 
 def get_type_interfaces(cls: Type) -> List[AnInterfaceType]:

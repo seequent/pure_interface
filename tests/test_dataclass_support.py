@@ -38,3 +38,20 @@ if 'dataclass' in globals():
                 self.assertEqual('a=2, b=two, c=34.0', f.foo())
             except Exception as exc:
                 self.fail(str(exc))
+
+        def test_data_class_with_args(self):
+            try:
+                @dataclass(frozen=True)
+                class FrozenFoo(IFoo, object):
+                    c: float = 12.0
+
+                    def foo(self):
+                        return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
+
+            except Exception as exc:
+                self.fail(str(exc))
+
+            f = Foo(a=1, b='two')
+            self.assertEqual(1, f.a)
+            self.assertEqual('two', f.b)
+            self.assertEqual(12.0, f.c)

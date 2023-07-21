@@ -212,6 +212,22 @@ When all your imports are complete you can check if this list is empty.::
 
 Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
+Sub-Interfaces
+==============
+Sometimes your code only uses a small part of a large interface.  It can be useful (eg. for test mocking) to specify
+the sub part of the interface that your code requires.  This can be done with the ``sub_interface_of`` decorator.::
+
+    @sub_interface_of(IAnimal)
+    class IHeight(pure_interface.Interface):
+        height: float
+
+    def my_code(h: IHeight):
+        return "That's tall" if h.height > 100 else "Not so tall"
+
+The ``sub_interface_of`` decorator checks that the attributes and methods of the smaller interface match the larger interface.
+Function signatures must match exactly (not just be compatible).  The decorator will also use ``abc.register`` so that
+``isinstance(Animal(), IHeight)`` returns ``True``.
+
 Adaption
 ========
 
@@ -323,6 +339,10 @@ Adapters from sub-interfaces may be used to perform adaption if necessary. For e
 
 Then  ``IA.adapt(4)`` will use the ``IntToB`` adapter to adapt ``4`` to ``IA`` (unless there is already an adapter
 from ``int`` to ``IA``)
+
+Further, if an interface is decorated with ``sub_interface_of``, adapters for the larger interface will be used if
+a direct adapter is not found.
+
 
 Structural Type Checking
 ========================
@@ -554,8 +574,8 @@ If you supply more than one delegation rule (e.g. both ``pi_attr_mapping`` and `
 Then ``pi_attr_mapping`` delegates are created (and become part of the class) and finally ``pi_attr_fallback`` is processed.
 Thus if there are duplicate delegates defined, the one defined first takes precedence.
 
-Composition
------------
+Type Composition
+----------------
 A special case where all delegated attributes are defined in an ``Interface`` is handled by the ``composed_type`` factory function.
 ``composed_type`` takes 2 or more interfaces and returns a new type that inherits from all the interfaces with a
 constructor that takes instances that implement those interfaces (in the same order).  For exmaple::

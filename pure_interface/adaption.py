@@ -8,7 +8,7 @@ import typing
 import warnings
 
 from .errors import InterfaceError, AdaptionError
-from .interface import AnInterface, Interface, InterfaceType, AnInterfaceType
+from .interface import AnInterface, Interface, InterfaceType, AnInterfaceType, type_is_interface
 from .interface import get_type_interfaces, get_pi_attribute
 
 
@@ -46,7 +46,10 @@ def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> 
     return decorator
 
 
-def register_adapter(adapter: Callable, from_type: Type, to_interface: AnInterfaceType) -> None:
+def register_adapter(
+        adapter: Callable[[Type], AnInterfaceType],
+        from_type: Type,
+        to_interface: AnInterfaceType) -> None:
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
@@ -119,11 +122,8 @@ def _interface_from_anno(annotation: Any) -> Optional[AnInterfaceType]:
         if annotation.__origin__ is not typing.Union:
             return None
         for arg_type in annotation.__args__:
-            try:
-                if issubclass(arg_type, Interface):
-                    return arg_type
-            except TypeError:
-                pass
+            if type_is_interface(arg_type):
+                return arg_type
 
     return None
 
@@ -177,8 +177,6 @@ def adapt_args(*func_arg, **kwarg_types):
             raise AdaptionError('keyword parameters not permitted with positional argument')
         funcn = func_arg[0]
         annotations = typing.get_type_hints(funcn)
-        if annotations is None:
-            annotations = {}
         if not annotations:
             warnings.warn('No annotations for {}. '
                           'Add annotations or pass explicit argument types to adapt_args'.format(funcn.__name__),
@@ -190,10 +188,7 @@ def adapt_args(*func_arg, **kwarg_types):
         return decorator(funcn)
 
     for key, i_face in kwarg_types.items():
-        try:
-            can_adapt = issubclass(i_face, Interface)
-        except TypeError:
-            can_adapt = False
+        can_adapt = type_is_interface(i_face)
         if not can_adapt:
             raise AdaptionError('adapt_args parameter values must be subtypes of Interface')
     return decorator

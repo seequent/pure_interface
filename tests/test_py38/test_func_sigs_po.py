@@ -82,7 +82,7 @@ def func5ex2(a, b='b', c='c'):
 class TestFunctionSigsPositionalOnly(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        pure_interface.interface.is_development = True
+        pure_interface.set_is_development(True)
 
     def check_signatures(self, int_func, impl_func, expected_result):
         reality = test_func_sigs3.test_call(int_func, impl_func)

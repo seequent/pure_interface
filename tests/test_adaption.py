@@ -130,7 +130,7 @@ class DunderClass(DunderInterface, object):
 class TestAdaption(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        interface.is_development = True
+        pure_interface.set_is_development(True)
 
     def test_adaption_passes(self):
         talker = Talker()
@@ -233,11 +233,24 @@ class TestAdaption(unittest.TestCase):
         self.assertIsInstance(speaker, TalkerToSpeaker)
         self.assertIs(speaker._talker, a_talker)
 
+    def test_fail_if_no_to_interface_for_func(self):
+        with self.assertRaises(interface.InterfaceError):
+            @pure_interface.adapts(int)
+            def foo(arg):
+                return None
+
+    def test_manual_interface_only(self):
+        topic_speaker = TopicSpeaker('Python')
+        s = ITopicSpeaker.interface_only(topic_speaker)
+
+        self.assertIsInstance(s, interface._ImplementationWrapper)
+        self.assertIsInstance(s, ITopicSpeaker)
+
 
 class TestAdaptionToInterfaceOnly(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        interface.is_development = True
+        pure_interface.set_is_development(True)
 
     def test_wrapping_works(self):
         topic_speaker = TopicSpeaker('Python')
@@ -380,3 +393,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
             len(dunder)
         except:
             self.fail('len() interface only failed')
+
+    def test_can_adapt(self):
+        self.assertFalse(ITalker.can_adapt('hello'))
+        self.assertTrue(ITalker.can_adapt(Talker()))
