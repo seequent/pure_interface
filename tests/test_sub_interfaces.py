@@ -32,7 +32,7 @@ def larger_int(i):
 
 
 @pure_interface.dataclass
-class Larger(ILarger, object):
+class Larger(ILarger):
 
     def e(self):
         return 'e'

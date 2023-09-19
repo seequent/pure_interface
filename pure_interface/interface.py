@@ -10,8 +10,7 @@ import dis
 import inspect
 from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, cast, \
-    Union
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, Protocol
 import sys
 import warnings
 import weakref
@@ -114,6 +113,7 @@ def _type_is_interface(cls: type) -> bool:
         return cls._pi.type_is_interface
     if cls is Generic:
         return True  # this class is just for type hinting
+    issubclass(cls, Protocol)
     if issubclass(type(cls), abc.ABCMeta):
         for attr, value in cls.__dict__.items():
             if _builtin_attrs(attr):
@@ -513,15 +513,18 @@ class InterfaceType(abc.ABCMeta):
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
             cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, attributes, **kwargs)
-            cls._pi = _PIAttributes(False, (), {}, ())
+            cls._pi = _PIAttributes(False, set(), {}, set())
             return cls
 
         base_types = [(cls, _type_is_interface(cls)) for cls in bases]
-        type_is_interface = all(is_interface for cls, is_interface in base_types)
 
-        if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
-            type_is_interface = True
-
+        if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
+            this_type_is_an_interface = True
+        else:
+            assert 'Interface' in globals()
+            if Interface in bases and not all(is_interface for cls, is_interface in base_types):
+                raise InterfaceError('All bases must be interface types when declaring an interface')
+            this_type_is_an_interface = Interface in bases
         interface_method_signatures = dict()
         interface_attribute_names = set()
         abstract_properties = set()
@@ -545,7 +548,7 @@ class InterfaceType(abc.ABCMeta):
         if is_development:
             _check_method_signatures(attributes, clsname, interface_method_signatures)
 
-        if type_is_interface:
+        if this_type_is_an_interface:
             if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
                 namespace = attributes
                 functions = []
@@ -581,12 +584,12 @@ class InterfaceType(abc.ABCMeta):
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
-        namespace['_pi'] = _PIAttributes(type_is_interface, abstract_properties,
+        namespace['_pi'] = _PIAttributes(this_type_is_an_interface, abstract_properties,
                                          interface_method_signatures, interface_attribute_names)
         cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, namespace, **kwargs)
 
         # warnings
-        if not type_is_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
+        if not this_type_is_an_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
             _do_missing_impl_warnings(cls, clsname)
 
         return cls
@@ -747,14 +750,14 @@ def type_is_interface(cls: Type) -> bool:  # -> TypeGuard[AnInterfaceType]
     return get_pi_attribute(cls, 'type_is_interface', False)
 
 
-def get_type_interfaces(cls: Type) -> List[AnInterfaceType]:
+def get_type_interfaces(cls: Type) -> List[type]:
     """ Returns all interfaces in the cls mro including cls itself if it is an interface """
     try:
         bases = cls.mro()
     except AttributeError:  # handle non-classes
         return []
     # type_is_interface ensures returned types are Interface subclasses by mypy doesn't know this
-    return [base for base in bases if type_is_interface(base) and base is not Interface]  # type: ignore [misc]
+    return [base for base in bases if type_is_interface(base) and base is not Interface]
 
 
 def get_interface_names(interface: Type) -> FrozenSet[str]:

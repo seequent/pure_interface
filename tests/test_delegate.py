@@ -4,29 +4,30 @@ import pure_interface
 import unittest
 from unittest import mock
 
-from pure_interface import delegation
+from pure_interface import delegation, Interface
 
 
-class ITalker(pure_interface.Interface):
+class ITalker(Interface):
     def talk(self):
         pass
 
-class ISubTalker(ITalker):
+
+class ISubTalker(ITalker, Interface):
     def chat(self):
         pass
 
 
-class ISpeaker(pure_interface.Interface):
+class ISpeaker(Interface):
     def speak(self, volume):
         pass
 
 
-class Speaker(ISpeaker, object):
+class Speaker(ISpeaker):
     def speak(self, volume):
         return 'speak'
 
 
-class Talker(ITalker, object):
+class Talker(ITalker):
     def talk(self):
         return 'talk'
 
@@ -34,7 +35,7 @@ class Talker(ITalker, object):
         return 'chat'
 
 
-class IPoint(pure_interface.Interface):
+class IPoint(Interface):
     x: int
     y: int
 
@@ -42,7 +43,7 @@ class IPoint(pure_interface.Interface):
         pass
 
 
-class IPoint3(IPoint):
+class IPoint3(IPoint, Interface):
     z: int
 
 
@@ -53,7 +54,7 @@ class PointImpl:
     z: int
 
 
-class Point(IPoint, object):
+class Point(IPoint):
     def __init__(self, x=0, y=1):
         self.x = int(x)
         self.y = int(y)
@@ -75,7 +76,6 @@ class DSubFallback(DFallback, ISubTalker):
 
 class DSubFallback2(DFallback, ISubTalker):
     pi_attr_fallback = 'impl'
-
 
 
 class DAttrMap(delegation.Delegate, IPoint):

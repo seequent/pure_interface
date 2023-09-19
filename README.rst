@@ -49,7 +49,7 @@ leaving all method bodies empty::
 
 
 Like Protocols, class annotations are considered part of the interface.
-In for historical reasons, you can also use the following alternate syntax::
+For historical reasons, you can also use the following alternate syntax::
 
     class IAnimal(Interface):
         height = None
@@ -96,32 +96,10 @@ Including code in a method will result in an ``InterfaceError`` being raised whe
             print('hello')
 
     InterfaceError: Function "method" is not empty
-    Did you forget to inherit from object to make the class concrete?
 
-
-The ``dir()`` function will include all interface attributes so that ``mock.Mock(spec=IAnimal)`` will work as expected::
-
-    >>> dir(IAnimal)
-    ['__abstractmethods__', '__doc__', ..., 'height', 'speak']
-
-The mock_protocol_ package also works well with interfaces.
-
-
-Concrete Implementations
-========================
-
-Simply inheriting from a pure interface and writing a concrete class will result in an ``InterfaceError`` exception
-as ``pure_interface`` will assume you are creating a sub-interface. To tell ``pure_interface`` that a type should be
-concrete simply inherit from ``object`` as well (or anything else that isn't an ``Interface``).  For example::
-
-    class Animal(IAnimal, object):
-        def __init__(self, height):
-            self.height = height
-
-        def speak(self, volume):
-            print('hello')
-
-**Exception:** Mixing an ``Interface`` class with an ``abc.ABC`` interface class that only defines abstract methods
+Mixing ``Interface`` with non-interface types in a bases list will raise an ``InterfaceError`` at module load time.
+There are two exceptions to this rule. `typing.Generic` is permitted as well as empty ``abc.ABC`` classes
+that only defines abstract methods
 and properties that satisfy the empty method criteria will result in a type that is considered a pure interface.::
 
     class ABCInterface(abc.ABC):
@@ -133,10 +111,39 @@ and properties that satisfy the empty method criteria will result in a type that
         def bar(self):
             pass
 
+The ``dir()`` function will include all interface attributes so that ``mock.Mock(spec=IAnimal)`` will work as expected::
+
+    >>> dir(IAnimal)
+    ['__abstractmethods__', '__doc__', ..., 'height', 'speak']
+
+The mock_protocol_ package also works well with interfaces.
+
+Sub-Interfaces
+--------------
+
+Like ``Protocol``, to specify a sub-interface you must specify the ``Interface`` class again in the base class list.
+Only classes that inherit *directly* from ``Interface`` will be considered an interface type.::
+
+    class IWeightyAnimal(IAnimal, Interface):
+        weight: float
+
+
+Concrete Implementations
+------------------------
+
+Like ``Protocol``, simply inherit from an interface class in the normal way and write a concrete class.::
+
+    class Animal(IAnimal):
+        def __init__(self, height):
+            self.height = height
+
+        def speak(self, volume):
+            print('hello')
+
 Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties or
 custom descriptors, provided that they all exist at the end of ``__init__()``.  Here is another valid implementation::
 
-    class Animal(IAnimal, object):
+    class Animal(IAnimal):
         def __init__(self, height):
             self._height = height
 
@@ -175,14 +182,14 @@ As with ``abc.ABC``, the abstract method checking for a class is done when an ob
 However it is useful to know about missing methods sooner than that.  For this reason ``pure_interface`` will issue
 a warning during module import when methods are missing from a concrete subclass.  For example::
 
-    class SilentAnimal(IAnimal, object):
+    class SilentAnimal(IAnimal):
         def __init__(self, height):
             self.height = height
 
 will issue this warning::
 
     readme.py:28: UserWarning: Incomplete Implementation: SilentAnimal does not implement speak
-    class SilentAnimal(IAnimal, object):
+    class SilentAnimal(IAnimal):
 
 Trying to create a ``SilentAnimal`` will fail in the standard abc way::
 
@@ -193,7 +200,7 @@ If you have a mixin class that implements part of an interface you can suppress 
 called ``pi_partial_implementation``.  The value of the attribute is ignored, and the attribute itself is removed from
 the class.  For example::
 
-    class HeightMixin(IAnimal, object):
+    class HeightMixin(IAnimal):
         pi_partial_implementation = True
 
         def __init__(self, height):
@@ -218,7 +225,7 @@ Sometimes your code only uses a small part of a large interface.  It can be usef
 the sub part of the interface that your code requires.  This can be done with the ``sub_interface_of`` decorator.::
 
     @sub_interface_of(IAnimal)
-    class IHeight(pure_interface.Interface):
+    class IHeight(Interface):
         height: float
 
     def my_code(h: IHeight):
@@ -247,7 +254,7 @@ class ``Talker`` and an adapter class ``TalkerToSpeaker``::
             return 'talk'
 
     @adapts(Talker)
-    class TalkerToSpeaker(ISpeaker, object):
+    class TalkerToSpeaker(ISpeaker):
         def __init__(self, talker):
             self._talker = talker
 
@@ -329,11 +336,11 @@ Adapters from sub-interfaces may be used to perform adaption if necessary. For e
     class IA(Interface):
        foo = None
 
-    class IB(IA):
+    class IB(IA, Interface):
         bar = None
 
     @adapts(int):
-    class IntToB(IB, object):
+    class IntToB(IB):
         def __init__(self, x):
             self.foo = self.bar = x
 
@@ -407,7 +414,7 @@ Dataclass Support
             pass
 
     @dataclass
-    class Animal2(IAnimal2, object):
+    class Animal2(IAnimal2):
         def speak(self):
             print('Hello, I am a {} metre tall {}', self.height, self.species)
 
@@ -601,7 +608,7 @@ If the same arguments are passed to ``composed_type`` again the same type is ret
 If the interfaces share method or attribute names, then the attribute is routed to the first encountered interface.
 For example::
 
-    class Speaker(ISpeaker, object):
+    class Speaker(ISpeaker):
         def speak(self, volume):
             return 'speaker speak'
 

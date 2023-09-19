@@ -12,7 +12,7 @@ class IFoo(Interface):
 
 if 'dataclass' in globals():
     @dataclass
-    class Foo(IFoo, object):
+    class Foo(IFoo):
         c: float = 12.0
 
         def foo(self):
@@ -42,7 +42,7 @@ if 'dataclass' in globals():
         def test_data_class_with_args(self):
             try:
                 @dataclass(frozen=True)
-                class FrozenFoo(IFoo, object):
+                class FrozenFoo(IFoo):
                     c: float = 12.0
 
                     def foo(self):

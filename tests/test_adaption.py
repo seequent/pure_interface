@@ -3,35 +3,35 @@ from unittest import mock
 import warnings
 
 import pure_interface
-from pure_interface import interface
+from pure_interface import interface, Interface
 
 
-class ITalker(pure_interface.Interface):
+class ITalker(Interface):
     def talk(self):
         pass
 
 
-class ISpeaker(pure_interface.Interface):
+class ISpeaker(Interface):
     def speak(self, volume):
         pass
 
 
-class ISleepTalker(ISpeaker):
+class ISleepTalker(ISpeaker, Interface):
     is_asleep = None
 
 
-class Speaker(object):
+class Speaker:
     def speak(self, volume):
         return 'speak'
 
 
-class Talker(ITalker, object):
+class Talker(ITalker):
     def talk(self):
         return 'talk'
 
 
 @pure_interface.adapts(Talker)
-class TalkerToSpeaker(ISpeaker, object):
+class TalkerToSpeaker(ISpeaker):
     def __init__(self, talker):
         self._talker = talker
 
@@ -39,13 +39,13 @@ class TalkerToSpeaker(ISpeaker, object):
         return self._talker.talk()
 
 
-class Talker2(object):
+class Talker2:
     def talk(self):
         return 'talk'
 
 
 @pure_interface.adapts(Talker2, ISpeaker)
-class TalkerToSpeaker2(object):
+class TalkerToSpeaker2:
     def __init__(self, talker):
         self._talker = talker
 
@@ -53,7 +53,7 @@ class TalkerToSpeaker2(object):
         return self._talker.talk()
 
 
-class TalkerToSpeaker3(object):
+class TalkerToSpeaker3:
     def __init__(self, talker):
         self._talker = talker
 
@@ -61,7 +61,7 @@ class TalkerToSpeaker3(object):
         return self._talker.talk()
 
 
-class Talker3(object):
+class Talker3:
     def talk(self):
         return 'talk'
 
@@ -85,7 +85,7 @@ def bad_adapter(talker):
     return talker
 
 
-class ITopicSpeaker(ISpeaker):
+class ITopicSpeaker(ISpeaker, Interface):
     @property
     def topic(self):
         pass
@@ -101,7 +101,7 @@ class Sleeper(object):
 
 
 @pure_interface.adapts(Sleeper)
-class SleepTalker(ISleepTalker, object):
+class SleepTalker(ISleepTalker):
     def __init__(self, sleeper):
         self._sleeper = sleeper
         self.is_asleep = sleeper.is_asleep
@@ -110,7 +110,7 @@ class SleepTalker(ISleepTalker, object):
         super(SleepTalker, self).speak(volume)
 
 
-class DunderInterface(pure_interface.Interface):
+class DunderInterface(Interface):
     def __call__(self, a):
         pass
 
@@ -118,7 +118,7 @@ class DunderInterface(pure_interface.Interface):
         pass
 
 
-class DunderClass(DunderInterface, object):
+class DunderClass(DunderInterface):
 
     def __call__(self, a):
         super().__call__(a)
@@ -337,14 +337,14 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
 
     def test_adapter_preference(self):
         """ adapt should prefer interface adapter over sub-interface adapter """
-        class IA(pure_interface.Interface):
+        class IA(Interface):
             foo = None
 
-        class IB(IA):
+        class IB(IA, Interface):
             bar = None
 
         @pure_interface.adapts(int)
-        class IntToB(IB, object):
+        class IntToB(IB):
             def __init__(self, x):
                 self.foo = self.bar = x
 
@@ -352,7 +352,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
         self.assertIsInstance(a, IntToB)
 
         @pure_interface.adapts(int)
-        class IntToA(IA, object):
+        class IntToA(IA):
             def __init__(self, x):
                 self.foo = x
 

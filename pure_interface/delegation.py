@@ -179,9 +179,9 @@ def composed_type(*interface_types: AnInterfaceType) -> Type[Delegate]:
     class IB(Interface):
         bar: int
 
-    class A(IA, object):
+    class A(IA):
         foo = 4
-    class B(IB, object):
+    class B(IB):
         bar = 1
 
     T = composed_type(IA, IB)

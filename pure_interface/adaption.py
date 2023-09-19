@@ -22,7 +22,7 @@ def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> 
     If decorating a class to_interface may be None to use the first interface in the class's MRO.
     E.g.
         @adapts(MyClass)
-        class MyClassToInterfaceAdapter(MyInterface, object):
+        class MyClassToInterfaceAdapter(MyInterface):
             def __init__(self, obj):
                 ....
             ....

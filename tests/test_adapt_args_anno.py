@@ -33,7 +33,7 @@ def other_func(a: I1, b: I2 = None):
     return a is b
 
 
-class Thing1(I1, object):
+class Thing1(I1):
     def __init__(self):
         self.foo = 'foo'
 
@@ -41,7 +41,7 @@ class Thing1(I1, object):
         print('bar:', self.foo)
 
 
-class Thing2(I2, object):
+class Thing2(I2):
     def __init__(self):
         self.bar = 'bar'
 

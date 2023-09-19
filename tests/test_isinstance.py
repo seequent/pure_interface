@@ -44,7 +44,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         self.assertFalse(IAnimal.provided_by(a, allow_implicit=True))
 
     def test_concrete_subclass_check(self):
-        class Cat(IAnimal, object):
+        class Cat(IAnimal):
             def speak(self, volume):
                 print('meow')
 
