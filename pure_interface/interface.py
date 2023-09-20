@@ -10,7 +10,7 @@ import dis
 import inspect
 from inspect import signature, Signature, Parameter
 import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, Protocol
+from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple
 import sys
 import warnings
 import weakref
@@ -113,7 +113,6 @@ def _type_is_interface(cls: type) -> bool:
         return cls._pi.type_is_interface
     if cls is Generic:
         return True  # this class is just for type hinting
-    issubclass(cls, Protocol)
     if issubclass(type(cls), abc.ABCMeta):
         for attr, value in cls.__dict__.items():
             if _builtin_attrs(attr):
@@ -612,7 +611,10 @@ class InterfaceType(abc.ABCMeta):
         listing = sorted(listing)
         return listing
 
-    def provided_by(cls, obj, allow_implicit=True):
+    def provided_by(cls, obj):
+        return cls._provided_by(obj, allow_implicit=True)
+
+    def _provided_by(cls, obj, allow_implicit=True):
         if not cls._pi.type_is_interface:
             raise InterfaceError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
@@ -638,7 +640,7 @@ class InterfaceType(abc.ABCMeta):
             interface_only = is_development
         if isinstance(obj, _ImplementationWrapper):
             obj = obj._ImplementationWrapper__impl
-        if InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit):
+        if InterfaceType._provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:
             adapter = _get_adapter(cls, type(obj))
@@ -646,7 +648,7 @@ class InterfaceType(abc.ABCMeta):
                 raise AdaptionError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
         adapted = adapter(obj)
-        if not InterfaceType.provided_by(cls, adapted, allow_implicit):
+        if not InterfaceType._provided_by(cls, adapted, allow_implicit):
             raise AdaptionError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
         if interface_only:
             adapted = InterfaceType.interface_only(cls, adapted)
@@ -690,13 +692,10 @@ class Interface(abc.ABC, metaclass=InterfaceType):
     _pi: _PIAttributes
 
     @classmethod
-    def provided_by(cls, obj, allow_implicit: bool = True) -> bool:
-        """ Returns True if obj provides this interface.
-        provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
-        If allow_implicit is True then returns True if interface duck-type check passes.
-        Returns False otherwise.
+    def provided_by(cls, obj) -> bool:
+        """ Returns True if obj provides this interface (structural type-check).
         """
-        return InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit)
+        return InterfaceType.provided_by(cls, obj)
 
     @classmethod
     def interface_only(cls: Type[AnInterface], implementation: AnInterface) -> AnInterface:

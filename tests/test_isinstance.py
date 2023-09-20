@@ -15,7 +15,7 @@ class TestIsInstanceChecks(unittest.TestCase):
         IAnimal.register(Animal)
         a = Animal()
         self.assertTrue(isinstance(a, IAnimal))
-        self.assertTrue(IAnimal.provided_by(a, allow_implicit=False))
+        self.assertTrue(IAnimal.provided_by(a))
 
     def test_duck_type_fallback_passes(self):
         class Animal2(object):
@@ -28,10 +28,9 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         a = Animal2()
         self.assertFalse(isinstance(a, IAnimal))
-        self.assertFalse(IAnimal.provided_by(a, allow_implicit=False))
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            self.assertTrue(IAnimal.provided_by(a, allow_implicit=True))
+            self.assertTrue(IAnimal.provided_by(a))
         self.assertIn(Animal2, IAnimal._pi.structural_subclasses)
 
     def test_duck_type_fallback_can_fail(self):
@@ -41,7 +40,7 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         a = Animal2()
         self.assertFalse(isinstance(a, IAnimal))
-        self.assertFalse(IAnimal.provided_by(a, allow_implicit=True))
+        self.assertFalse(IAnimal.provided_by(a))
 
     def test_concrete_subclass_check(self):
         class Cat(IAnimal):
@@ -57,7 +56,7 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         c = Cat()
         with self.assertRaises(pure_interface.InterfaceError):
-            Cat.provided_by(c, allow_implicit=False)
+            Cat.provided_by(c)
 
     def test_warning_issued_once(self):
         pure_interface.set_is_development(True)
@@ -72,8 +71,8 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            IAnimal.provided_by(Cat2(), allow_implicit=True)
-            IAnimal.provided_by(Cat2(), allow_implicit=True)
+            IAnimal.provided_by(Cat2())
+            IAnimal.provided_by(Cat2())
 
         self.assertEqual(warn.call_count, 1)
 
@@ -90,7 +89,7 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         warn = mock.MagicMock()
         with mock.patch('warnings.warn', warn):
-            IAnimal.provided_by(Cat3(), allow_implicit=True)
+            IAnimal.provided_by(Cat3())
 
         warn.assert_not_called()
 
@@ -107,7 +106,7 @@ class TestIsInstanceChecks(unittest.TestCase):
 
         s = io.StringIO()
         with mock.patch('sys.stderr', new=s):
-            IAnimal.provided_by(Cat4(), allow_implicit=True)
+            IAnimal.provided_by(Cat4())
 
         msg = s.getvalue()
         self.assertIn('Cat4', msg)

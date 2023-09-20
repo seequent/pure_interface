@@ -10,11 +10,10 @@ Features
 * Prevents code in method bodies of an interface class
 * Ensures that method overrides have compatible signatures
 * Supports interface adaption.
-* Supports optional structural type checking for ``Interface.provided_by(a)`` and ``Interface.adapt(a)``
+* Supports optional structural type checking.
 * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
 * ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
   attributes and methods defined by ``Interface``.
-* Warns if ``provided_by`` did a structural type check when inheritance would work.
 * Supports python 3.8+
 
 A note on the name
@@ -44,7 +43,7 @@ leaving all method bodies empty::
     class IAnimal(Interface):
         height: float
 
-        def speak(self, volume):
+        def speak(self):
             pass
 
 
@@ -54,7 +53,7 @@ For historical reasons, you can also use the following alternate syntax::
     class IAnimal(Interface):
         height = None
 
-        def speak(self, volume):
+        def speak(self):
             pass
 
 The value assigned to class attributes *must* be ``None`` and the attribute is removed from the class dictionary
@@ -70,7 +69,7 @@ ABC-style property definitions are also supported (and equivalent)::
             pass
 
         @abstractmethod
-        def speak(self, volume):
+        def speak(self):
             pass
 
 Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
@@ -137,7 +136,7 @@ Like ``Protocol``, simply inherit from an interface class in the normal way and 
         def __init__(self, height):
             self.height = height
 
-        def speak(self, volume):
+        def speak(self):
             print('hello')
 
 Concrete implementations may implement interface attributes in any way they like: as instance attributes, properties or
@@ -151,7 +150,7 @@ custom descriptors, provided that they all exist at the end of ``__init__()``.  
         def height(self):
             return self._height
 
-        def speak(self, volume):
+        def speak(self):
             print('hello')
 
 Method Signatures
@@ -208,19 +207,19 @@ the class.  For example::
 
 will not issue any warnings.
 
-The warning messages are also appended to the module variable ``missing_method_warnings``, irrespective of any warning
-module filters (but only if ``get_is_development() returns True``).  This provides an alternative to raising warnings as errors.
+The warning messages are also stored irrespective of any warning module filters (but only if ``get_is_development() returns True``).
+The existence of warnings can be tested with waringing messages can be fetched using ``get_missing_method_warnings`` This provides an alternative to raising warnings as errors.
 When all your imports are complete you can check if this list is empty.::
 
-    if pure_iterface.missing_method_warnings:
-        for warning in pure_iterface.get_missing_method_warnings():
+    if warnings := pure_iterface.get_missing_method_warnings():
+        for warning in warnings:
             print(warning)
         exit(1)
 
 Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
-Sub-Interfaces
-==============
+Partial-Interfaces
+------------------
 Sometimes your code only uses a small part of a large interface.  It can be useful (eg. for test mocking) to specify
 the sub part of the interface that your code requires.  This can be done with the ``sub_interface_of`` decorator.::
 
@@ -232,7 +231,9 @@ the sub part of the interface that your code requires.  This can be done with th
         return "That's tall" if h.height > 100 else "Not so tall"
 
 The ``sub_interface_of`` decorator checks that the attributes and methods of the smaller interface match the larger interface.
-Function signatures must match exactly (not just be compatible).  The decorator will also use ``abc.register`` so that
+If the larger interface is changed and no longer matches the smaller interface then ``InterfaceError`` is raised.
+Function signatures must match exactly (not just be compatible).  The decorator will also register the larger interface as
+a sub-type of the smaller interface (using ``abc.register``) so that
 ``isinstance(Animal(), IHeight)`` returns ``True``.
 
 Adaption
@@ -246,7 +247,7 @@ the ``register_adapter`` function. Take for example an interface ``ISpeaker`` an
 class ``Talker`` and an adapter class ``TalkerToSpeaker``::
 
     class ISpeaker(Interface):
-        def speak(self, volume):
+        def speak(self):
             pass
 
     class Talker(object):
@@ -258,7 +259,7 @@ class ``Talker`` and an adapter class ``TalkerToSpeaker``::
         def __init__(self, talker):
             self._talker = talker
 
-        def speak(self, volume):
+        def speak(self):
             return self._talker.talk()
 
 The ``adapts`` decorator call above is equivalent to::
@@ -310,8 +311,8 @@ following implementation of the ``ISpeaker`` interface above::
       def __init__(self, topic):
           self.topic = topic
 
-      def speak(self, volume):
-          return 'lets talk about {} very {}'.format(self.topic, volume)
+      def speak(self):
+          return 'lets talk about {}'.format(self.topic)
 
   topic_speaker = TopicSpeaker('python')
 
@@ -358,20 +359,23 @@ Structural_ type checking checks if an object has the attributes and methods def
 
 As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
 An alternative to ``isinstance()`` is the ``Interface.provided_by(obj)`` classmethod which will fall back to structural type
-checking if the instance is not an actual subclass.  This can be controlled by the ``allow_implicit`` parameter which defaults to ``True``.
-The structural type-checking does not check function signatures.::
+checking if the instance is not an actual subclass. The structural type-checking does not check function signatures.
+Pure interface is stricter than ``Protocol`` in that it differentiates between attributes and methods.::
 
     class Parrot(object):
         def __init__(self):
-            self.height = 43
+            self._height = 43
 
-        def speak(self, volume):
+        @property
+        def height(self):
+            return self._height
+
+        def speak(self):
             print('hello')
 
     p = Parrot()
     isinstance(p, IAnimal) --> False
     IAnimal.provided_by(p) --> True
-    IAnimal.provided_by(p, allow_implicit=False) --> False
 
 The structural type checking makes working with data transfer objects (DTO's) much easier.::
 
@@ -489,7 +493,8 @@ Any one or combination of attributes is allowed.
 
 pi_attr_delegates
 --------------
-``pi_attr_delegates`` is a dictionary mapping delegate attribute names to either an interface or a list of attribute names.
+``pi_attr_delegates`` is a dictionary mapping the attribute name of the delegate to either an interface or a list
+of attribute names to delegate.
 If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to route to the delegate object.
 For example suppose we want to extend an Animal with a new method ``price``::
 
@@ -552,34 +557,36 @@ if there is no delegate, mapping or implementation for that attribute. Again, th
 Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``a``.
 Methods and properties defined on the delegate class itself take precedence (as one would expect)::
 
-    class MyDelegate(Delegate, IFoo):
-        pi_attr_delegates = {'impl': IFoo}
+    class MyDelegate(Delegate, IAnimal):
+        pi_attr_delegates = {'impl': IAnimal}
 
         def __init__(self, impl):
             self.impl = impl
 
         @property
-        def foo(self):
-            return self.impl.foo * 2
+        def height(self):
+            return 10
 
-        def bar(self, baz):
-            return 'my bar'
+        def speak(self):
+            return 'I speak on behalf of the animal'
+
+    d = MyDelegate(a)
+    d.height -> 10  # height defined on MyDelegate
+    d.speak() -> 'I speak on behalf of the animal'  # speak is defined on MyDelegate
 
 However, attempting to set an instance attribute as an override will just set the attribute on the underlying delegate
 instead.  If you want to override an interface attribute using an instance attribute, first define it as a class attribute::
 
-    class MyDelegate(Delegate, IFoo):
-        pi_attr_delegates = {'impl': IFoo}
-        foo = None  # prevents delegation of foo to `impl`
+    class MyDelegate(Delegate, IAnimal):
+        pi_attr_delegates = {'impl': IAnimal}
+        height = None  # prevents delegation of height to `impl`
 
         def __init__(self, impl):
             self.impl = impl
-            self.foo = 3
+            self.height = 10
 
 If you supply more than one delegation rule (e.g. both ``pi_attr_mapping`` and ``pi_attr_fallack``) then
- ``pi_attr_delegates`` delegates are created first and any attributes defined there are now part of the class.
-Then ``pi_attr_mapping`` delegates are created (and become part of the class) and finally ``pi_attr_fallback`` is processed.
-Thus if there are duplicate delegates defined, the one defined first takes precedence.
+ ``pi_attr_delegates`` delegation rules have priority over ``pi_attr_mapping`` delegation rules have priority over ``pi_attr_fallback``.
 
 Type Composition
 ----------------
@@ -609,7 +616,7 @@ If the interfaces share method or attribute names, then the attribute is routed 
 For example::
 
     class Speaker(ISpeaker):
-        def speak(self, volume):
+        def speak(self):
             return 'speaker speak'
 
     SA = composed_type(ISpeaker, IAnimal)
@@ -637,7 +644,7 @@ argument provides all the interfaces in the type (even if the argument is not a 
         ...
 
     AT.provided_by(X()) -> True
-
+    TA.provided_by(X()) -> True
 
 Development Flag
 ================
@@ -735,10 +742,8 @@ Classes
         Returns a wrapper around *implementation* that provides the properties and methods defined by
         the interface and nothing else.
 
-    **provided_by** *(obj, allow_implicit=True)*
-        Returns ``True`` if *obj* provides this interface. If ``allow_implicit`` is ``True`` the also
-        return ``True`` for objects that provide the interface structure but do not inherit from it.
-        Raises ``InterfaceError`` if the class is a concrete type.
+    **provided_by** *(obj)*
+        Returns ``True`` if *obj* provides this interface (either by inheritance or structurally).
 
 **Delegate**
     Helper class for delegating attribute access to one or more objects.  Attribute delegation is defined by

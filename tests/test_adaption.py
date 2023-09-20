@@ -136,7 +136,7 @@ class TestAdaption(unittest.TestCase):
         talker = Talker()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
+        self.assertTrue(isinstance(s, ISpeaker))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_implicit_adapter(self):
@@ -147,14 +147,14 @@ class TestAdaption(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             s = ISpeaker.adapt_or_none(talker, allow_implicit=True, interface_only=False)
-        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=True))
+        self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_callable_adapter_passes(self):
         talker = Talker3()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
+        self.assertTrue(ISpeaker.provided_by(s))
         self.assertEqual(s.speak(5), 'talk')
 
     def test_adapter_call_check(self):
@@ -202,7 +202,7 @@ class TestAdaption(unittest.TestCase):
         talker = Talker()
         s = ISpeaker.adapt(talker, interface_only=False)
 
-        self.assertTrue(ISpeaker.provided_by(s, allow_implicit=False))
+        self.assertTrue(isinstance(s, ISpeaker))
         self.assertEqual(s.speak(4), 'talk')
 
     def test_filter_adapt(self):
