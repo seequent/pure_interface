@@ -6,6 +6,5 @@ from .interface import get_is_development, set_is_development, get_missing_metho
 from ._sub_interface import sub_interface_of
 from .adaption import adapts, register_adapter, AdapterTracker, adapt_args
 from .delegation import Delegate
-from .data_classes import dataclass
 
 __version__ = '7.3.0'

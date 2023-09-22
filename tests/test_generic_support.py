@@ -4,17 +4,21 @@ from typing import TypeVar, List, Iterable
 
 T = TypeVar('T')
 
+
 class IMyInterface(pure_interface.Interface, Iterable[str]):
-    def foo(self) -> T:
+    def foo(self) -> str:
         pass
+
 
 class IMyGenericInterface(pure_interface.Interface, Iterable[T]):
     def foo(self) -> T:
         pass
 
+
 class Impl(List[str], IMyInterface):
     def foo(self):
         return 'foo'
+
 
 class StrImpl(List[str], IMyGenericInterface[str]):
     def foo(self):

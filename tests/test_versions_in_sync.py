@@ -5,7 +5,7 @@ import pure_interface
 
 class TestVersionsMatch(unittest.TestCase):
     def test_versions(self):
-        setup_py = os.path.join(os.path.dirname(__file__), '..', 'setup.cfg')
+        setup_py = os.path.join(os.path.dirname(__file__), '..', 'pyproject.toml')
         with open(setup_py, 'r') as f:
             setup_contents = f.readlines()
 

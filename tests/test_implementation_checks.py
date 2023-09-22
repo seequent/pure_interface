@@ -340,6 +340,10 @@ class TestPropertyImplementations(unittest.TestCase):
             def height(self):
                 return 10
 
+            @height.setter
+            def height(self, height):
+                pass
+
         a = Animal()
         self.assertEqual(a.height, 10)
 
@@ -579,7 +583,7 @@ class TestCrossImplementations(unittest.TestCase):
                 return 4
 
         self.assertEqual(frozenset(['a', 'c']), CrossImplementation._pi.abstractproperties)
-        self.assertEqual(frozenset(['a', 'b', 'c', 'd']), CrossImplementation._pi.interface_attribute_names)
+        self.assertEqual({'a', 'b', 'c', 'd'}, set(CrossImplementation._pi.interface_attribute_names))
 
 
 class TestAnnoationChecks(unittest.TestCase):

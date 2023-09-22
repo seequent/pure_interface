@@ -2,7 +2,7 @@ import pure_interface
 
 
 class IAnimal(pure_interface.Interface):
-    def speak(self, volume):
+    def speak(self, volume) -> str:
         pass
 
     @property

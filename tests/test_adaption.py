@@ -16,7 +16,7 @@ class ISpeaker(Interface):
         pass
 
 
-class ISleepTalker(ISpeaker, Interface):
+class ISleepSpeaker(ISpeaker, Interface):
     is_asleep = None
 
 
@@ -101,13 +101,13 @@ class Sleeper(object):
 
 
 @pure_interface.adapts(Sleeper)
-class SleepTalker(ISleepTalker):
+class SleepSpeaker(ISleepSpeaker):
     def __init__(self, sleeper):
         self._sleeper = sleeper
         self.is_asleep = sleeper.is_asleep
 
     def speak(self, volume):
-        super(SleepTalker, self).speak(volume)
+        return "I'm asleep" if self.is_asleep else "I'm awake"
 
 
 class DunderInterface(Interface):
@@ -333,7 +333,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
     def test_adapter_to_sub_interface_used(self):
         a_sleeper = Sleeper()
         speaker = ISpeaker.adapt_or_none(a_sleeper, interface_only=False)
-        self.assertIsInstance(speaker, SleepTalker)
+        self.assertIsInstance(speaker, SleepSpeaker)
 
     def test_adapter_preference(self):
         """ adapt should prefer interface adapter over sub-interface adapter """

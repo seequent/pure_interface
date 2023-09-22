@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 
 import pure_interface
@@ -31,7 +32,7 @@ def larger_int(i):
     return Larger(i, i, i)
 
 
-@pure_interface.dataclass
+@dataclasses.dataclass
 class Larger(ILarger):
 
     def e(self):

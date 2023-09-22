@@ -408,7 +408,8 @@ class, interface pair.  For example::
 
 Dataclass Support
 =================
-``pure_interface`` provides a ``dataclass`` decorator.  This decorator can be used to create a dataclass that implements an interface.  For example::
+``Interfaces`` can be decorated with the built-in ``dataclasses.dataclass`` decorator.
+This will create a dataclass that implements an interface.  For example::
 
     class IAnimal2(Interface):
         height: float
@@ -417,17 +418,13 @@ Dataclass Support
         def speak(self):
             pass
 
-    @dataclass
+    @dataclasses.dataclass
     class Animal2(IAnimal2):
         def speak(self):
             print('Hello, I am a {} metre tall {}', self.height, self.species)
 
     a = Animal2(height=4.5, species='Giraffe')
 
-The builtin Python ``dataclass`` decorator cannot be used because it will not create attributes for the
-``height`` and ``species`` annotations on the interface base class ``IAnimal2``.
-As per the built-in ``dataclass`` decorator, only interface attributes defined
-using annotation syntax are supported (and not the alternatives syntaxes provided by ``pure_interface``).
 
 Interface Type Information
 ==========================

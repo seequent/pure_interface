@@ -29,7 +29,7 @@ def some_func(x, y: I1):
 
 
 @adapt_args
-def other_func(a: I1, b: I2 = None):
+def other_func(a: I1, b: Optional[I2] = None):
     return a is b
 
 
