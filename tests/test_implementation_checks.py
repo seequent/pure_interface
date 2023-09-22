@@ -583,7 +583,7 @@ class TestCrossImplementations(unittest.TestCase):
                 return 4
 
         self.assertEqual(frozenset(['a', 'c']), CrossImplementation._pi.abstractproperties)
-        self.assertEqual({'a', 'b', 'c', 'd'}, set(CrossImplementation._pi.interface_attribute_names))
+        self.assertEqual(['a', 'b', 'c', 'd'], CrossImplementation._pi.interface_attribute_names)
 
 
 class TestAnnoationChecks(unittest.TestCase):
