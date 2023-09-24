@@ -22,14 +22,14 @@ def _check_interfaces_match(large_interface, small_interface):
 
     if not small_attributes.issubset(large_attributes):
         new_attrs = sorted(small_attributes.difference(large_attributes))
-        new_attrs = ', '.join(new_attrs)
-        msg = f'{small_interface.__name__} has attributes that are not on {large_interface.__name__}: {new_attrs}'
+        attr_str = ', '.join(new_attrs)
+        msg = f'{small_interface.__name__} has attributes that are not on {large_interface.__name__}: {attr_str}'
         raise interface.InterfaceError(msg)
 
     if not small_methods.issubset(large_methods):
         new_methods = sorted(small_methods.difference(large_methods))
-        new_methods = ', '.join(new_methods)
-        msg = f'{small_interface.__name__} has methods that are not on {large_interface.__name__}: {new_methods}'
+        method_str = ', '.join(new_methods)
+        msg = f'{small_interface.__name__} has methods that are not on {large_interface.__name__}: {method_str}'
         raise interface.InterfaceError(msg)
 
     for method_name in small_methods:

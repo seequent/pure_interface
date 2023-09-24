@@ -41,10 +41,10 @@ def no_adaption(obj: _T) -> _T:
 
 
 AnInterface = TypeVar('AnInterface', bound='Interface')
-AnInterfaceType = TypeVar('AnInterfaceType', bound=Type['Interface'])
+AnInterfaceType = TypeVar('AnInterfaceType', bound='InterfaceType')
 
 
-class _PIAttributes(object):
+class _PIAttributes:
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
 
     def __init__(self, this_type_is_an_interface: bool,
@@ -75,7 +75,7 @@ class _PIAttributes(object):
         return self.interface_method_names.union(self.interface_attribute_names)
 
 
-class _ImplementationWrapper(object):
+class _ImplementationWrapper:
     def __init__(self, implementation: Any, interface: AnInterfaceType):
         object.__setattr__(self, '_ImplementationWrapper__impl', implementation)
         object.__setattr__(self, '_ImplementationWrapper__interface', interface)
@@ -249,7 +249,7 @@ def _is_descriptor(obj: Any) -> bool:  # in our context we only care about __get
     return hasattr(obj, '__get__')
 
 
-class _ParamTypes(object):
+class _ParamTypes:
     def __init__(self, pos_only: List[Parameter], pos_or_kw: List[Parameter],
                  vararg: List[Parameter], kw_only: List[Parameter], varkw: List[Parameter]):
         self.pos_only = pos_only
@@ -356,7 +356,7 @@ def _signatures_are_consistent(func_sig: Signature, base_sig: Signature) -> bool
 def _ensure_everything_is_abstract(attributes):
     # all methods and properties are abstract on a pure interface
     namespace = {}
-    functions: list[Callable] = []
+    functions: List[Optional[Callable]] = []
     interface_method_signatures = {}
     interface_attribute_names = []
     for name, value in attributes.items():
@@ -521,6 +521,7 @@ class InterfaceType(abc.ABCMeta):
         * optionally check overriding method signatures match those on base class.
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
+    _pi: _PIAttributes
 
     def __new__(mcs, clsname, bases, attributes, **kwargs):
         # Interface is not in globals() when we are constructing the Interface class itself.
@@ -529,7 +530,7 @@ class InterfaceType(abc.ABCMeta):
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
             cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, attributes, **kwargs)
-            cls._pi = _PIAttributes(False, set(), {}, set())
+            cls._pi = _PIAttributes(False, set(), {}, [])
             return cls
 
         base_types = [(cls, _type_is_interface(cls)) for cls in bases]
@@ -627,8 +628,7 @@ class InterfaceType(abc.ABCMeta):
         listing = set(cls._pi.interface_attribute_names)
         for base in cls.mro():
             listing.update(base.__dict__.keys())
-        listing = sorted(listing)
-        return listing
+        return sorted(listing)
 
     def provided_by(cls, obj):
         return cls._provided_by(obj, allow_implicit=True)
@@ -659,6 +659,7 @@ class InterfaceType(abc.ABCMeta):
             interface_only = is_development
         if isinstance(obj, _ImplementationWrapper):
             obj = obj._ImplementationWrapper__impl
+        adapter: Optional[Callable[[Any], 'InterfaceType']]
         if InterfaceType._provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:

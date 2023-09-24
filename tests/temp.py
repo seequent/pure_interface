@@ -1,13 +1,19 @@
 import pure_interface
 import dataclasses
 
-class IX(pure_interface.Interface):
+
+class AnInterface(pure_interface.Interface):
     foo: int
     bar: str
 
+
 @dataclasses.dataclass
-class X(IX):
+class AnImplementation(AnInterface):
     pass
 
-x = X(foo=4, bar='hello')
+
+x = AnImplementation(foo=4, bar='hello')
+
+assert(x.foo == 4)
+assert(x.bar == 'hello')
 
