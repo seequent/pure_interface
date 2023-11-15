@@ -231,7 +231,7 @@ the sub part of the interface that your code requires.  This can be done with th
         return "That's tall" if h.height > 100 else "Not so tall"
 
 The ``sub_interface_of`` decorator checks that the attributes and methods of the smaller interface match the larger interface.
-If the larger interface is changed and no longer matches the smaller interface then ``InterfaceError`` is raised.
+If the larger interface is changed and no longer matches the smaller interface then ``InterfaceError`` is raised during import.
 Function signatures must match exactly (not just be compatible).  The decorator will also register the larger interface as
 a sub-type of the smaller interface (using ``abc.register``) so that
 ``isinstance(Animal(), IHeight)`` returns ``True``.
@@ -704,8 +704,9 @@ Classes
 
     Classes created with a metaclass of ``InterfaceType`` will have the following property:
 
-    **_pi** Information about the class that is used by this meta-class.  This attribute is reserved for use by
-            ``pure_interface`` and must not be overridden.
+    **_pi**
+        This contains information about the class that is used by this meta-class.
+        This attribute is reserved for use by ``pure_interface`` and must not be overridden.
 
 
 **Interface**
