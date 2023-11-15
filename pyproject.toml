@@ -1,6 +1,6 @@
 [project]
 name = "pure-interface"
-version = "7.3.0"
+dynamic = ["version"]
 description = "A Python interface library that disallows function body content on interfaces and supports adaption."
 keywords = ["interface", "protocol", "adaption", "structural", "dataclass"]
 authors = [
@@ -32,6 +32,9 @@ typing = ['mypy']
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "pure_interface.__version__"}
 
 [tool.mypy]
 plugins = "pure_interface/mypy_plugin.py"

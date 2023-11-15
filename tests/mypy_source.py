@@ -1,3 +1,8 @@
+"""With the pure-interface mypy plugin enabled, mypy should validate this file without error.
+
+This is working except for dataclasses __init__ call arguments.
+"""
+
 import dataclasses
 
 import pure_interface
@@ -127,6 +132,7 @@ md = MappingDelegate(t)
 y = md.wibble(2)
 z = md.bar
 
+# these 2 lines still raise call-arg errors.
 dc1 = DC(4, 3.7)
 dc2 = DC(foo=4, height=3.7)
 

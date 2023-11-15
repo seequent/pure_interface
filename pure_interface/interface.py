@@ -370,7 +370,7 @@ def _ensure_everything_is_abstract(attributes):
         elif getattr(value, '__isabstractmethod__', False):
             if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
                 if isinstance(value, (staticmethod, classmethod)):
-                        func = value.__func__
+                    func = value.__func__
                 else:
                     func = value
                 functions.append(func)

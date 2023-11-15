@@ -7,4 +7,4 @@ from ._sub_interface import sub_interface_of
 from .adaption import adapts, register_adapter, AdapterTracker, adapt_args
 from .delegation import Delegate
 
-__version__ = '7.3.0'
+__version__ = '8.0.0'

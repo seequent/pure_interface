@@ -65,7 +65,7 @@ class TestNoContentChecks(unittest.TestCase):
             class INotAnimal(pure_interface.Interface):
                 def bad_method(self):
                     """a comment"""
-                    msg = NotImplementedError('msg {}'.format(self.__class__.__name__))
+                    msg = 'msg {}'.format(self.__class__.__name__)
                     raise RuntimeError(msg)
 
     def test_function_with_body_fails(self):
