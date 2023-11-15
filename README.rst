@@ -673,13 +673,13 @@ For this reason the ``pure_interface`` module has an ``is_development`` switch w
     get_is_development()
     set_is_development(is_dev)
 
-``is_development`` defaults to ``True`` if running from source and default to ``False`` if bundled into an executable by
+``is_development`` defaults to ``True`` if running from source and defaults to ``False`` if bundled into an executable by
 py2exe_, cx_Freeze_ or similar tools.
 
 If you call ``set_is_development`` to change this flag it must be set before modules using the ``Interface`` type
 are imported or else the change will not have any effect.
 
-If ``is_development`` if ``False`` then:
+If ``is_development`` is ``False`` then:
 
 * Signatures of overriding methods are not checked
 * No warnings are issued by the adaption functions
