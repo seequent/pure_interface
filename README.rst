@@ -16,8 +16,8 @@ Features
   attributes and methods defined by ``Interface``.
 * Supports python 3.8+
 
-A note on the name
-------------------
+**A note on the name**
+
 The phrase *pure interface* applies only to the first design goal - a class that defines only an interface with no
 implementation is a pure interface [*]_.
 In every other respect the zen of 'practicality beats purity' applies.
@@ -33,7 +33,7 @@ or you can grab the source code from GitHub_.
 Defining an Interface
 =====================
 
-For simplicity in these examples we assume that the entire pure_interface namespace has been imported ::
+For simplicity in these examples we assume that the entire ``pure_interface`` namespace has been imported ::
 
     from pure_interface import *
 
@@ -75,8 +75,8 @@ ABC-style property definitions are also supported (and equivalent)::
 Again, the height property is removed from the class dictionary, but, as with the other syntaxes,
 all concrete subclasses will be required to have a ``height`` attribute.
 
-However the ``abstractmethod`` decorator is optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
-In the examples above, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
+Note that the ``abstractmethod`` decorator is optional as **ALL** methods and properties on a ``Interface`` subclass are abstract.
+All the examples above are equivalent, both ``height`` and ``speak`` are considered abstract and must be overridden by subclasses.
 
 Including ``abstractmethod`` decorators in your code can be useful for reminding yourself (and telling your IDE) that you need
 to override those methods.  Another common way of informing an IDE that a method needs to be overridden is for
@@ -218,8 +218,8 @@ When all your imports are complete you can check if this list is empty.::
 
 Note that missing properties are NOT checked for as they may be provided by instance attributes.
 
-Partial-Interfaces
-------------------
+Interface Subsets
+-----------------
 Sometimes your code only uses a small part of a large interface.  It can be useful (eg. for test mocking) to specify
 the sub part of the interface that your code requires.  This can be done with the ``sub_interface_of`` decorator.::
 
@@ -360,7 +360,7 @@ Structural_ type checking checks if an object has the attributes and methods def
 As interfaces are inherited, you can usually use ``isinstance(obj, MyInterface)`` to check if an interface is provided.
 An alternative to ``isinstance()`` is the ``Interface.provided_by(obj)`` classmethod which will fall back to structural type
 checking if the instance is not an actual subclass. The structural type-checking does not check function signatures.
-Pure interface is stricter than ``Protocol`` in that it differentiates between attributes and methods.::
+Pure interface is stricter than a ``runtime_checkable`` decorated ``Protocol`` in that it differentiates between attributes and methods.::
 
     class Parrot(object):
         def __init__(self):
@@ -397,18 +397,20 @@ Adaption also supports structural typing by passing ``allow_implicit=True`` (but
     speaker = ISpeaker.adapt(Parrot(), allow_implicit=True)
     ISpeaker.provided_by(speaker)  --> True
 
-When using ``provided_by()`` or ``adapt()`` with ``allow_implicit=True``, a warning may be issued informing you that
+When using ``adapt()`` with ``allow_implicit=True``, a warning may be issued informing you that
 the structurally typed object should inherit the interface.  The warning is only issued if the interface is implemented by the
 class (and not by instance attributes as in the DTO case above) and the warning is only issued once for each
 class, interface pair.  For example::
 
-    s = ISpeaker.adapt(Parrot())
+    s = ISpeaker.adapt(Parrot(), allow_implicit=True)
     UserWarning: Class Parrot implements ISpeaker.
     Consider inheriting ISpeaker or using ISpeaker.register(Parrot)
 
+This warning is issued because ``provided_by`` first does an isinstance check and will be faster in this situation.
+
 Dataclass Support
 =================
-``Interfaces`` can be decorated with the built-in ``dataclasses.dataclass`` decorator.
+``Interfaces`` can be decorated with the standard library ``dataclasses.dataclass`` decorator.
 This will create a dataclass that implements an interface.  For example::
 
     class IAnimal2(Interface):
@@ -431,22 +433,22 @@ Interface Type Information
 The ``pure_interface`` module provides these functions for returning information about interface types.
 
 type_is_interface(cls)
-    Return True if cls is a pure interface, False otherwise or if cls is not a class.
+    Return ``True`` if ``cls`` is a pure interface, ``False`` otherwise or if ``cls`` is not a class.
 
 get_type_interfaces(cls)
-    Returns all interfaces in the cls mro including cls itself if it is an interface
+    Returns all interfaces in the ``cls`` mro including ``cls`` itself if it is an interface
 
 get_interface_names(cls)
     Returns a ``frozenset`` of names (methods and attributes) defined by the interface.
-    if interface is not a ``Interface`` subtype then an empty set is returned.
+    If ``interface`` is not a ``Interface`` subtype then an empty set is returned.
 
 get_interface_method_names(interface)
     Returns a ``frozenset`` of names of methods defined by the interface.
-    if interface is not a ``Interface`` subtype then an empty set is returned
+    If ``interface`` is not a ``Interface`` subtype then an empty set is returned
 
 get_interface_attribute_names(interface)
     Returns a ``frozenset`` of names of attributes defined by the interface.
-    if interface is not a ``Interface`` subtype then an empty set is returned
+    If ``interface`` is not a ``Interface`` subtype then an empty set is returned
 
 
 Automatic Adaption
@@ -458,17 +460,17 @@ For example::
     def my_func(foo, bar=None):
         pass
 
-In Python 3.5 and later the types can be taken from the argument annotations.::
+The types can also be taken from the argument annotations.::
 
     @adapt_args
-    def my_func(foo: IFoo, bar: IBar=None):
+    def my_func(foo: IFoo, bar: IBar | None = None):
         pass
 
 This would adapt the ``foo`` parameter to ``IFoo`` (with ``IFoo.optional_adapt(foo))`` and ``bar`` to ``IBar
 (using ``IBar.optional_adapt(bar)``)
 before passing them to my_func.  ``None`` values are never adapted, so ``my_func(foo, None)`` will work, otherwise
 ``AdaptionError`` is raised if the parameter is not adaptable.
-All arguments must be specified as keyword arguments::
+All arguments to ``adapt_args`` must be specified as keyword arguments::
 
     @adapt_args(IFoo, IBar)   # NOT ALLOWED
     def other_func(foo, bar):
@@ -511,7 +513,7 @@ For example suppose we want to extend an Animal with a new method ``price``::
     ea.speak() -> 'hello'  # speak is in IAnimal and routed to 'ea.a.speak()'
     ea.price() -> 'lots'
 
-The following code is equivalent but more verbose and won't update with changes to IAnimal::
+The following code is equivalent but won't update with changes to IAnimal::
 
     class ExtendedAnimal(Delegate):
         pi_attr_delegates = {'a': ['height', 'speak']}
@@ -551,8 +553,8 @@ if there is no delegate, mapping or implementation for that attribute. Again, th
         def price(self):
             return 'lots'
 
-Note that method and attribute names for all ``Interface`` classes in ``ExtendAnimal.mro()`` are routed to ``a``.
-Methods and properties defined on the delegate class itself take precedence (as one would expect)::
+Note that method and attribute names for all interface classes in ``ExtendAnimal.mro()`` are routed to ``a``.
+Methods and properties defined on the delegating class itself take precedence (as one would expect)::
 
     class MyDelegate(Delegate, IAnimal):
         pi_attr_delegates = {'impl': IAnimal}
@@ -583,7 +585,7 @@ instead.  If you want to override an interface attribute using an instance attri
             self.height = 10
 
 If you supply more than one delegation rule (e.g. both ``pi_attr_mapping`` and ``pi_attr_fallack``) then
- ``pi_attr_delegates`` delegation rules have priority over ``pi_attr_mapping`` delegation rules have priority over ``pi_attr_fallback``.
+ ``pi_attr_delegates`` delegation rules have priority over ``pi_attr_mapping`` delegation rules which have priority over ``pi_attr_fallback``.
 
 Type Composition
 ----------------
@@ -642,6 +644,24 @@ argument provides all the interfaces in the type (even if the argument is not a 
 
     AT.provided_by(X()) -> True
     TA.provided_by(X()) -> True
+
+MyPy
+----
+
+``pure_interface`` does some things that mypy does not understand.  For example mypy does not understand that
+all methods in an interface are abstract and will complain about incorrect return types.
+For this reason ``pure_interface`` has a mypy plugin.  Unfortunately this plugin does not completely cover all
+the capabilities of ``pure_interface`` and some `# type: ignore` comments will be required to get a clean mypy run.
+
+To use the ``pure_interface`` plugin add the following to your `mypy configuration`_ file.::
+
+    [mypy]
+    plugins = pure_interface.mypy_plugin
+
+Or your pyproject.toml file::
+
+    [tool.mypy]
+    plugins = "pure_interface.mypy_plugin"
 
 Development Flag
 ================
@@ -863,6 +883,7 @@ Exceptions
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
 .. _mock_protocol: https://pypi.org/project/mock-protocol/
 .. _Structural: https://en.wikipedia.org/wiki/Structural_type_system
+.. _mypy configuration: https://mypy.readthedocs.io/en/stable/config_file.html#config-file
 
 .. [*] We don't talk about the methods on the base ``Interface`` class.  In earlier versions they
-   were all on the meta class but then practicality got in the way.
+   were all on the meta class but then practicality (mainly type-hinting) got in the way.
