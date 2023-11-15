@@ -13,7 +13,7 @@ class ISleeper(Interface):
     is_asleep = None
 
 
-class Talker(object):
+class Talker:
     def __init__(self, saying='talk'):
         self._saying = saying
 
@@ -21,7 +21,7 @@ class Talker(object):
         return self._saying
 
 
-class Sleeper(ISleeper, object):
+class Sleeper(ISleeper):
     def __init__(self, is_asleep=False):
         self.is_asleep = is_asleep
 
@@ -32,7 +32,7 @@ def talker_to_sleeper(talker):
 
 
 @adapts(Talker)
-class TalkerToSpeaker(ISpeaker, object):
+class TalkerToSpeaker(ISpeaker):
     def __init__(self, talker):
         self._talker = talker
 

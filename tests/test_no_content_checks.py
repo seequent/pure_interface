@@ -43,8 +43,8 @@ class TestNoContentChecks(unittest.TestCase):
                 raise NotImplementedError('subclass must provide')
 
             def sleep(self, duration):
-                "a comment"
-                msg = 'msg'.format(self.__class__.__name__)
+                """a comment"""
+                msg = 'msg {}'.format(self.__class__.__name__)
                 raise NotImplementedError(msg)
 
     def test_async_function_passes(self):
@@ -57,7 +57,7 @@ class TestNoContentChecks(unittest.TestCase):
                 raise NotImplementedError('subclass must provide')
 
             async def sleep(self, duration):
-                "a comment"
+                """a comment"""
                 pass
 
     def test_raise_other_fails(self):
@@ -65,8 +65,8 @@ class TestNoContentChecks(unittest.TestCase):
             class INotAnimal(pure_interface.Interface):
                 def bad_method(self):
                     """a comment"""
-                    msg = NotImplementedError('msg'.format(self.__class__.__name__))
-                    raise RuntimeError()
+                    msg = 'msg {}'.format(self.__class__.__name__)
+                    raise RuntimeError(msg)
 
     def test_function_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):

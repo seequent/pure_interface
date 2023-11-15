@@ -8,11 +8,11 @@ import typing
 import warnings
 
 from .errors import InterfaceError, AdaptionError
-from .interface import AnInterface, Interface, InterfaceType, AnInterfaceType, type_is_interface
+from .interface import AnInterface, Interface, InterfaceType, type_is_interface
 from .interface import get_type_interfaces, get_pi_attribute
 
 
-def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> Callable[[Any], Any]:
+def adapts(from_type: Any, to_interface: Optional[Type[Interface]] = None) -> Callable[[Any], Any]:
     """Class or function decorator for declaring an adapter from a type to an interface.
     E.g.
         @adapts(MyClass, MyInterface)
@@ -22,7 +22,7 @@ def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> 
     If decorating a class to_interface may be None to use the first interface in the class's MRO.
     E.g.
         @adapts(MyClass)
-        class MyClassToInterfaceAdapter(MyInterface, object):
+        class MyClassToInterfaceAdapter(MyInterface):
             def __init__(self, obj):
                 ....
             ....
@@ -47,9 +47,9 @@ def adapts(from_type: Any, to_interface: Optional[Type[AnInterface]] = None) -> 
 
 
 def register_adapter(
-        adapter: Callable[[Type], AnInterfaceType],
+        adapter: Callable[[Type], Type[Interface]],
         from_type: Type,
-        to_interface: AnInterfaceType) -> None:
+        to_interface: Type[Interface]) -> None:
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
@@ -108,7 +108,7 @@ class AdapterTracker(object):
         return adapted
 
 
-def _interface_from_anno(annotation: Any) -> Optional[AnInterfaceType]:
+def _interface_from_anno(annotation: Any) -> Optional[InterfaceType]:
     """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
     a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
     """
@@ -188,6 +188,7 @@ def adapt_args(*func_arg, **kwarg_types):
         return decorator(funcn)
 
     for key, i_face in kwarg_types.items():
+        i_face = typing.cast(InterfaceType, i_face)  # keep mypy happy
         can_adapt = type_is_interface(i_face)
         if not can_adapt:
             raise AdaptionError('adapt_args parameter values must be subtypes of Interface')

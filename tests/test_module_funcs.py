@@ -14,7 +14,7 @@ class IAnimal(Interface):
         pass
 
 
-class ILandAnimal(IAnimal):
+class ILandAnimal(IAnimal, Interface):
     def num_legs(self):
         pass
 
@@ -23,12 +23,12 @@ class ILandAnimal(IAnimal):
         pass
 
 
-class Cat(IAnimal, object):
+class Cat(IAnimal):
     def speak(self, volume):
         pass
 
 
-class Dog(ILandAnimal, object):
+class Dog(ILandAnimal):
     def num_legs(self):
         return 4
 

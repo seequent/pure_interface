@@ -1,7 +1,7 @@
 from __future__ import division, absolute_import, print_function
 
 import operator
-from typing import Dict, Union, Sequence, Type, Set, Tuple, Any
+from typing import Dict, Union, Sequence, Type, Set, Tuple, Any, Optional, List
 
 from .errors import InterfaceError
 from .interface import get_interface_names, type_is_interface, get_type_interfaces, AnInterfaceType, AnInterface
@@ -110,8 +110,8 @@ class Delegate:
                 self.foo = 3
 
     """
-    pi_attr_fallback = None
-    pi_attr_delegates: Dict[str, Union[str, type]] = {}
+    pi_attr_fallback: Optional[str] = None
+    pi_attr_delegates: Dict[str, Union[List[str], type]] = {}
     pi_attr_mapping: Dict[str, Sequence[str]] = {}
 
     def __init_subclass__(cls, **kwargs):
@@ -179,9 +179,9 @@ def composed_type(*interface_types: AnInterfaceType) -> Type[Delegate]:
     class IB(Interface):
         bar: int
 
-    class A(IA, object):
+    class A(IA):
         foo = 4
-    class B(IB, object):
+    class B(IB):
         bar = 1
 
     T = composed_type(IA, IB)

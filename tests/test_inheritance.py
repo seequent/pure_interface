@@ -44,7 +44,7 @@ class IRegisteredInterface(pure_interface.Interface):
         pass
 
 
-class RegisteredInterface(IRegisteredInterface, object):
+class RegisteredInterface(IRegisteredInterface):
     def register(self):  # overrides ABCMeta.register
         return "You're all signed up"
 

@@ -1,3 +1,40 @@
+[project]
+name = "pure-interface"
+dynamic = ["version"]
+description = "A Python interface library that disallows function body content on interfaces and supports adaption."
+keywords = ["interface", "protocol", "adaption", "structural", "dataclass"]
+authors = [
+    {name = "Tim Mitchell", email = "tim.mitchell@seequent.com"}
+]
+readme = "README.rst"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://pypi.org/project/pure-interface/"
+Repository = "https://github.com/seequent/pure_interface"
+
+[project.optional-dependencies]
+dev = ['mypy >= 1.4']
+typing = ['mypy']
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "pure_interface.__version__"}
+
+[tool.mypy]
+plugins = "pure_interface/mypy_plugin.py"

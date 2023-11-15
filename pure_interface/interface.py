@@ -1,22 +1,21 @@
 """
 pure_interface enforces empty functions and properties on interfaces and provides adaption and structural type checking.
 """
-from __future__ import division, print_function, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import abc
-from abc import abstractmethod, abstractclassmethod, abstractstaticmethod
+from abc import abstractclassmethod, abstractmethod, abstractstaticmethod
 import collections
 import dis
 import inspect
-from inspect import signature, Signature, Parameter
-import types
-from typing import Any, Callable, List, Optional, Iterable, FrozenSet, Type, TypeVar, Generic, Dict, Set, Tuple, cast, \
-    Union
+from inspect import Parameter, signature, Signature
 import sys
+import types
+from typing import Any, Callable, Dict, FrozenSet, Generic, Iterable, List, Optional, Set, Tuple, Type, TypeVar
 import warnings
 import weakref
 
-from .errors import InterfaceError, AdaptionError
+from .errors import AdaptionError, InterfaceError
 
 is_development = not hasattr(sys, 'frozen')
 missing_method_warnings: List[str] = []
@@ -42,22 +41,29 @@ def no_adaption(obj: _T) -> _T:
 
 
 AnInterface = TypeVar('AnInterface', bound='Interface')
-AnInterfaceType = TypeVar('AnInterfaceType', bound=Type['Interface'])
+AnInterfaceType = TypeVar('AnInterfaceType', bound='InterfaceType')
 
 
-class _PIAttributes(object):
+class _PIAttributes:
     """ rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
 
-    def __init__(self, type_is_interface: bool,
+    def __init__(self, this_type_is_an_interface: bool,
                  abstract_properties: Set[str],
                  interface_method_signatures: Dict[str, Signature],
-                 interface_attribute_names: Set[str]):
-        self.type_is_interface: bool = type_is_interface
+                 interface_attribute_names: List[str]):
+        self.type_is_interface: bool = this_type_is_an_interface
         # abstractproperties are checked for at instantiation.
         # When concrete classes use a @property then they are removed from this set
         self.abstractproperties = frozenset(abstract_properties)
         self.interface_method_names = frozenset(interface_method_signatures.keys())
-        self.interface_attribute_names = frozenset(interface_attribute_names)
+        # keep an ordered list for dataclass
+        attr_names = []
+        seen = set()
+        for name in interface_attribute_names:
+            if name not in seen:
+                attr_names.append(name)
+                seen.add(name)
+        self.interface_attribute_names: List[str] = attr_names
         self.interface_method_signatures = interface_method_signatures
         self.adapters = weakref.WeakKeyDictionary()  # type: ignore
         self.registered_types = weakref.WeakSet()  # type: ignore
@@ -69,7 +75,7 @@ class _PIAttributes(object):
         return self.interface_method_names.union(self.interface_attribute_names)
 
 
-class _ImplementationWrapper(object):
+class _ImplementationWrapper:
     def __init__(self, implementation: Any, interface: AnInterfaceType):
         object.__setattr__(self, '_ImplementationWrapper__impl', implementation)
         object.__setattr__(self, '_ImplementationWrapper__interface', interface)
@@ -243,7 +249,7 @@ def _is_descriptor(obj: Any) -> bool:  # in our context we only care about __get
     return hasattr(obj, '__get__')
 
 
-class _ParamTypes(object):
+class _ParamTypes:
     def __init__(self, pos_only: List[Parameter], pos_or_kw: List[Parameter],
                  vararg: List[Parameter], kw_only: List[Parameter], varkw: List[Parameter]):
         self.pos_only = pos_only
@@ -350,16 +356,16 @@ def _signatures_are_consistent(func_sig: Signature, base_sig: Signature) -> bool
 def _ensure_everything_is_abstract(attributes):
     # all methods and properties are abstract on a pure interface
     namespace = {}
-    functions = []
+    functions: List[Optional[Callable]] = []
     interface_method_signatures = {}
-    interface_attribute_names = set()
+    interface_attribute_names = []
     for name, value in attributes.items():
         if _builtin_attrs(name):
             pass  # shortcut
         elif name == '__annotations__':
-            interface_attribute_names.update(value.keys())
+            interface_attribute_names.extend(value.keys())
         elif value is None:
-            interface_attribute_names.add(name)
+            interface_attribute_names.append(name)
             continue  # do not add to class namespace
         elif getattr(value, '__isabstractmethod__', False):
             if isinstance(value, (staticmethod, classmethod, types.FunctionType)):
@@ -370,7 +376,7 @@ def _ensure_everything_is_abstract(attributes):
                 functions.append(func)
                 interface_method_signatures[name] = signature(func)
             elif isinstance(value, property):
-                interface_attribute_names.add(name)
+                interface_attribute_names.append(name)
                 continue  # do not add to class namespace
         elif isinstance(value, staticmethod):
             func = value.__func__
@@ -387,13 +393,23 @@ def _ensure_everything_is_abstract(attributes):
             interface_method_signatures[name] = signature(value)
             value = abstractmethod(value)
         elif isinstance(value, property):
-            interface_attribute_names.add(name)
+            interface_attribute_names.append(name)
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
             continue  # do not add to class namespace
         else:
             raise InterfaceError('Interface class attributes must have a value of None\n{}={}'.format(name, value))
         namespace[name] = value
     return namespace, functions, interface_method_signatures, interface_attribute_names
+
+
+def _ensure_annotations(names, namespace):
+    # annotations need to be kept in order, add base-class names first
+    annotations = {}
+    for name in names:
+        if name not in annotations:
+            annotations[name] = Any
+    annotations.update(namespace.get('__annotations__', {}))
+    namespace['__annotations__'] = annotations
 
 
 def _check_method_signatures(attributes, clsname, interface_method_signatures):
@@ -505,6 +521,7 @@ class InterfaceType(abc.ABCMeta):
         * optionally check overriding method signatures match those on base class.
         * if the type is a concrete class then patch the abstract properties with AttributeProperies.
     """
+    _pi: _PIAttributes
 
     def __new__(mcs, clsname, bases, attributes, **kwargs):
         # Interface is not in globals() when we are constructing the Interface class itself.
@@ -513,17 +530,20 @@ class InterfaceType(abc.ABCMeta):
             # Don't interfere if meta class is only included to permit interface inheritance,
             # but no actual interface is being used.
             cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, attributes, **kwargs)
-            cls._pi = _PIAttributes(False, (), {}, ())
+            cls._pi = _PIAttributes(False, set(), {}, [])
             return cls
 
         base_types = [(cls, _type_is_interface(cls)) for cls in bases]
-        type_is_interface = all(is_interface for cls, is_interface in base_types)
 
-        if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface':
-            type_is_interface = True
-
+        if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
+            this_type_is_an_interface = True
+        else:
+            assert 'Interface' in globals()
+            if Interface in bases and not all(is_interface for cls, is_interface in base_types):
+                raise InterfaceError('All bases must be interface types when declaring an interface')
+            this_type_is_an_interface = Interface in bases
         interface_method_signatures = dict()
-        interface_attribute_names = set()
+        interface_attribute_names = list()
         abstract_properties = set()
         for i in range(len(bases) - 1, -1, -1):  # start at back end
             base, base_is_interface = base_types[i]
@@ -534,43 +554,45 @@ class InterfaceType(abc.ABCMeta):
             if base_is_interface:
                 if hasattr(base, '_pi'):
                     method_signatures = get_pi_attribute(base, 'interface_method_signatures', {})
-                    attribute_names = get_pi_attribute(base, 'interface_attribute_names', set())
+                    attribute_names = get_pi_attribute(base, 'interface_attribute_names', [])
                 else:
                     attribute_names, method_signatures = _get_abc_interface_props_and_funcs(base)
                 interface_method_signatures.update(method_signatures)
-                interface_attribute_names.update(attribute_names)
+                interface_attribute_names.extend(attribute_names)
             elif is_development and not issubclass(base, Interface):
                 _check_method_signatures(base.__dict__, base.__name__, interface_method_signatures)
 
         if is_development:
             _check_method_signatures(attributes, clsname, interface_method_signatures)
 
-        if type_is_interface:
+        if this_type_is_an_interface:
             if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
                 namespace = attributes
                 functions = []
                 method_signatures = {}
-                attribute_names = set()
+                attribute_names = []
             else:
                 namespace, functions, method_signatures, attribute_names = _ensure_everything_is_abstract(attributes)
             partial_implementation = False
             interface_method_signatures.update(method_signatures)
-            interface_attribute_names.update(attribute_names)
+            interface_attribute_names.extend(attribute_names)
             abstract_properties.update(interface_attribute_names)
             unwrap = getattr(mcs, '_pi_unwrap_decorators', False)
             for func in functions:
                 if func is None:
                     continue
                 if not _is_empty_function(func, unwrap):
-                    raise InterfaceError('Function "{}" is not empty.\n'
-                                         'Did you forget to inherit from object to make the class concrete?'.format(
-                        func.__name__))
+                    raise InterfaceError('Interface method "{}.{}" must be empty.'.format(
+                        clsname, func.__name__))
         else:  # concrete sub-type
             namespace = attributes
             class_properties = set()
             for bt, is_interface in base_types:
                 if not is_interface:
                     class_properties |= set(k for k, v in bt.__dict__.items() if _is_descriptor(v))
+            if any(is_interface for bt, is_interface in base_types):
+                # provide interface attributes as annotations so that dataclass decorator works.
+                _ensure_annotations(interface_attribute_names, namespace)
             class_properties |= set(k for k, v in namespace.items() if _is_descriptor(v))
             abstract_properties.difference_update(class_properties)
             partial_implementation = 'pi_partial_implementation' in namespace
@@ -581,12 +603,12 @@ class InterfaceType(abc.ABCMeta):
                                   'pi_partial_implementation attribute, not it''s value')
 
         # create class
-        namespace['_pi'] = _PIAttributes(type_is_interface, abstract_properties,
+        namespace['_pi'] = _PIAttributes(this_type_is_an_interface, abstract_properties,
                                          interface_method_signatures, interface_attribute_names)
         cls = super(InterfaceType, mcs).__new__(mcs, clsname, bases, namespace, **kwargs)
 
         # warnings
-        if not type_is_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
+        if not this_type_is_an_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
             _do_missing_impl_warnings(cls, clsname)
 
         return cls
@@ -606,10 +628,12 @@ class InterfaceType(abc.ABCMeta):
         listing = set(cls._pi.interface_attribute_names)
         for base in cls.mro():
             listing.update(base.__dict__.keys())
-        listing = sorted(listing)
-        return listing
+        return sorted(listing)
 
-    def provided_by(cls, obj, allow_implicit=True):
+    def provided_by(cls, obj):
+        return cls._provided_by(obj, allow_implicit=True)
+
+    def _provided_by(cls, obj, allow_implicit=True):
         if not cls._pi.type_is_interface:
             raise InterfaceError('provided_by() can only be called on interfaces')
         if isinstance(obj, cls):
@@ -635,7 +659,8 @@ class InterfaceType(abc.ABCMeta):
             interface_only = is_development
         if isinstance(obj, _ImplementationWrapper):
             obj = obj._ImplementationWrapper__impl
-        if InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit):
+        adapter: Optional[Callable[[Any], 'InterfaceType']]
+        if InterfaceType._provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:
             adapter = _get_adapter(cls, type(obj))
@@ -643,7 +668,7 @@ class InterfaceType(abc.ABCMeta):
                 raise AdaptionError('Cannot adapt {} to {}'.format(obj, cls.__name__))
 
         adapted = adapter(obj)
-        if not InterfaceType.provided_by(cls, adapted, allow_implicit):
+        if not InterfaceType._provided_by(cls, adapted, allow_implicit):
             raise AdaptionError('Adapter {} does not implement interface {}'.format(adapter, cls.__name__))
         if interface_only:
             adapted = InterfaceType.interface_only(cls, adapted)
@@ -687,13 +712,10 @@ class Interface(abc.ABC, metaclass=InterfaceType):
     _pi: _PIAttributes
 
     @classmethod
-    def provided_by(cls, obj, allow_implicit: bool = True) -> bool:
-        """ Returns True if obj provides this interface.
-        provided_by(cls, obj) is equivalent to isinstance(obj, cls) unless allow_implicit is True
-        If allow_implicit is True then returns True if interface duck-type check passes.
-        Returns False otherwise.
+    def provided_by(cls, obj) -> bool:
+        """ Returns True if obj provides this interface (structural type-check).
         """
-        return InterfaceType.provided_by(cls, obj, allow_implicit=allow_implicit)
+        return InterfaceType.provided_by(cls, obj)
 
     @classmethod
     def interface_only(cls: Type[AnInterface], implementation: AnInterface) -> AnInterface:
@@ -747,14 +769,14 @@ def type_is_interface(cls: Type) -> bool:  # -> TypeGuard[AnInterfaceType]
     return get_pi_attribute(cls, 'type_is_interface', False)
 
 
-def get_type_interfaces(cls: Type) -> List[AnInterfaceType]:
+def get_type_interfaces(cls: Type) -> List[type]:
     """ Returns all interfaces in the cls mro including cls itself if it is an interface """
     try:
         bases = cls.mro()
     except AttributeError:  # handle non-classes
         return []
     # type_is_interface ensures returned types are Interface subclasses by mypy doesn't know this
-    return [base for base in bases if type_is_interface(base) and base is not Interface]  # type: ignore [misc]
+    return [base for base in bases if type_is_interface(base) and base is not Interface]
 
 
 def get_interface_names(interface: Type) -> FrozenSet[str]:
@@ -782,7 +804,7 @@ def get_interface_attribute_names(interface: Type) -> FrozenSet[str]:
     if interface is not a Interface subtype then an empty set is returned
     """
     if type_is_interface(interface):
-        return get_pi_attribute(interface, 'interface_attribute_names')
+        return frozenset(get_pi_attribute(interface, 'interface_attribute_names', ()))
     else:
         return frozenset()
 

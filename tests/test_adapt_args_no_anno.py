@@ -7,25 +7,25 @@ try:
 except ImportError:
     import mock
 
-from pure_interface import adapt_args
+from pure_interface import adapt_args, Interface
 import pure_interface
 
 
-class I1(pure_interface.Interface):
+class I1(Interface):
     foo = None
 
     def bar(self):
         pass
 
 
-class I2(pure_interface.Interface):
+class I2(Interface):
     bar = None
 
     def foo(self):
         pass
 
 
-class Thing1(I1, object):
+class Thing1(I1):
     def __init__(self):
         self.foo = 'foo'
 
@@ -33,7 +33,7 @@ class Thing1(I1, object):
         print('bar:', self.foo)
 
 
-class Thing2(I2, object):
+class Thing2(I2):
     def __init__(self):
         self.bar = 'bar'
 
