@@ -491,7 +491,8 @@ considered part of the implementation and these attributes are routed.)
 Any one or combination of attributes is allowed.
 
 pi_attr_delegates
---------------
+-----------------
+
 ``pi_attr_delegates`` is a dictionary mapping the attribute name of the delegate to either an interface or a list
 of attribute names to delegate.
 If an interface is given then the list returned by ``get_interface_names()`` is used for the attribute names to route to the delegate object.
@@ -523,7 +524,7 @@ The following code is equivalent but won't update with changes to IAnimal::
         ...
 
 pi_attr_mapping
-------------
+---------------
 The above works when the attribute names match. When they don't, you can use the ``pi_attr_mapping`` special attribute.
 ``pi_attr_mapping`` takes the reverse approach, the key is the attribute and the value is a dotted name of how to route
 the lookup.  This provides a lot of flexibility as any number of dots are permitted.
@@ -540,7 +541,7 @@ This example is again equivalent to the first Delegate::
             return 'lots'
 
 pi_attr_fallback
--------------
+----------------
 ``pi_attr_fallback``, if not ``None``, is treated a delegate for all attributes defined by base interfaces of the class
 if there is no delegate, mapping or implementation for that attribute. Again, this is equivalent to the first Delegate.::
 
