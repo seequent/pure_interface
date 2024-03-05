@@ -67,5 +67,19 @@ class TestDataClasses(unittest.TestCase):
                 return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
 
         f = RoFoo(a=1, c=3)
+        self.assertEqual({'a', 'c'}, set(RoFoo.__annotations__.keys()))
         self.assertEqual(1, f.a)
+        self.assertEqual('str', f.b)
+
+    def test_attr_present(self):
+        @dataclass
+        class AFoo(IFoo):
+            a = 10
+
+            def foo(self):
+                return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
+
+        f = AFoo(b='str')
+        self.assertEqual({'b'}, set(AFoo.__annotations__.keys()))
+        self.assertEqual(10, f.a)
         self.assertEqual('str', f.b)

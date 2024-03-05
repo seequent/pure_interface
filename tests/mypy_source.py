@@ -23,7 +23,7 @@ class MyInterface(BaseInterface, pure_interface.Interface):
 
     @abc.abstractmethod
     def weight(self, arg: int) -> str:
-        pass
+        """weight of the thing."""
 
     @property
     def height(self) -> float:
