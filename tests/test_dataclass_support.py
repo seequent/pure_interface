@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import unittest
+
 from pure_interface import *
 
 
@@ -17,6 +18,10 @@ class Foo(IFoo):
 
     def foo(self):
         return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
+
+
+class IBar(IFoo, Interface):
+    a: Foo
 
 
 class TestDataClasses(unittest.TestCase):
@@ -67,7 +72,7 @@ class TestDataClasses(unittest.TestCase):
                 return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
 
         f = RoFoo(a=1, c=3)
-        self.assertEqual({'a', 'c'}, set(RoFoo.__annotations__.keys()))
+        self.assertEqual({'a': int, 'c': int}, RoFoo.__annotations__)
         self.assertEqual(1, f.a)
         self.assertEqual('str', f.b)
 
@@ -80,6 +85,27 @@ class TestDataClasses(unittest.TestCase):
                 return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
 
         f = AFoo(b='str')
-        self.assertEqual({'b'}, set(AFoo.__annotations__.keys()))
+        self.assertEqual({'b': str}, AFoo.__annotations__)
         self.assertEqual(10, f.a)
         self.assertEqual('str', f.b)
+
+    def test_annotations_override(self):
+        """ ensure overridden annotations are used correctly """
+        @dataclass
+        class Bar(IBar):
+
+            def foo(self):
+                return 'a={}, b={}'.format(self.a, self.b)
+
+        self.assertEqual({'a': int, 'b': str}, IFoo.__annotations__)
+        self.assertEqual({'a': Foo, 'b': str}, IBar.__annotations__)
+        self.assertEqual({'a': Foo, 'b': str}, Bar.__annotations__)
+        b = Bar(a=Foo(a=1, b='two'), b='three')
+        self.assertIsInstance(b.a, Foo)
+
+    def test_non_direct_subclass(self):
+        """ ensure no extra annotations are added to the class"""
+        class Baz(Foo):
+            e: str
+
+        self.assertEqual({'e': str}, Baz.__annotations__)

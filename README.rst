@@ -427,6 +427,23 @@ This will create a dataclass that implements an interface.  For example::
 
     a = Animal2(height=4.5, species='Giraffe')
 
+This is done by populating the ``__annotations__`` attribute of all interfaces and all direct interface sub-classes
+with the interface attribute names of the class.  Annotation entries are not created for attributes that already exist
+on the class.  For example::
+
+    @dataclasses.dataclass
+    class FixedHeightAnimal(IAnimal2):
+        @property
+        def height(self):
+            return 12.3
+
+        def speak(self):
+            print('Hello, I am a 12.3 metre tall {}', self.height, self.species)
+
+    a = FixedHeightAnimal(species='Dinosaur')
+
+Because ``height`` exists in the class definition, the ``height`` attribute is not added to the ``__annotations__``
+attribute of ``FixedHeightAnimal`` and it is ignored by the dataclass decorator.
 
 Interface Type Information
 ==========================

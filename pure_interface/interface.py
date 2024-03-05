@@ -402,13 +402,16 @@ def _ensure_everything_is_abstract(attributes):
     return namespace, functions, interface_method_signatures, interface_attribute_names
 
 
-def _ensure_annotations(names, namespace):
-    # annotations need to be kept in order, add base-class names first
+def _ensure_annotations(names, namespace, base_interfaces):
+    # annotations need to be kept in order for dataclass decorator
     # we only want dataclass annotations for attributes that don't already exist
     annotations = {}
+    base_annos = {}
+    for base in reversed(base_interfaces):
+        base_annos.update(base.__annotations__)
     for name in names:
         if name not in annotations and name not in namespace:
-            annotations[name] = Any
+            annotations[name] = base_annos.get(name, Any)
     annotations.update(namespace.get('__annotations__', {}))
     namespace['__annotations__'] = annotations
 
@@ -540,9 +543,9 @@ class InterfaceType(abc.ABCMeta):
             this_type_is_an_interface = True
         else:
             assert 'Interface' in globals()
-            if Interface in bases and not all(is_interface for cls, is_interface in base_types):
-                raise InterfaceError('All bases must be interface types when declaring an interface')
             this_type_is_an_interface = Interface in bases
+            if this_type_is_an_interface and not all(is_interface for cls, is_interface in base_types):
+                raise InterfaceError('All bases must be interface types when declaring an interface')
         interface_method_signatures = dict()
         interface_attribute_names = list()
         abstract_properties = set()
@@ -565,6 +568,12 @@ class InterfaceType(abc.ABCMeta):
 
         if is_development:
             _check_method_signatures(attributes, clsname, interface_method_signatures)
+
+        base_interfaces = [bt for bt, is_interface in base_types if is_interface]
+        if interface_attribute_names and base_interfaces:
+            # provide interface attributes as annotations so that dataclass decorator creates all attributes
+            # defined on base interfaces.
+            _ensure_annotations(interface_attribute_names, attributes, base_interfaces)
 
         if this_type_is_an_interface:
             if clsname == 'Interface' and attributes.get('__module__', '') == 'pure_interface.interface':
@@ -591,9 +600,6 @@ class InterfaceType(abc.ABCMeta):
             for bt, is_interface in base_types:
                 if not is_interface:
                     class_properties |= set(k for k, v in bt.__dict__.items() if _is_descriptor(v))
-            if any(is_interface for bt, is_interface in base_types):
-                # provide interface attributes as annotations so that dataclass decorator works.
-                _ensure_annotations(interface_attribute_names, namespace)
             class_properties |= set(k for k, v in namespace.items() if _is_descriptor(v))
             abstract_properties.difference_update(class_properties)
             partial_implementation = 'pi_partial_implementation' in namespace
