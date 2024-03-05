@@ -53,3 +53,19 @@ class TestDataClasses(unittest.TestCase):
         f = Foo(a=1, b='two')
         self.assertEqual(1, f.a)
         self.assertEqual('two', f.b)
+
+    def test_read_only_attr(self):
+        @dataclass
+        class RoFoo(IFoo):
+            c: int
+
+            @property
+            def b(self):
+                return 'str'
+
+            def foo(self):
+                return 'a={}, b={}, c={}'.format(self.a, self.b, self.c)
+
+        f = RoFoo(a=1, c=3)
+        self.assertEqual(1, f.a)
+        self.assertEqual('str', f.b)

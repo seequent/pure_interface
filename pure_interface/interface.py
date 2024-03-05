@@ -402,11 +402,20 @@ def _ensure_everything_is_abstract(attributes):
     return namespace, functions, interface_method_signatures, interface_attribute_names
 
 
+def _readonly_attribute(name, namespace):
+    # if the attribute is a property with a getter but no setter then it is read-only
+    prop = namespace.get(name)
+    if isinstance(prop, property):
+        if prop.fset is None:
+            return True
+    return False
+
+
 def _ensure_annotations(names, namespace):
     # annotations need to be kept in order, add base-class names first
     annotations = {}
     for name in names:
-        if name not in annotations:
+        if name not in annotations and not _readonly_attribute(name, namespace):
             annotations[name] = Any
     annotations.update(namespace.get('__annotations__', {}))
     namespace['__annotations__'] = annotations
