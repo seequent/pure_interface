@@ -405,10 +405,10 @@ def _ensure_everything_is_abstract(attributes):
 def _ensure_annotations(names, namespace, base_interfaces):
     # annotations need to be kept in order for dataclass decorator
     # we only want dataclass annotations for attributes that don't already exist
-    annotations = {}
-    base_annos = {}
+    annotations: Dict[str, Any] = {}
+    base_annos: Dict[str, Any] = {}
     for base in reversed(base_interfaces):
-        base_annos.update(base.__annotations__)
+        base_annos.update(getattr(base, '__annotations__', {}))
     for name in names:
         if name not in annotations and name not in namespace:
             annotations[name] = base_annos.get(name, Any)

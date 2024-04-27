@@ -337,6 +337,7 @@ class TestAdaptionToInterfaceOnly(unittest.TestCase):
 
     def test_adapter_preference(self):
         """ adapt should prefer interface adapter over sub-interface adapter """
+
         class IA(Interface):
             foo = None
 
