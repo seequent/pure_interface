@@ -8,7 +8,7 @@ import typing
 import warnings
 
 from .errors import InterfaceError, AdaptionError
-from .interface import AnInterface, Interface, InterfaceType, AnInterfaceType, type_is_interface
+from .interface import AnInterface, Interface, InterfaceType, type_is_interface
 from .interface import get_type_interfaces, get_pi_attribute
 
 

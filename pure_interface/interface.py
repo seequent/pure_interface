@@ -7,6 +7,7 @@ import abc
 from abc import abstractclassmethod, abstractmethod, abstractstaticmethod
 import collections
 import dis
+import functools
 import inspect
 from inspect import Parameter, signature, Signature
 import sys
@@ -382,16 +383,21 @@ def _ensure_everything_is_abstract(attributes):
             func = value.__func__
             functions.append(func)
             interface_method_signatures[name] = signature(func)
-            value = abstractstaticmethod(func)
+            value = staticmethod(abstractmethod(func))
         elif isinstance(value, classmethod):
             func = value.__func__
             interface_method_signatures[name] = signature(func)
             functions.append(func)
-            value = abstractclassmethod(func)
+            value = classmethod(abstractmethod(func))
         elif isinstance(value, types.FunctionType):
             functions.append(value)
             interface_method_signatures[name] = signature(value)
             value = abstractmethod(value)
+        elif isinstance(value, functools.singledispatchmethod):
+            func = value.func
+            functions.append(func)
+            interface_method_signatures[name] = signature(func)
+            value = func  # ignore the singledispatchmethod decorator
         elif isinstance(value, property):
             interface_attribute_names.append(name)
             functions.extend([value.fget, value.fset, value.fdel])  # may contain Nones
@@ -422,13 +428,15 @@ def _check_method_signatures(attributes, clsname, interface_method_signatures):
         if name not in attributes:
             continue
         value = attributes[name]
-        if not isinstance(value, (staticmethod, classmethod, types.FunctionType)):
+        if not isinstance(value, (staticmethod, classmethod, types.FunctionType, functools.singledispatchmethod)):
             if _is_descriptor(value):
                 continue
             else:
                 raise InterfaceError('Interface method over-ridden with non-method')
         if isinstance(value, (staticmethod, classmethod)):
             func = value.__func__
+        elif isinstance(value, functools.singledispatchmethod):
+            func = value.func
         else:
             func = value
         func_sig = signature(func)
