@@ -3,7 +3,7 @@ from __future__ import division, absolute_import, print_function
 import functools
 import inspect
 import types
-from typing import Any, Type, Callable, Optional
+from typing import Any, Type, TypeVar, Callable, Optional, Union
 import typing
 import warnings
 
@@ -46,16 +46,20 @@ def adapts(from_type: Any, to_interface: Optional[Type[Interface]] = None) -> Ca
     return decorator
 
 
+T = TypeVar('T')
+U = TypeVar('U')  # U can be a structural type so can't expect it to be a subclass of Interface
+
+
 def register_adapter(
-        adapter: Callable[[Type], Type[Interface]],
-        from_type: Type,
+        adapter: Union[Callable[[T], U], Type[U]],
+        from_type: Type[T],
         to_interface: Type[Interface]) -> None:
     """ Registers adapter to convert instances of from_type to objects that provide to_interface
     for the to_interface.adapt() method.
 
     :param adapter: callable that takes an instance of from_type and returns an object providing to_interface.
     :param from_type: a type to adapt from
-    :param to_interface: a (non-concrete) Interface subclass to adapt to.
+    :param to_interface: an Interface class to adapt to.
     """
     if not callable(adapter):
         raise AdaptionError('adapter must be callable')
@@ -110,7 +114,7 @@ class AdapterTracker(object):
 
 def _interface_from_anno(annotation: Any) -> Optional[InterfaceType]:
     """ Typically the annotation is the interface,  but if a default value of None is given the annotation is
-    a typing.Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
+    a Union[interface, None] a.k.a. Optional[interface]. Lets be nice and support those too.
     """
     try:
         if issubclass(annotation, Interface):
@@ -118,8 +122,8 @@ def _interface_from_anno(annotation: Any) -> Optional[InterfaceType]:
     except TypeError:
         pass
     if hasattr(annotation, '__origin__') and hasattr(annotation, '__args__'):
-        # could be a typing.Union
-        if annotation.__origin__ is not typing.Union:
+        # could be a Union
+        if annotation.__origin__ is not Union:
             return None
         for arg_type in annotation.__args__:
             if type_is_interface(arg_type):
