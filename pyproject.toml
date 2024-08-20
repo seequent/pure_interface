@@ -38,3 +38,6 @@ version = {attr = "pure_interface.__version__"}
 
 [tool.mypy]
 plugins = "pure_interface/mypy_plugin.py"
+
+[tool.black]
+line-length = 120
