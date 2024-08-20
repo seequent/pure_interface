@@ -1,10 +1,8 @@
-from pure_interface import Interface
-import pure_interface
-
-import unittest
 import types
+import unittest
 
-from pure_interface import interface
+import pure_interface
+from pure_interface import Interface, interface
 
 
 class IAnimal(Interface):
@@ -26,11 +24,11 @@ def func1(a, b, c):
     pass
 
 
-def func2(a, b, c='c'):
+def func2(a, b, c="c"):
     pass
 
 
-def func3(a='a', b='b'):
+def func3(a="a", b="b"):
     pass
 
 
@@ -46,7 +44,7 @@ def func6(a, **kwargs):
     pass
 
 
-def func7(a, b='b', *args):
+def func7(a, b="b", *args):
     pass
 
 
@@ -62,7 +60,7 @@ def func10(*args, **kwargs):
     pass
 
 
-def func11(a='a', **kwargs):
+def func11(a="a", **kwargs):
     pass
 
 
@@ -76,17 +74,16 @@ def _test_call(spec_func, impl_func, impl_sig, args, kwargs):
         ba = impl_sig.bind(*args, **kwargs)
     except TypeError:
         return False
-    if not all(k == v for k, v in ba.arguments.items() if k not in ('args', 'kwargs')):
+    if not all(k == v for k, v in ba.arguments.items() if k not in ("args", "kwargs")):
         return False
-    kwargs = ba.arguments.get('kwargs', {})
+    kwargs = ba.arguments.get("kwargs", {})
     if not all(k == v for k, v in kwargs.items()):
         return False
     return True
 
 
 def test_call(spec_func: types.FunctionType, impl_func: types.FunctionType) -> bool:
-    """ call the function with parameters as indicated by the parameter list
-    """
+    """call the function with parameters as indicated by the parameter list"""
     spec_sig = pure_interface.interface.signature(spec_func)
     impl_sig = pure_interface.interface.signature(impl_func)
     pos_or_kw = [p for p in spec_sig.parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD]
@@ -95,25 +92,25 @@ def test_call(spec_func: types.FunctionType, impl_func: types.FunctionType) -> b
     pok_req = [p.name for p in pos_or_kw if p.default is p.empty]
     n_req = len(pok_req)
     # test args can be positional or keyword
-    for i in range(len(pos_or_kw)+1):
+    for i in range(len(pos_or_kw) + 1):
         args = pok_args[:i]
         kwargs = {x: x for x in pok_args[i:]}
         if not _test_call(spec_func, impl_func, impl_sig, args, kwargs):
             return False
     # test defaults may be omitted
     for i in range(len(pok_def)):
-        args = pok_args[:n_req + i]
+        args = pok_args[: n_req + i]
         if not _test_call(spec_func, impl_func, impl_sig, args, {}):
             return False
         if not _test_call(spec_func, impl_func, impl_sig, (), {x: x for x in args}):
             return False
     # test *args
     if any(p.kind == p.VAR_POSITIONAL for p in spec_sig.parameters.values()):
-        if not _test_call(spec_func, impl_func, impl_sig, pok_args + ['more', 'random', 'arguments'], {}):
+        if not _test_call(spec_func, impl_func, impl_sig, pok_args + ["more", "random", "arguments"], {}):
             return False
     # test **kwargs
     if any(p.kind == p.VAR_KEYWORD for p in spec_sig.parameters.values()):
-        extra_kw = {x: x for x in ('more', 'random', 'keywords')}
+        extra_kw = {x: x for x in ("more", "random", "keywords")}
         if not _test_call(spec_func, impl_func, impl_sig, pok_args, extra_kw):
             return False
         extra_kw.update(pok_def)
@@ -131,11 +128,17 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         interface_sig = pure_interface.interface.signature(int_func)
         concrete_sig = pure_interface.interface.signature(impl_func)
         reality = test_call(int_func, impl_func)
-        self.assertEqual(expected_result, reality,
-                         '{}, {}. Reality does not match expectations'.format(int_func.__name__, impl_func.__name__))
+        self.assertEqual(
+            expected_result,
+            reality,
+            "{}, {}. Reality does not match expectations".format(int_func.__name__, impl_func.__name__),
+        )
         result = pure_interface.interface._signatures_are_consistent(concrete_sig, interface_sig)
-        self.assertEqual(expected_result, result,
-                         '{}, {}. Signature test gave wrong answer'.format(int_func.__name__, impl_func.__name__))
+        self.assertEqual(
+            expected_result,
+            result,
+            "{}, {}. Signature test gave wrong answer".format(int_func.__name__, impl_func.__name__),
+        )
 
     def test_tests(self):
         self.check_signatures(func1, func1, True)
@@ -208,7 +211,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.check_signatures(func4, pos_kwarg_vararg, False)
 
     def test_all(self):
-        def all(a, b='b', *args, **kwargs):
+        def all(a, b="b", *args, **kwargs):
             pass
 
         self.check_signatures(func1, all, True)
@@ -221,11 +224,12 @@ class TestFunctionSignatureChecks(unittest.TestCase):
         self.check_signatures(all, all, True)
 
     def test_binding_order(self):
-        def all(a, c='c', *args, **kwargs):
+        def all(a, c="c", *args, **kwargs):
             pass
 
         def rev(a, c, b):
             pass
+
         self.check_signatures(func1, all, False)
         self.check_signatures(func1, rev, False)
 
@@ -244,12 +248,14 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_diff_names_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal(IAnimal):
                 def speak(self, loudness):
                     pass
 
         # abstract subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal2(IAnimal):
                 def speak(self, loudness):
                     pass
@@ -257,12 +263,14 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_too_few_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal(IAnimal):
                 def speak(self):
                     pass
 
         # abstract subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal2(IAnimal):
                 def speak(self):
                     pass
@@ -270,6 +278,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
     def test_too_many_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal(IAnimal):
                 def speak(self, volume, msg):
                     pass
@@ -280,6 +289,7 @@ class TestFunctionSignatureChecks(unittest.TestCase):
                 pass
 
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal(IWalkingAnimal):
                 speak = ADescriptor()
 
@@ -288,46 +298,49 @@ class TestFunctionSignatureChecks(unittest.TestCase):
 
         # abstract subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Animal2(IAnimal):
                 def speak(self, volume, msg):
                     pass
 
     def test_new_with_default_passes(self):
         class Animal(IAnimal):
-            def speak(self, volume, msg='hello'):
-                return '{} ({})'.format(msg, volume)
+            def speak(self, volume, msg="hello"):
+                return "{} ({})".format(msg, volume)
 
         # abstract subclass
         class IAnimal2(IAnimal):
-            def speak(self, volume, msg='hello'):
+            def speak(self, volume, msg="hello"):
                 pass
 
         class Animal3(IAnimal2):
-            def speak(self, volume, msg='hello'):
-                return '{} ({})'.format(msg, volume)
+            def speak(self, volume, msg="hello"):
+                return "{} ({})".format(msg, volume)
 
         a = Animal()
         b = Animal3()
-        self.assertEqual(a.speak('loud'), 'hello (loud)')
-        self.assertEqual(b.speak('loud'), 'hello (loud)')
+        self.assertEqual(a.speak("loud"), "hello (loud)")
+        self.assertEqual(b.speak("loud"), "hello (loud)")
 
     def test_adding_default_passes(self):
         class Animal(IAnimal):
-            def speak(self, volume='loud'):
-                return 'hello ({})'.format(volume)
+            def speak(self, volume="loud"):
+                return "hello ({})".format(volume)
 
         a = Animal()
-        self.assertEqual(a.speak(), 'hello (loud)')
+        self.assertEqual(a.speak(), "hello (loud)")
 
     def test_increasing_required_params_fails(self):
         # concrete subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Plant(IPlant):
                 def grow(self, height):
                     return height + 5
 
         # abstract subclass
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Plant2(IPlant):
                 def grow(self, height):
                     pass
@@ -340,9 +353,11 @@ class TestDisableFunctionSignatureChecks(unittest.TestCase):
 
     def test_too_many_passes(self):
         try:
+
             class Animal(IAnimal):
                 def speak(self, volume, msg):
                     pass
+
             a = Animal()
         except pure_interface.InterfaceError as exc:
-            self.fail('Unexpected error {}'.format(exc))
+            self.fail("Unexpected error {}".format(exc))

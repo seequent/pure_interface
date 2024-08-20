@@ -3,10 +3,10 @@
 This is working except for dataclasses __init__ call arguments.
 """
 
+import abc
 import dataclasses
 
 import pure_interface
-import abc
 
 
 class BaseInterface(pure_interface.Interface):
@@ -49,12 +49,12 @@ class MyThing(MyInterface):
 
     def weight(self, arg: int) -> str:
         if arg > 0:
-            return '3'*arg
+            return "3" * arg
         else:
-            return ''
+            return ""
 
     def speak(self, volume) -> str:
-        return 'hello'
+        return "hello"
 
     @classmethod
     def a_class_method(cls):
@@ -68,10 +68,10 @@ class MyThing(MyInterface):
 @dataclasses.dataclass
 class DC(MyInterface):
     def weight(self, arg: int) -> str:
-        return f'{arg}'
+        return f"{arg}"
 
     def speak(self, volume) -> str:
-        return 'hello'
+        return "hello"
 
     @classmethod
     def a_class_method(cls):
@@ -83,15 +83,14 @@ class DC(MyInterface):
 
 
 class FBDelegate(pure_interface.Delegate, MyInterface):
-    pi_attr_fallback = '_a'
+    pi_attr_fallback = "_a"
 
     def __init__(self, impl) -> None:
         self._a = impl
 
 
 class AttrListDelegate(pure_interface.Delegate):
-    pi_attr_delegates = {'a': ['height', 'weight'],
-                         'b': ['speak']}
+    pi_attr_delegates = {"a": ["height", "weight"], "b": ["speak"]}
 
     def __init__(self, impl) -> None:
         self.a = impl
@@ -99,15 +98,14 @@ class AttrListDelegate(pure_interface.Delegate):
 
 
 class AttrTypeDelegate(pure_interface.Delegate):
-    pi_attr_delegates = {'a': BaseInterface}
+    pi_attr_delegates = {"a": BaseInterface}
 
     def __init__(self, impl) -> None:
         self.a = impl
 
 
 class MappingDelegate(pure_interface.Delegate):
-    pi_attr_mapping = {'wibble': 'a.speak',
-                       'bar': 'a.foo'}
+    pi_attr_mapping = {"wibble": "a.speak", "bar": "a.foo"}
 
     def __init__(self, impl) -> None:
         self.a = impl
@@ -115,8 +113,8 @@ class MappingDelegate(pure_interface.Delegate):
 
 t = MyThing()
 fbd = FBDelegate(t)
-if fbd.weight(3) == '3':
-    print('all good')
+if fbd.weight(3) == "3":
+    print("all good")
 w = fbd.foo * 2
 fbd.height = 34.8
 

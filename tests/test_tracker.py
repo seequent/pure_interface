@@ -1,7 +1,7 @@
 import unittest
 
 from pure_interface import *
-from pure_interface import adapts, AdapterTracker
+from pure_interface import AdapterTracker, adapts
 
 
 class ISpeaker(Interface):
@@ -14,7 +14,7 @@ class ISleeper(Interface):
 
 
 class Talker:
-    def __init__(self, saying='talk'):
+    def __init__(self, saying="talk"):
         self._saying = saying
 
     def talk(self):
@@ -28,7 +28,7 @@ class Sleeper(ISleeper):
 
 @adapts(Talker, ISleeper)
 def talker_to_sleeper(talker):
-    return Sleeper(talker.talk() == 'zzz')
+    return Sleeper(talker.talk() == "zzz")
 
 
 @adapts(Talker)
@@ -62,13 +62,13 @@ class TestAdapterTracker(unittest.TestCase):
 
     def test_adapt_multiple_instances(self):
         tracker = AdapterTracker()
-        t1 = Talker('hello')
-        t2 = Talker('zzz')
+        t1 = Talker("hello")
+        t2 = Talker("zzz")
 
         speaker1 = tracker.adapt(t1, ISpeaker)
         speaker2 = tracker.adapt(t2, ISpeaker)
-        self.assertEqual('hello', speaker1.speak(5))
-        self.assertEqual('zzz', speaker2.speak(5))
+        self.assertEqual("hello", speaker1.speak(5))
+        self.assertEqual("zzz", speaker2.speak(5))
 
     def test_mapping_factory_is_used(self):
         mocks = []
@@ -78,7 +78,7 @@ class TestAdapterTracker(unittest.TestCase):
             return mocks[-1]
 
         tracker = AdapterTracker(mapping_factory=factory)
-        t = Talker('hello')
+        t = Talker("hello")
 
         tracker.adapt(t, ISpeaker)
         self.assertTrue(len(mocks) > 1)
@@ -94,7 +94,7 @@ class TestAdapterTracker(unittest.TestCase):
     def test_adapt_or_none_returns_none(self):
         tracker = AdapterTracker()
 
-        speaker = tracker.adapt_or_none('hello', ISpeaker)
+        speaker = tracker.adapt_or_none("hello", ISpeaker)
 
         self.assertIsNone(speaker)
 
@@ -107,4 +107,3 @@ class TestAdapterTracker(unittest.TestCase):
 
         speaker2 = tracker.adapt_or_none(t, ISpeaker)
         self.assertIsNot(speaker1, speaker2)
-

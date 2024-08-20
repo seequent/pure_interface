@@ -27,7 +27,7 @@ class BadGrowingMixin(object):
         self._height = 10
 
     def get_height(self, units):
-        return '{} {}'.format(self._height, units)
+        return "{} {}".format(self._height, units)
 
     def set_height(self, height):
         self._height = height
@@ -68,6 +68,7 @@ class TestInheritance(unittest.TestCase):
         pure_interface.set_is_development(True)
 
         with self.assertRaises(pure_interface.InterfaceError):
+
             class Growing(BadGrowingMixin, IGrowingThing):
                 pass
 

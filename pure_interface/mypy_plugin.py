@@ -1,13 +1,15 @@
 from collections.abc import Callable
 from typing import Dict, Final, List, Optional, TypeAlias, cast
 
-from mypy import nodes, types, plugin as mypy_plugin
+from mypy import nodes
+from mypy import plugin as mypy_plugin
+from mypy import types
 from mypy.plugins import common
 
-INTERFACE_FN: Final = 'pure_interface.interface.Interface'
-DELEGATE_FN: Final = 'pure_interface.delegation.Delegate'
-METADATA_KEY: Final = 'pure-interface'
-IS_INTERFACE_KEY: Final = 'is-interface'
+INTERFACE_FN: Final = "pure_interface.interface.Interface"
+DELEGATE_FN: Final = "pure_interface.delegation.Delegate"
+METADATA_KEY: Final = "pure-interface"
+IS_INTERFACE_KEY: Final = "is-interface"
 
 NOT_ANNOTATED = types.AnyType(types.TypeOfAny.unannotated)
 
@@ -34,8 +36,11 @@ def get_type_interfaces(class_def: nodes.ClassDef) -> List[nodes.ClassDef]:
 
 
 def get_interface_bases(class_def: nodes.ClassDef) -> List[nodes.TypeInfo]:
-    interface_list = [getattr(expr, 'node') for expr in class_def.base_type_exprs
-                      if type_info_is_interface(getattr(expr, 'node', None))]
+    interface_list = [
+        getattr(expr, "node")
+        for expr in class_def.base_type_exprs
+        if type_info_is_interface(getattr(expr, "node", None))
+    ]
     return interface_list
 
 
@@ -56,12 +61,12 @@ def get_all_interface_info(interfaces: List[nodes.ClassDef]) -> InterfaceInfo:
 
 
 def get_return_type(func_type):
-    r_type = getattr(func_type, 'ret_type', None)
+    r_type = getattr(func_type, "ret_type", None)
     return r_type or NOT_ANNOTATED
 
 
 def ensure_names(context: mypy_plugin.ClassDefContext, delegate: nodes.ClassDef, interface_info: InterfaceInfo) -> bool:
-    """Adds names to the delegate class """
+    """Adds names to the delegate class"""
     info = delegate.info
     changed = False
     for name, s_node in interface_info.items():
@@ -77,11 +82,19 @@ def ensure_names(context: mypy_plugin.ClassDefContext, delegate: nodes.ClassDef,
             common.add_method_to_class(context.api, delegate, name, args, get_return_type(value.type))
         elif type(value) is nodes.Decorator:
             decorators = value.original_decorators
-            is_property = any(d for d in decorators if getattr(d, 'fullname', None) in ('builtins.property', 'abc.abstractproperty'))
-            is_classmethod = any(d for d in decorators
-                                 if getattr(d, 'fullname', None) in ('builtins.classmethod', 'abc.abstractclassmethod'))
-            is_staticmethod = any(d for d in decorators
-                                  if getattr(d, 'fullname', None) in ('builtins.staticmethod', 'abc.abstractstaticmethod'))
+            is_property = any(
+                d for d in decorators if getattr(d, "fullname", None) in ("builtins.property", "abc.abstractproperty")
+            )
+            is_classmethod = any(
+                d
+                for d in decorators
+                if getattr(d, "fullname", None) in ("builtins.classmethod", "abc.abstractclassmethod")
+            )
+            is_staticmethod = any(
+                d
+                for d in decorators
+                if getattr(d, "fullname", None) in ("builtins.staticmethod", "abc.abstractstaticmethod")
+            )
             r_type = get_return_type(value.func.type)
             if is_property:
                 common.add_attribute_to_class(context.api, delegate, value.name, r_type)
@@ -89,8 +102,15 @@ def ensure_names(context: mypy_plugin.ClassDefContext, delegate: nodes.ClassDef,
                 args = ensure_type_annotations(value.func.arguments)
                 if not is_staticmethod:
                     args = args[1:]
-                common.add_method_to_class(context.api, delegate, name, args, r_type,
-                                           is_classmethod=is_classmethod, is_staticmethod=is_staticmethod)
+                common.add_method_to_class(
+                    context.api,
+                    delegate,
+                    name,
+                    args,
+                    r_type,
+                    is_classmethod=is_classmethod,
+                    is_staticmethod=is_staticmethod,
+                )
     return changed
 
 
@@ -108,7 +128,7 @@ def ensure_type_annotations(arguments):
 def _handle_pi_attr_fallback(context, class_def):
     interface_list = get_type_interfaces(class_def)
     if len(interface_list) == 0:
-        context.api.fail('pi_attr_fallback requires an Interface.', class_def)
+        context.api.fail("pi_attr_fallback requires an Interface.", class_def)
         return
     interface_info = get_all_interface_info(interface_list)
     ensure_names(context, class_def, interface_info)
@@ -116,7 +136,7 @@ def _handle_pi_attr_fallback(context, class_def):
 
 def _handle_pi_attr_delegates(context, delegate, rvalue):
     if not isinstance(rvalue, nodes.DictExpr):
-        context.api.fail('pi_attr_delegates must be a dictionary.', delegate)
+        context.api.fail("pi_attr_delegates must be a dictionary.", delegate)
         return
     for _, expr in rvalue.items:
         if type(expr) is nodes.ListExpr:
@@ -128,7 +148,7 @@ def _handle_pi_attr_delegates(context, delegate, rvalue):
             # interface class
             type_info = expr.node
             if not type_info_is_interface(type_info):
-                context.api.fail('pi_attr_delegates values must be interface type')
+                context.api.fail("pi_attr_delegates values must be interface type")
                 return
             type_info = cast(nodes.TypeInfo, type_info)
             interface_info = get_interface_info(type_info.defn)
@@ -137,17 +157,16 @@ def _handle_pi_attr_delegates(context, delegate, rvalue):
 
 def _handle_pi_attr_mapping(context, delegate, rvalue):
     if not isinstance(rvalue, nodes.DictExpr):
-        context.api.fail('pi_attr_mapping must be a dictionary.', delegate)
+        context.api.fail("pi_attr_mapping must be a dictionary.", delegate)
         return
     for expr, _ in rvalue.items:
         if not isinstance(expr, nodes.StrExpr):
-            context.api.fail('pi_attr_mapping keys must be strings.', delegate)
+            context.api.fail("pi_attr_mapping keys must be strings.", delegate)
             return
         common.add_attribute_to_class(context.api, delegate, expr.value, NOT_ANNOTATED)
 
 
 class PureInterfacePlugin(mypy_plugin.Plugin):
-
     def get_base_class_hook(self, fullname: str) -> Optional[Callable[[mypy_plugin.ClassDefContext], None]]:
         if fullname == INTERFACE_FN:
             return self._mark_class_as_interface
@@ -155,10 +174,8 @@ class PureInterfacePlugin(mypy_plugin.Plugin):
             return self._create_delegate_attributes
         return None
 
-    def get_class_decorator_hook(
-        self, fullname: str
-    ) -> Optional[Callable[[mypy_plugin.ClassDefContext], None]]:
-        if fullname == 'dataclasses.dataclass':
+    def get_class_decorator_hook(self, fullname: str) -> Optional[Callable[[mypy_plugin.ClassDefContext], None]]:
+        if fullname == "dataclasses.dataclass":
             return self._create_dataclass_attributes
         return None
 
@@ -181,11 +198,11 @@ class PureInterfacePlugin(mypy_plugin.Plugin):
             if not (len(item.lvalues) == 1 and isinstance(item.lvalues[0], nodes.NameExpr)):
                 continue
             name = item.lvalues[0].fullname
-            if name == 'pi_attr_fallback':
+            if name == "pi_attr_fallback":
                 _handle_pi_attr_fallback(context, class_def)
-            elif name == 'pi_attr_delegates':
+            elif name == "pi_attr_delegates":
                 _handle_pi_attr_delegates(context, class_def, item.rvalue)
-            elif name == 'pi_attr_mapping':
+            elif name == "pi_attr_mapping":
                 _handle_pi_attr_mapping(context, class_def, item.rvalue)
 
     @staticmethod

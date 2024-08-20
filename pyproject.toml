@@ -41,3 +41,6 @@ plugins = "pure_interface/mypy_plugin.py"
 
 [tool.black]
 line-length = 120
+
+[tool.isort]
+profile = "black"
