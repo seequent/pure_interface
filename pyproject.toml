@@ -26,7 +26,7 @@ Homepage = "https://pypi.org/project/pure-interface/"
 Repository = "https://github.com/seequent/pure_interface"
 
 [project.optional-dependencies]
-dev = ['mypy >= 1.4']
+dev = ['mypy >= 1.4', 'tox']
 typing = ['mypy']
 
 [build-system]
