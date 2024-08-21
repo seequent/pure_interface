@@ -4,6 +4,7 @@ A sub-interface is a non-empty subset of another, larger, interface.
 The decorator checks that the sub-interface is infact a subset and
 registers the larger interface as an implementation of the sub-interface.
 """
+
 from inspect import signature
 from typing import Callable, Type, TypeVar
 

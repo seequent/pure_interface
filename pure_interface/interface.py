@@ -1,6 +1,7 @@
 """
 pure_interface enforces empty functions and properties on interfaces and provides adaption and structural type checking.
 """
+
 from __future__ import absolute_import, division, print_function
 
 import abc
