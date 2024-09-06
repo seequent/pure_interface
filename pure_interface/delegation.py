@@ -1,19 +1,25 @@
-from __future__ import division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import operator
-from typing import Dict, Union, Sequence, Type, Set, Tuple, Any, Optional, List
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
 from .errors import InterfaceError
-from .interface import get_interface_names, type_is_interface, get_type_interfaces, AnInterfaceType, AnInterface
+from .interface import (
+    AnInterface,
+    AnInterfaceType,
+    get_interface_names,
+    get_type_interfaces,
+    type_is_interface,
+)
 
 _composed_types_map: Dict[Tuple[Type, ...], Type] = {}
-_letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+_letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class _Delegated:
     def __init__(self, dotted_name: str):
         self._getter = operator.attrgetter(dotted_name)
-        self._impl_name, self._attr_name = dotted_name.rsplit('.', 1)
+        self._impl_name, self._attr_name = dotted_name.rsplit(".", 1)
 
     def __get__(self, obj, cls):
         if obj is None:
@@ -26,7 +32,7 @@ class _Delegated:
 
 
 class Delegate:
-    """ Mapping based delegate class
+    """Mapping based delegate class
 
     The class attribute pi_attr_delegates is a mapping of implmentation-name -> attr-name-list where
     implementation-name is the name of the attribute containing the implementation.
@@ -110,6 +116,7 @@ class Delegate:
                 self.foo = 3
 
     """
+
     pi_attr_fallback: Optional[str] = None
     pi_attr_delegates: Dict[str, Union[List[str], type]] = {}
     pi_attr_mapping: Dict[str, Sequence[str]] = {}
@@ -124,34 +131,34 @@ class Delegate:
                     return True
             return False
 
-        for delegate, attr_list in cls.__dict__.get('pi_attr_delegates', {}).items():
+        for delegate, attr_list in cls.__dict__.get("pi_attr_delegates", {}).items():
             if isinstance(attr_list, type):
                 attr_list = list(get_interface_names(attr_list))
             if delegate in cls.pi_attr_mapping:
-                raise ValueError(f'Delegate {delegate} is in pi_attr_map')
+                raise ValueError(f"Delegate {delegate} is in pi_attr_map")
             for attr in attr_list:
                 if attr in cls.pi_attr_mapping:
-                    raise ValueError(f'{attr} in pi_attr_map and handled by delegate {delegate}')
+                    raise ValueError(f"{attr} in pi_attr_map and handled by delegate {delegate}")
                 if i_have_attribute(attr):
                     continue
-                dotted_name = f'{delegate}.{attr}'
+                dotted_name = f"{delegate}.{attr}"
                 setattr(cls, attr, _Delegated(dotted_name))
-        for attr, dotted_name in cls.__dict__.get('pi_attr_mapping', {}).items():
+        for attr, dotted_name in cls.__dict__.get("pi_attr_mapping", {}).items():
             if not i_have_attribute(attr):
                 setattr(cls, attr, _Delegated(dotted_name))
-        fallback = cls.__dict__.get('pi_attr_fallback', None)
+        fallback = cls.__dict__.get("pi_attr_fallback", None)
         if fallback is not None:
             for interface in get_type_interfaces(cls):
                 interface_names = get_interface_names(interface)
                 for attr in interface_names:
                     if not i_have_attribute(attr):
-                        dotted_name = f'{fallback}.{attr}'
+                        dotted_name = f"{fallback}.{attr}"
                         setattr(cls, attr, _Delegated(dotted_name))
 
     @classmethod
     def provided_by(cls, obj: Any):
-        if not hasattr(cls, 'pi_composed_interfaces'):
-            raise InterfaceError('provided_by() can only be called on composed types')
+        if not hasattr(cls, "pi_composed_interfaces"):
+            raise InterfaceError("provided_by() can only be called on composed types")
         if isinstance(obj, cls):
             return True
         other_mro = [c for c in type(obj).mro() if type_is_interface(c)]
@@ -163,9 +170,9 @@ class Delegate:
 
 def __composed_init__(self, *args):
     for i, impl in enumerate(args):
-        attr = '_' + _letters[i]
+        attr = "_" + _letters[i]
         if not isinstance(impl, type(self).pi_composed_interfaces[i]):
-            raise ValueError(f'Expected {type(self).pi_composed_interfaces[i]} got {type(impl)} instead')
+            raise ValueError(f"Expected {type(self).pi_composed_interfaces[i]} got {type(impl)} instead")
         setattr(self, attr, impl)
 
 
@@ -192,9 +199,9 @@ def composed_type(*interface_types: AnInterfaceType) -> Type[Delegate]:
     t.bar -> 1
     """
     if len(interface_types) < 2:
-        raise ValueError('2 or more interfaces required')
+        raise ValueError("2 or more interfaces required")
     if len(interface_types) > len(_letters):
-        raise ValueError(f'Too many interfaces.  Use {len(_letters)} or fewer.')
+        raise ValueError(f"Too many interfaces.  Use {len(_letters)} or fewer.")
     interface_types = tuple(interface_types)
     c_type = _composed_types_map.get(interface_types)
     if c_type is not None:
@@ -203,20 +210,21 @@ def composed_type(*interface_types: AnInterfaceType) -> Type[Delegate]:
     all_names: Set[str] = set()
     for i, interface in enumerate(interface_types):
         if not type_is_interface(interface):
-            raise ValueError('all arguments to composed_type must be Interface classes')
-        attr = '_' + _letters[i]
+            raise ValueError("all arguments to composed_type must be Interface classes")
+        attr = "_" + _letters[i]
         int_names = get_interface_names(interface)
         delegates[attr] = [name for name in int_names if name not in all_names]
         all_names.update(int_names)
 
-    name = ''.join((cls.__name__ for cls in interface_types))
-    arg_names = ', '.join((cls.__name__.lower() for cls in interface_types))
+    name = "".join((cls.__name__ for cls in interface_types))
+    arg_names = ", ".join((cls.__name__.lower() for cls in interface_types))
     bases = (Delegate,) + interface_types
-    cls_attrs = {'__init__': __composed_init__,
-                 '__doc__': f'{name}({arg_names})',
-                 'pi_attr_delegates': delegates,
-                 'pi_composed_interfaces': interface_types,
-                 }
+    cls_attrs = {
+        "__init__": __composed_init__,
+        "__doc__": f"{name}({arg_names})",
+        "pi_attr_delegates": delegates,
+        "pi_composed_interfaces": interface_types,
+    }
     c_type = type(name, bases, cls_attrs)
     _composed_types_map[interface_types] = c_type
     return c_type

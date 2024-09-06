@@ -59,26 +59,26 @@ class TestModuleFunctions(unittest.TestCase):
         self.assertFalse(type_is_interface(object))
         self.assertFalse(type_is_interface(Cat))
         self.assertFalse(type_is_interface(Car))
-        self.assertFalse(type_is_interface('hello'))
+        self.assertFalse(type_is_interface("hello"))
 
     def test_get_interface_method_names(self):
-        self.assertEqual(get_interface_method_names(IAnimal), {'speak'})
-        self.assertEqual(get_interface_method_names(ILandAnimal), {'speak', 'num_legs'})
+        self.assertEqual(get_interface_method_names(IAnimal), {"speak"})
+        self.assertEqual(get_interface_method_names(ILandAnimal), {"speak", "num_legs"})
         self.assertEqual(get_interface_method_names(Cat), set())
         self.assertEqual(get_interface_method_names(Car), set())
-        self.assertEqual(get_interface_method_names('hello'), set())
+        self.assertEqual(get_interface_method_names("hello"), set())
 
     def test_get_interface_attribute_names(self):
-        self.assertEqual(get_interface_attribute_names(IAnimal), {'weight', 'species'})
-        self.assertEqual(get_interface_attribute_names(ILandAnimal), {'weight', 'species', 'height'})
+        self.assertEqual(get_interface_attribute_names(IAnimal), {"weight", "species"})
+        self.assertEqual(get_interface_attribute_names(ILandAnimal), {"weight", "species", "height"})
         self.assertEqual(get_interface_attribute_names(Cat), set())
-        self.assertEqual(get_interface_attribute_names('hello'), set())
+        self.assertEqual(get_interface_attribute_names("hello"), set())
 
     def test_get_interface_names(self):
-        self.assertEqual(get_interface_names(IAnimal), {'speak', 'weight', 'species'})
-        self.assertEqual(get_interface_names(ILandAnimal), {'speak', 'weight', 'species', 'height', 'num_legs'})
+        self.assertEqual(get_interface_names(IAnimal), {"speak", "weight", "species"})
+        self.assertEqual(get_interface_names(ILandAnimal), {"speak", "weight", "species", "height", "num_legs"})
         self.assertEqual(get_interface_names(Cat), set())
-        self.assertEqual(get_interface_names('hello'), set())
+        self.assertEqual(get_interface_names("hello"), set())
 
     def test_get_type_interfaces(self):
         self.assertEqual(get_type_interfaces(IAnimal), [IAnimal])
@@ -88,4 +88,4 @@ class TestModuleFunctions(unittest.TestCase):
         self.assertEqual(get_type_interfaces(Mongrel), [ILandAnimal, IAnimal])
         self.assertEqual(get_type_interfaces(Car), [])
         self.assertEqual(get_type_interfaces(len), [])
-        self.assertEqual(get_type_interfaces('hello'), [])
+        self.assertEqual(get_type_interfaces("hello"), [])

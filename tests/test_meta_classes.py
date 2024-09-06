@@ -60,7 +60,7 @@ class TestMetaClassMixingChecks(unittest.TestCase):
             innocent_bystander = InnocentBystander()
             innocent_bystander.method()
         except Exception as exc:
-            self.fail('No exception expected. Got\n' + str(exc))
+            self.fail("No exception expected. Got\n" + str(exc))
 
     def test_submeta_class_with_interface(self):
         with self.assertRaises(TypeError):
@@ -73,18 +73,18 @@ class TestMetaClassMixingChecks(unittest.TestCase):
 
     def test_dir_subclass(self):
         listing = dir(SubclassWithInterface)
-        self.assertIn('method2', listing)
-        self.assertIn('method', listing)
+        self.assertIn("method2", listing)
+        self.assertIn("method", listing)
 
     def test_dir_subsubclass(self):
         listing = dir(SubSubclassWithInterface)
-        self.assertIn('method2', listing)
-        self.assertIn('method', listing)
-        self.assertIn('foo', listing)
+        self.assertIn("method2", listing)
+        self.assertIn("method", listing)
+        self.assertIn("foo", listing)
 
     def test_dir_subsubsubclass(self):
         listing = dir(SubSubSubclassWithInterface)
-        self.assertIn('method2', listing)
-        self.assertIn('method', listing)
-        self.assertIn('foo', listing)
-        self.assertIn('bar', listing)
+        self.assertIn("method2", listing)
+        self.assertIn("method", listing)
+        self.assertIn("foo", listing)
+        self.assertIn("bar", listing)

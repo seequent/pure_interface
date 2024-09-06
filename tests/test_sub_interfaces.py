@@ -34,9 +34,8 @@ def larger_int(i):
 
 @dataclasses.dataclass
 class Larger(ILarger):
-
     def e(self):
-        return 'e'
+        return "e"
 
     def f(self, arg1, arg2, *kwargs):
         return arg1, arg2, kwargs
@@ -58,49 +57,58 @@ class TestAdaption(unittest.TestCase):
         try:
             s = ISmaller.adapt(4)
         except pure_interface.InterfaceError:
-            self.fail('ISmaller does not adapt ILarger')
+            self.fail("ISmaller does not adapt ILarger")
 
         self.assertEqual(s.b, 4)
 
     def test_fails_when_empty(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError, 'Sub-interface IEmpty is empty'):
+        with self.assertRaisesRegex(pure_interface.InterfaceError, "Sub-interface IEmpty is empty"):
+
             @pure_interface.sub_interface_of(ILarger)
             class IEmpty(pure_interface.Interface):
                 pass
 
     def test_fails_when_arg_not_interface(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    "sub_interface_of argument <class 'int'> is not an interface type"):
+        with self.assertRaisesRegex(
+            pure_interface.InterfaceError, "sub_interface_of argument <class 'int'> is not an interface type"
+        ):
+
             @pure_interface.sub_interface_of(int)
             class ISubInterface(pure_interface.Interface):
                 def __sub__(self, other):
                     pass
 
     def test_fails_when_class_not_interface(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    'class decorated by sub_interface_of must be an interface type'):
+        with self.assertRaisesRegex(
+            pure_interface.InterfaceError, "class decorated by sub_interface_of must be an interface type"
+        ):
+
             @pure_interface.sub_interface_of(ILarger)
             class NotInterface:
                 pass
 
     def test_fails_when_attr_mismatch(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    'NotSmaller has attributes that are not on ILarger: z'):
+        with self.assertRaisesRegex(
+            pure_interface.InterfaceError, "NotSmaller has attributes that are not on ILarger: z"
+        ):
+
             @pure_interface.sub_interface_of(ILarger)
             class INotSmaller(pure_interface.Interface):
                 z: int
 
     def test_fails_when_methods_mismatch(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    'NotSmaller has methods that are not on ILarger: x'):
+        with self.assertRaisesRegex(pure_interface.InterfaceError, "NotSmaller has methods that are not on ILarger: x"):
+
             @pure_interface.sub_interface_of(ILarger)
             class INotSmaller(pure_interface.Interface):
                 def x(self):
                     pass
 
     def test_fails_when_signatures_mismatch(self):
-        with self.assertRaisesRegex(pure_interface.InterfaceError,
-                                    'Signature of method f on ILarger and INotSmaller must match exactly'):
+        with self.assertRaisesRegex(
+            pure_interface.InterfaceError, "Signature of method f on ILarger and INotSmaller must match exactly"
+        ):
+
             @pure_interface.sub_interface_of(ILarger)
             class INotSmaller(pure_interface.Interface):
                 def f(self, arg1, arg2, foo=3):
