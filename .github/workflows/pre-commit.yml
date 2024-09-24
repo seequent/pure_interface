@@ -1,26 +1,21 @@
-name: pre-commit
+name: Run pre-commit checks
 
 on:
   push:
     branches:
       - master
-
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   pre-commit:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+    uses: seequent/leapfrog-actions-util/.github/workflows/run_pre_commit_checks.yml@run-pre-commit-checks-v1
+    with:
+      python_version: 3.10.6
+      requirements_file_path: extras/python/requirements_dev.txt
+      artifactory_user: ${{ vars.ARTIFACTORY_USER }}
+    secrets:
+      artifactory_token: ${{ secrets.LEAPFROG_ARTIFACTORY_TOKEN }}
+      github_pat: ${{ secrets.SVC_LEAPFROG_AUTOMATION_GITHUB_PAT }}

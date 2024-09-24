@@ -1,17 +1,25 @@
 repos:
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
-  hooks:
-    - id: check-toml
-    - id: trailing-whitespace
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
 
-- repo: https://github.com/psf/black
-  rev: 24.8.0
-  hooks:
-    - id: black
-      language_version: python3.10
+  - repo: https://github.com/seequent/bentley-copyright-utils
+    rev: v1.2.1
+    hooks:
+      - id: bentley-root-copyright-check
+      - id: bentley-file-copyright-check
 
-- repo: https://github.com/pycqa/isort
-  rev: 5.13.2
-  hooks:
-    - id: isort
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3.10
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
