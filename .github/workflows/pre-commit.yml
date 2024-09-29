@@ -13,8 +13,8 @@ jobs:
   pre-commit:
     uses: seequent/leapfrog-actions-util/.github/workflows/run_pre_commit_checks.yml@run-pre-commit-checks-v1
     with:
-      python_version: 3.10.6
-      requirements_file_path: extras/python/requirements_dev.txt
+      python_version: 3.10
+      requirements_file_path: requirements_dev.txt
       artifactory_user: ${{ vars.ARTIFACTORY_USER }}
     secrets:
       artifactory_token: ${{ secrets.LEAPFROG_ARTIFACTORY_TOKEN }}
