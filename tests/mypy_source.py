@@ -1,3 +1,8 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+#  See COPYRIGHT.md in the repository root for full copyright notice.
+# --------------------------------------------------------------------------------------------
+
 """With the pure-interface mypy plugin enabled, mypy should validate this file without error.
 
 This is working except for dataclasses __init__ call arguments.

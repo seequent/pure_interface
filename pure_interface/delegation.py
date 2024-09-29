@@ -1,3 +1,8 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+#  See COPYRIGHT.md in the repository root for full copyright notice.
+# --------------------------------------------------------------------------------------------
+
 from __future__ import absolute_import, division, print_function
 
 import operator

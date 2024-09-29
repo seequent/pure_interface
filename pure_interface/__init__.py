@@ -1,3 +1,8 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+#  See COPYRIGHT.md in the repository root for full copyright notice.
+# --------------------------------------------------------------------------------------------
+
 from ._sub_interface import sub_interface_of
 from .adaption import AdapterTracker, adapt_args, adapts, register_adapter
 from .delegation import Delegate
