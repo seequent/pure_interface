@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 from ._sub_interface import sub_interface_of
 from .adaption import AdapterTracker, adapt_args, adapts, register_adapter
 from .delegation import Delegate

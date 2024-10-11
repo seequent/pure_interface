@@ -1,2 +1,6 @@
--r requirements.txt
+--index-url https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@seequent.jfrog.io/artifactory/api/pypi/leapfrog-build-systems-pypi-local/simple
+
 mypy
+pre-commit==3.8.0
+
+-r requirements.txt
