@@ -1,6 +1,6 @@
 [project]
 name = "pure-interface"
-dynamic = ["version"]
+version = "8.0.3"
 description = "A Python interface library that disallows function body content on interfaces and supports adaption."
 keywords = ["interface", "protocol", "adaption", "structural", "dataclass"]
 authors = [
@@ -33,9 +33,6 @@ typing = ['mypy']
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.dynamic]
-version = {attr = "pure_interface.__version__"}
-
 [tool.mypy]
 plugins = "pure_interface/mypy_plugin.py"
 
@@ -44,3 +41,33 @@ line-length = 120
 
 [tool.isort]
 profile = "black"
+
+[tool.bumpversion]
+current_version = "8.0.3"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+setup_hooks = []
+pre_commit_hooks = []
+post_commit_hooks = []
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "pure_interface/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'

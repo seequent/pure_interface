@@ -1,3 +1,8 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
+
 class PureInterfaceError(Exception):
     """All exceptions raised by this module are subclasses of this exception"""
 

@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 """ decorator function for sub-interfaces
 
 A sub-interface is a non-empty subset of another, larger, interface.

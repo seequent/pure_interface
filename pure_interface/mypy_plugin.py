@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 from collections.abc import Callable
 from typing import Dict, Final, List, Optional, TypeAlias, cast
 

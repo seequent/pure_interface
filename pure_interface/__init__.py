@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 from ._sub_interface import sub_interface_of
 from .adaption import AdapterTracker, adapt_args, adapts, register_adapter
 from .delegation import Delegate
@@ -15,4 +19,4 @@ from .interface import (
     type_is_interface,
 )
 
-__version__ = "8.0.2"
+__version__ = "8.0.3"  # Don't change this manually - run `bump-my-version bump [major|minor|patch]` instead
