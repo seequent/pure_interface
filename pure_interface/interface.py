@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 """
 pure_interface enforces empty functions and properties on interfaces and provides adaption and structural type checking.
 """

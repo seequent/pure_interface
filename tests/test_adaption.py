@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 import unittest
 import warnings
 from unittest import mock

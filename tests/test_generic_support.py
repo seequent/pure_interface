@@ -1,3 +1,7 @@
+# --------------------------------------------------------------------------------------------
+#  Copyright (c) 2024 Bentley Systems, Incorporated. All rights reserved.
+# --------------------------------------------------------------------------------------------
+
 import unittest
 from typing import Iterable, List, TypeVar
 
