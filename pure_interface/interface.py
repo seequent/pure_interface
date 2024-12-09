@@ -137,6 +137,8 @@ def _builtin_attrs(name: str) -> bool:
         "_abc_negative_cache",
         "_pi",
         "_pi_unwrap_decorators",
+        "__firstlineno__",
+        "__static_attributes__",
     )
 
 
