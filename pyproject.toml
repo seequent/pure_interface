@@ -1,6 +1,6 @@
 [project]
 name = "pure-interface"
-version = "8.0.3"
+version = "8.0.4"
 description = "A Python interface library that disallows function body content on interfaces and supports adaption."
 keywords = ["interface", "protocol", "adaption", "structural", "dataclass"]
 authors = [
@@ -43,7 +43,7 @@ line-length = 120
 profile = "black"
 
 [tool.bumpversion]
-current_version = "8.0.3"
+current_version = "8.0.4"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
