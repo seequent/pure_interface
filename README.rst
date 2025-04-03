@@ -14,7 +14,7 @@ Features
 * Allows concrete implementations the flexibility to implement abstract properties as instance attributes.
 * ``Interface.adapt()`` can return an implementation wrapper that provides *only* the
   attributes and methods defined by ``Interface``.
-* Supports python 3.8+
+* Supports python 3.9+
 
 **A note on the name**
 
