@@ -117,6 +117,7 @@ class _ImplementationWrapper:
         else:
             raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, key))
 
+
 def _wrapped_call(self, *args, **kwargs) -> Any:
     impl = object.__getattribute__(self, "_ImplementationWrapper__impl")
     return impl(*args, **kwargs)
