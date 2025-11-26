@@ -118,6 +118,11 @@ class _ImplementationWrapper:
             raise AttributeError("'{}' interface has no attribute '{}'".format(self.__interface_name, key))
 
 
+def _wrapped_call(self, *args, **kwargs) -> Any:
+    impl = object.__getattribute__(self, "_ImplementationWrapper__impl")
+    return impl(*args, **kwargs)
+
+
 def _builtin_attrs(name: str) -> bool:
     """These attributes are ignored when checking ABC types for emptyness."""
     return name in (
@@ -716,9 +721,9 @@ class InterfaceType(abc.ABCMeta):
     def interface_only(cls, implementation):
         if cls._pi.impl_wrapper_type is None:
             type_name = "_{}Only".format(cls.__name__)
-            attributes = {"__module__": cls.__module__}
+            attributes: dict[str, Any] = {"__module__": cls.__module__}
             if "__call__" in cls._pi.interface_names:
-                attributes["__call__"] = getattr(implementation, "__call__")
+                attributes["__call__"] = _wrapped_call
             cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
             abc.ABCMeta.register(cls, cls._pi.impl_wrapper_type)
         return cls._pi.impl_wrapper_type(implementation, cls)
