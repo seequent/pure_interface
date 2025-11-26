@@ -45,4 +45,4 @@ class TestAdaptCall(unittest.TestCase):
         ]
         for factory in factories:
             adapted = IGreetingFactory.adapt(factory, interface_only=True)
-            self.assertEqual(adapted('World'), factory('World'))
+            self.assertEqual(adapted("World"), factory("World"))
