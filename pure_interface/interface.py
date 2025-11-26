@@ -721,7 +721,7 @@ class InterfaceType(abc.ABCMeta):
     def interface_only(cls, implementation):
         if cls._pi.impl_wrapper_type is None:
             type_name = "_{}Only".format(cls.__name__)
-            attributes = {"__module__": cls.__module__}
+            attributes: dict[str, Any] = {"__module__": cls.__module__}
             if "__call__" in cls._pi.interface_names:
                 attributes["__call__"] = _wrapped_call
             cls._pi.impl_wrapper_type = type(type_name, (_ImplementationWrapper,), attributes)
