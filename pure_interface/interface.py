@@ -62,6 +62,7 @@ def no_adaption(obj: _T) -> _T:
 AnInterface = TypeVar("AnInterface", bound="Interface")
 AnInterfaceType = TypeVar("AnInterfaceType", bound="InterfaceType")
 
+
 def _unique_list(items: Iterable[Any]) -> List[Any]:
     seen = set()
     unique_items = []
@@ -76,11 +77,11 @@ class _PIAttributes:
     """rather than clutter the class namespace with lots of _pi_XXX attributes, collect them all here"""
 
     def __init__(
-            self,
-            this_type_is_an_interface: bool,
-            abstract_properties: Set[str],
-            interface_method_signatures: Dict[str, Signature],
-            interface_attribute_names: List[str],
+        self,
+        this_type_is_an_interface: bool,
+        abstract_properties: Set[str],
+        interface_method_signatures: Dict[str, Signature],
+        interface_attribute_names: List[str],
     ):
         self.type_is_interface: bool = this_type_is_an_interface
         # abstractproperties are checked for at instantiation.
@@ -151,8 +152,8 @@ def _is_builtin_attr(name: str) -> bool:
         "__static_attributes__",
         # new in 3.14
         "__classdictcell__",
-        '__annotate__',
-        '__annotate_func__',
+        "__annotate__",
+        "__annotate_func__",
     )
 
 
@@ -268,9 +269,9 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
             instructions.pop(0)
         # All generator functions end with these 2 opcodes in 3.12+
         if (
-                len(instructions) > 2
-                and instructions[-2].opname == "CALL_INTRINSIC_1"
-                and instructions[-1].opname == "RERAISE"
+            len(instructions) > 2
+            and instructions[-2].opname == "CALL_INTRINSIC_1"
+            and instructions[-1].opname == "RERAISE"
         ):
             instructions = instructions[:-2]  # remove last 2 instructions
     if instructions[0].opname == "RESUME":
@@ -283,7 +284,7 @@ def _is_empty_function(func: Any, unwrap: bool = False) -> bool:
             return False  # return is not None
         instructions = instructions[:-2]
     if (
-            len(instructions) > 0 and instructions[-1].opname == "RETURN_CONST" and instructions[-1].argval is None
+        len(instructions) > 0 and instructions[-1].opname == "RETURN_CONST" and instructions[-1].argval is None
     ):  # returns constant
         instructions.pop(-1)
     if len(instructions) == 0:
@@ -305,12 +306,12 @@ def _is_descriptor(obj: Any) -> bool:  # in our context we only care about __get
 
 class _ParamTypes:
     def __init__(
-            self,
-            pos_only: List[Parameter],
-            pos_or_kw: List[Parameter],
-            vararg: List[Parameter],
-            kw_only: List[Parameter],
-            varkw: List[Parameter],
+        self,
+        pos_only: List[Parameter],
+        pos_or_kw: List[Parameter],
+        vararg: List[Parameter],
+        kw_only: List[Parameter],
+        varkw: List[Parameter],
     ):
         self.pos_only = pos_only
         self.pos_or_kw = pos_or_kw
@@ -343,7 +344,7 @@ def _positional_args_match(func_list, base_list, vararg, base_kwo):
             return False
     # extra parameters must be have defaults (be optional)
     base_kwo = [p.name for p in base_kwo]
-    for p in func_list[len(base_list):]:
+    for p in func_list[len(base_list) :]:
         if p.default is Parameter.empty and p.name not in base_kwo:
             return False
     return True
@@ -685,7 +686,9 @@ class InterfaceType(abc.ABCMeta):
 
         # add annotations after creating the class so that we can use inspect module.
         annotations = inspect.get_annotations(cls)
-        interface_attribute_names = [a for a in annotations.keys() if not _is_builtin_attr(a)] + interface_attribute_names
+        interface_attribute_names = [
+            a for a in annotations.keys() if not _is_builtin_attr(a)
+        ] + interface_attribute_names
         pi_attributes.interface_attribute_names = _unique_list(interface_attribute_names)
 
         base_interfaces = [bt for bt, is_interface in base_types if is_interface]
@@ -693,7 +696,6 @@ class InterfaceType(abc.ABCMeta):
             # provide interface attributes as annotations so that dataclass decorator creates all attributes
             # defined on base interfaces.
             _ensure_annotations(interface_attribute_names, cls, base_interfaces)
-
 
         # warnings
         if not this_type_is_an_interface and is_development and cls.__abstractmethods__ and not partial_implementation:
@@ -811,7 +813,7 @@ class Interface(abc.ABC, metaclass=InterfaceType):
 
     @classmethod
     def adapt(
-            cls: Type[AnInterface], obj: Any, allow_implicit: bool = False, interface_only: Optional[bool] = None
+        cls: Type[AnInterface], obj: Any, allow_implicit: bool = False, interface_only: Optional[bool] = None
     ) -> AnInterface:
         """Adapts obj to interface, returning obj if to_interface.provided_by(obj, allow_implicit) is True
         and raising ValueError if no adapter is found
@@ -822,7 +824,7 @@ class Interface(abc.ABC, metaclass=InterfaceType):
 
     @classmethod
     def adapt_or_none(
-            cls: Type[AnInterface], obj, allow_implicit: bool = False, interface_only: Optional[bool] = None
+        cls: Type[AnInterface], obj, allow_implicit: bool = False, interface_only: Optional[bool] = None
     ) -> Optional[AnInterface]:
         """Adapt obj to to_interface or return None if adaption fails"""
         return InterfaceType.adapt_or_none(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
@@ -834,8 +836,7 @@ class Interface(abc.ABC, metaclass=InterfaceType):
 
     @classmethod
     def filter_adapt(
-            cls: Type[AnInterface], objects: Iterable, allow_implicit: bool = False,
-            interface_only: Optional[bool] = None
+        cls: Type[AnInterface], objects: Iterable, allow_implicit: bool = False, interface_only: Optional[bool] = None
     ) -> Iterable[AnInterface]:
         """Generates adaptions of the given objects to this interface.
         Objects that cannot be adapted to this interface are silently skipped.
@@ -844,7 +845,7 @@ class Interface(abc.ABC, metaclass=InterfaceType):
 
     @classmethod
     def optional_adapt(
-            cls: Type[AnInterface], obj, allow_implicit: bool = False, interface_only: Optional[bool] = None
+        cls: Type[AnInterface], obj, allow_implicit: bool = False, interface_only: Optional[bool] = None
     ) -> Optional[AnInterface]:
         """Adapt obj to to_interface or return None if adaption fails"""
         return InterfaceType.optional_adapt(cls, obj, allow_implicit=allow_implicit, interface_only=interface_only)
