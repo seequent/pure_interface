@@ -19,4 +19,4 @@ from .interface import (
     type_is_interface,
 )
 
-__version__ = "8.1.0"  # Don't change this manually - run `bump-my-version bump [major|minor|patch]` instead
+__version__ = "8.2.0"  # Don't change this manually - run `bump-my-version bump [major|minor|patch]` instead
