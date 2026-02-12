@@ -1,25 +1,31 @@
 [project]
 name = "pure-interface"
-version = "8.0.4"
+version = "8.1.0"
 description = "A Python interface library that disallows function body content on interfaces and supports adaption."
 keywords = ["interface", "protocol", "adaption", "structural", "dataclass"]
 authors = [
     {name = "Tim Mitchell", email = "tim.mitchell@seequent.com"}
 ]
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 license = "MIT"
 license-files = ["LICENSE"]
+dependencies = [
+    "bump-my-version==0.26.0",
+    "mypy>=1.19.1",
+    "pre-commit==3.8.0",
+    "tox>=4.34.1",
+]
 
 [project.urls]
 Homepage = "https://pypi.org/project/pure-interface/"
@@ -43,7 +49,7 @@ line-length = 120
 profile = "black"
 
 [tool.bumpversion]
-current_version = "8.0.4"
+current_version = "8.1.0"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
