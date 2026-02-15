@@ -20,12 +20,6 @@ classifiers = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = [
-    "bump-my-version==0.26.0",
-    "mypy>=1.19.1",
-    "pre-commit==3.8.0",
-    "tox>=4.34.1",
-]
 
 [project.urls]
 Homepage = "https://pypi.org/project/pure-interface/"
