@@ -3,6 +3,7 @@
 # --------------------------------------------------------------------------------------------
 
 import abc
+import collections.abc
 import unittest
 
 import pure_interface
@@ -106,3 +107,8 @@ class TestNoContentChecks(unittest.TestCase):
                 @property
                 def height(self):
                     return self
+
+    def test_std_lib_abc_passes(self):
+
+        class ITest(collections.abc.Sized, pure_interface.Interface):
+            pass
