@@ -3,8 +3,8 @@
 # --------------------------------------------------------------------------------------------
 
 import abc
-import unittest
 import collections.abc
+import unittest
 
 import pure_interface
 import pure_interface.errors
@@ -66,7 +66,6 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_raise_other_fails(self):
         with self.assertRaises(pure_interface.InterfaceError):
-
             class INotAnimal(pure_interface.Interface):
                 def bad_method(self):
                     """a comment"""
@@ -75,7 +74,6 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_function_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
-
             class IAnimal(pure_interface.Interface):
                 def speak(self, volume):
                     if volume > 0:
@@ -83,7 +81,6 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_abstract_function_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
-
             class IAnimal(pure_interface.Interface):
                 @abc.abstractmethod
                 def speak(self, volume):
@@ -92,7 +89,6 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_abstract_classmethod_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
-
             class IAnimal(pure_interface.Interface):
                 @classmethod
                 @abc.abstractmethod
@@ -102,7 +98,6 @@ class TestNoContentChecks(unittest.TestCase):
 
     def test_property_with_body_fails(self):
         with self.assertRaises(pure_interface.errors.InterfaceError):
-
             class IAnimal(pure_interface.Interface):
                 @property
                 def height(self):
