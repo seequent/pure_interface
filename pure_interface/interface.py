@@ -168,6 +168,8 @@ def _type_is_interface(cls: type) -> bool:
     """Return True if cls is a pure interface or an empty ABC class"""
     if cls is object:
         return False
+    if cls.__module__ == 'collections.abc':
+        return True
     if hasattr(cls, "_pi"):
         return cls._pi.type_is_interface
     if cls is Generic:
