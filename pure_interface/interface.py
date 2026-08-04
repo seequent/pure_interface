@@ -66,7 +66,7 @@ AnInterfaceType = TypeVar("AnInterfaceType", bound="InterfaceType")
 def clear_adapter_caches(interface_cls: type) -> None:
     """Clear adapter caches for the given interface and all its ancestor interfaces."""
     for cls in interface_cls.__mro__:
-        cache = get_pi_attribute(cls, "_adapter_cache")
+        cache = get_pi_attribute(cls, "adapter_cache")
         if cache is not None:
             cache.clear()
 
@@ -103,7 +103,7 @@ class _PIAttributes:
         self.registered_types = weakref.WeakSet()  # type: ignore
         self.structural_subclasses: Set[type] = set()
         self.impl_wrapper_type: Optional[type] = None
-        self._adapter_cache: Dict[type, Optional[Callable]] = {}
+        self.adapter_cache: weakref.WeakKeyDictionary[type, Optional[Callable]] = weakref.WeakKeyDictionary()
 
     @property
     def interface_names(self) -> FrozenSet[str]:
@@ -765,7 +765,7 @@ class InterfaceType(abc.ABCMeta):
             adapter = no_adaption
         else:
             obj_type = type(obj)
-            cache = get_pi_attribute(cls, "_adapter_cache")
+            cache = get_pi_attribute(cls, "adapter_cache")
             if obj_type not in cache:
                 cache[obj_type] = _get_adapter(cls, obj_type)
             adapter = cache[obj_type]

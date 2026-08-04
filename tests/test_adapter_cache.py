@@ -63,13 +63,13 @@ class TestAdapterCache(unittest.TestCase):
         register_adapter(HawkToIDog, Hawk, IDog)
 
     def setUp(self):
-        IAnimal._pi._adapter_cache.clear()
-        IDog._pi._adapter_cache.clear()
+        IAnimal._pi.adapter_cache.clear()
+        IDog._pi.adapter_cache.clear()
 
     def test_adapter_cached_after_adapt(self):
         IAnimal.adapt(Cat(), interface_only=False)
-        self.assertIn(Cat, IAnimal._pi._adapter_cache)
-        self.assertIs(IAnimal._pi._adapter_cache[Cat], CatToIAnimal)
+        self.assertIn(Cat, IAnimal._pi.adapter_cache)
+        self.assertIs(IAnimal._pi.adapter_cache[Cat], CatToIAnimal)
 
     def test_get_adapter_called_only_once_for_repeated_adapts(self):
         cat = Cat()
@@ -80,8 +80,8 @@ class TestAdapterCache(unittest.TestCase):
 
     def test_none_cached_when_no_adapter_exists(self):
         IAnimal.adapt_or_none(Fish(), interface_only=False)
-        self.assertIn(Fish, IAnimal._pi._adapter_cache)
-        self.assertIsNone(IAnimal._pi._adapter_cache[Fish])
+        self.assertIn(Fish, IAnimal._pi.adapter_cache)
+        self.assertIsNone(IAnimal._pi.adapter_cache[Fish])
 
     def test_get_adapter_called_only_once_for_repeated_none_results(self):
         fish = Fish()
@@ -91,16 +91,16 @@ class TestAdapterCache(unittest.TestCase):
         mock_get.assert_called_once()
 
     def test_clear_adapter_caches_clears_interface_cache(self):
-        IAnimal._pi._adapter_cache[Cat] = CatToIAnimal
+        IAnimal._pi.adapter_cache[Cat] = CatToIAnimal
         interface.clear_adapter_caches(IAnimal)
-        self.assertEqual(IAnimal._pi._adapter_cache, {})
+        self.assertEqual(len(IAnimal._pi.adapter_cache), 0)
 
     def test_clear_adapter_caches_on_child_clears_parent_cache(self):
         # IAnimal's cache should be cleared when IDog's adapters change,
         # because _get_adapter(IAnimal, ...) collects adapters from IAnimal.__subclasses__()
-        IAnimal._pi._adapter_cache[Hawk] = None
+        IAnimal._pi.adapter_cache[Hawk] = None
         interface.clear_adapter_caches(IDog)
-        self.assertNotIn(Hawk, IAnimal._pi._adapter_cache)
+        self.assertNotIn(Hawk, IAnimal._pi.adapter_cache)
 
     def test_parent_interface_finds_adapter_registered_on_child(self):
         adapted = IAnimal.adapt(Hawk(), interface_only=False)
@@ -108,20 +108,20 @@ class TestAdapterCache(unittest.TestCase):
 
     def test_parent_caches_adapter_found_via_child(self):
         IAnimal.adapt(Hawk(), interface_only=False)
-        self.assertIn(Hawk, IAnimal._pi._adapter_cache)
-        self.assertIs(IAnimal._pi._adapter_cache[Hawk], HawkToIDog)
+        self.assertIn(Hawk, IAnimal._pi.adapter_cache)
+        self.assertIs(IAnimal._pi.adapter_cache[Hawk], HawkToIDog)
 
     def test_register_type_clears_cache(self):
-        IAnimal._pi._adapter_cache[Iguana] = None
+        IAnimal._pi.adapter_cache[Iguana] = None
         IAnimal.register(Iguana)
-        self.assertNotIn(Iguana, IAnimal._pi._adapter_cache)
+        self.assertNotIn(Iguana, IAnimal._pi.adapter_cache)
 
     def test_register_adapter_clears_entire_cache(self):
         # Pre-populate cache with an unrelated entry
-        IAnimal._pi._adapter_cache[Fish] = None
+        IAnimal._pi.adapter_cache[Fish] = None
         # Registering any adapter should wipe the whole cache
         register_adapter(lambda obj: CatToIAnimal(obj), Iguana, IAnimal)
-        self.assertEqual(IAnimal._pi._adapter_cache, {})
+        self.assertEqual(len(IAnimal._pi.adapter_cache), 0)
 
     def test_stale_none_on_parent_cleared_when_adapter_registered_on_child(self):
         # Fresh types so no adapters are pre-registered
@@ -149,13 +149,13 @@ class TestAdapterCache(unittest.TestCase):
         # Prime a stale None on both parent and child: no adapter for Bicycle yet
         self.assertIsNone(IVehicle.adapt_or_none(Bicycle(), interface_only=False))
         self.assertIsNone(ICar.adapt_or_none(Bicycle(), interface_only=False))
-        self.assertIsNone(IVehicle._pi._adapter_cache[Bicycle])
-        self.assertIsNone(ICar._pi._adapter_cache[Bicycle])
+        self.assertIsNone(IVehicle._pi.adapter_cache[Bicycle])
+        self.assertIsNone(ICar._pi.adapter_cache[Bicycle])
 
         # Registering on the child must evict the stale entry from both caches
         register_adapter(BicycleToICar, Bicycle, ICar)
-        self.assertNotIn(Bicycle, IVehicle._pi._adapter_cache)
-        self.assertNotIn(Bicycle, ICar._pi._adapter_cache)
+        self.assertNotIn(Bicycle, IVehicle._pi.adapter_cache)
+        self.assertNotIn(Bicycle, ICar._pi.adapter_cache)
 
         # Parent can now adapt Bicycle via the child's adapter
         adapted = IVehicle.adapt(Bicycle(), interface_only=False)
