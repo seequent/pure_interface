@@ -116,16 +116,12 @@ class TestAdapterCache(unittest.TestCase):
         IAnimal.register(Iguana)
         self.assertNotIn(Iguana, IAnimal._pi._adapter_cache)
 
-    def test_register_adapter_only_evicts_from_type_entry(self):
+    def test_register_adapter_clears_entire_cache(self):
         # Pre-populate cache with an unrelated entry
         IAnimal._pi._adapter_cache[Fish] = None
-        # Register a new adapter for Iguana
+        # Registering any adapter should wipe the whole cache
         register_adapter(lambda obj: CatToIAnimal(obj), Iguana, IAnimal)
-        # The Iguana entry should be gone (evicted)
-        self.assertNotIn(Iguana, IAnimal._pi._adapter_cache)
-        # The Fish entry should be untouched
-        self.assertIn(Fish, IAnimal._pi._adapter_cache)
-        self.assertIsNone(IAnimal._pi._adapter_cache[Fish])
+        self.assertEqual(IAnimal._pi._adapter_cache, {})
 
     def test_stale_none_on_parent_cleared_when_adapter_registered_on_child(self):
         # Fresh types so no adapters are pre-registered
