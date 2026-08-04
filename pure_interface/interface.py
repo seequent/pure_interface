@@ -76,6 +76,7 @@ def clear_adapter_caches(interface_cls: type, from_type: Optional[type] = None) 
             else:
                 cache.pop(from_type, None)
 
+
 def _unique_list(items: Iterable[Any]) -> List[Any]:
     seen = set()
     unique_items = []

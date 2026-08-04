@@ -130,18 +130,25 @@ class TestAdapterCache(unittest.TestCase):
     def test_stale_none_on_parent_cleared_when_adapter_registered_on_child(self):
         # Fresh types so no adapters are pre-registered
         class IVehicle(Interface):
-            def drive(self): pass
+            def drive(self):
+                pass
 
         class ICar(IVehicle, Interface):
-            def park(self): pass
+            def park(self):
+                pass
 
         class Bicycle:
             pass
 
         class BicycleToICar(ICar):
-            def __init__(self, obj): pass
-            def drive(self): pass
-            def park(self): pass
+            def __init__(self, obj):
+                pass
+
+            def drive(self):
+                pass
+
+            def park(self):
+                pass
 
         # Prime a stale None on both parent and child: no adapter for Bicycle yet
         self.assertIsNone(IVehicle.adapt_or_none(Bicycle(), interface_only=False))
