@@ -16,6 +16,7 @@ from .interface import (
     AnInterface,
     Interface,
     InterfaceType,
+    clear_adapter_caches,
     get_pi_attribute,
     get_type_interfaces,
     type_is_interface,
@@ -81,6 +82,7 @@ def register_adapter(
         raise AdaptionError("{} already has an adapter to {}".format(from_type, to_interface))
 
     adapters[from_type] = adapter
+    clear_adapter_caches(to_interface, from_type)
 
 
 class AdapterTracker(object):
