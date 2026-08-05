@@ -20,6 +20,13 @@ class IDog(IAnimal, Interface):
         pass
 
 
+class ICreature(Interface):
+    """Separate interface used to test cache invalidation via .register()."""
+
+    def speak(self):
+        pass
+
+
 class Cat:
     pass
 
@@ -48,23 +55,54 @@ class HawkToIDog(IDog):
 
 
 class Fish:
-    pass  # never adapted — used to test None caching
+    pass  # used to test None caching and late adapter registration
+
+
+class FishToIAnimal(IAnimal):
+    def __init__(self, obj):
+        pass
+
+    def speak(self):
+        return "blub"
+
+
+class FishToIDog(IDog):
+    def __init__(self, obj):
+        pass
+
+    def speak(self):
+        return "blub"
+
+    def fetch(self):
+        return "swim"
 
 
 class Iguana:
     pass  # used for register() test
 
 
+ICreature.register(IAnimal)
+
+
+def _register_adapters():
+    register_adapter(CatToIAnimal, Cat, IAnimal)
+    register_adapter(HawkToIDog, Hawk, IDog)
+
+
 class TestAdapterCache(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         pure_interface.set_is_development(True)
-        register_adapter(CatToIAnimal, Cat, IAnimal)
-        register_adapter(HawkToIDog, Hawk, IDog)
 
     def setUp(self):
+        _register_adapters()
+
+    def tearDown(self):
         IAnimal._pi.adapter_cache.clear()
         IDog._pi.adapter_cache.clear()
+        ICreature._pi.adapter_cache.clear()
+        IAnimal._pi.adapters.clear()
+        IDog._pi.adapters.clear()
 
     def test_adapter_cached_after_adapt(self):
         IAnimal.adapt(Cat(), interface_only=False)
@@ -124,39 +162,38 @@ class TestAdapterCache(unittest.TestCase):
         self.assertEqual(len(IAnimal._pi.adapter_cache), 0)
 
     def test_stale_none_on_parent_cleared_when_adapter_registered_on_child(self):
-        # Fresh types so no adapters are pre-registered
-        class IVehicle(Interface):
-            def drive(self):
-                pass
-
-        class ICar(IVehicle, Interface):
-            def park(self):
-                pass
-
-        class Bicycle:
-            pass
-
-        class BicycleToICar(ICar):
-            def __init__(self, obj):
-                pass
-
-            def drive(self):
-                pass
-
-            def park(self):
-                pass
-
-        # Prime a stale None on both parent and child: no adapter for Bicycle yet
-        self.assertIsNone(IVehicle.adapt_or_none(Bicycle(), interface_only=False))
-        self.assertIsNone(ICar.adapt_or_none(Bicycle(), interface_only=False))
-        self.assertIsNone(IVehicle._pi.adapter_cache[Bicycle])
-        self.assertIsNone(ICar._pi.adapter_cache[Bicycle])
+        # Prime a stale None on both parent and child: no adapter for Fish yet
+        self.assertIsNone(IAnimal.adapt_or_none(Fish(), interface_only=False))
+        self.assertIsNone(IDog.adapt_or_none(Fish(), interface_only=False))
+        self.assertIsNone(IAnimal._pi.adapter_cache[Fish])
+        self.assertIsNone(IDog._pi.adapter_cache[Fish])
 
         # Registering on the child must evict the stale entry from both caches
-        register_adapter(BicycleToICar, Bicycle, ICar)
-        self.assertNotIn(Bicycle, IVehicle._pi.adapter_cache)
-        self.assertNotIn(Bicycle, ICar._pi.adapter_cache)
+        register_adapter(FishToIDog, Fish, IDog)
+        self.assertNotIn(Fish, IAnimal._pi.adapter_cache)
+        self.assertNotIn(Fish, IDog._pi.adapter_cache)
 
-        # Parent can now adapt Bicycle via the child's adapter
-        adapted = IVehicle.adapt(Bicycle(), interface_only=False)
-        self.assertIsInstance(adapted, BicycleToICar)
+        # Parent can now adapt Fish via the child's adapter
+        adapted = IAnimal.adapt(Fish(), interface_only=False)
+        self.assertIsInstance(adapted, FishToIDog)
+
+    def test_stale_none_cleared_when_adapter_added_to_registered_interface(self):
+        # IAnimal is registered as a virtual subclass of ICreature at module level.
+        # _get_adapter(ICreature, T) therefore reads IAnimal._pi.adapters.
+        # If a stale None is cached on ICreature and a new adapter is later added
+        # to IAnimal, the stale entry must be evicted so ICreature can find the adapter.
+
+        # Prime ICreature's cache with None — no adapter for Fish exists yet
+        self.assertIsNone(ICreature.adapt_or_none(Fish(), interface_only=False))
+        self.assertIn(Fish, ICreature._pi.adapter_cache)
+        self.assertIsNone(ICreature._pi.adapter_cache[Fish])
+
+        # Register an adapter for Fish on IAnimal
+        register_adapter(FishToIAnimal, Fish, IAnimal)
+
+        # ICreature's stale None should have been evicted
+        self.assertNotIn(Fish, ICreature._pi.adapter_cache)
+
+        # ICreature should now successfully adapt Fish via IAnimal's adapter
+        adapted = ICreature.adapt(Fish(), interface_only=False)
+        self.assertIsInstance(adapted, FishToIAnimal)
