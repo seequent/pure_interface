@@ -107,7 +107,7 @@ class _PIAttributes:
         self.registered_by: weakref.WeakSet = weakref.WeakSet()  # interfaces that have registered this one
         self.structural_subclasses: Set[type] = set()
         self.impl_wrapper_type: Optional[type] = None
-        self.adapter_cache: weakref.WeakKeyDictionary[type, Optional[Callable]] = weakref.WeakKeyDictionary()
+        self.adapter_cache = weakref.WeakKeyDictionary()  # type: ignore
 
     @property
     def interface_names(self) -> FrozenSet[str]:
