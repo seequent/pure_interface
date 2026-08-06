@@ -32,6 +32,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    cast,
 )
 
 from .errors import AdaptionError, InterfaceError
@@ -589,7 +590,7 @@ def _get_adapter(cls: AnInterfaceType, obj_type: Type) -> Optional[Callable]:
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
         if type_is_interface(subcls):
-            adapters.update(subcls._pi.adapters)
+            adapters.update(cast(AnInterfaceType, subcls)._pi.adapters)
     if not adapters:
         return None
 
