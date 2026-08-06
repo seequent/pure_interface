@@ -102,12 +102,12 @@ class _PIAttributes:
         # keep an ordered list for dataclass
         self.interface_attribute_names: List[str] = _unique_list(interface_attribute_names)
         self.interface_method_signatures = interface_method_signatures
-        self.adapters = weakref.WeakKeyDictionary()  # type: ignore
-        self.registered_types = weakref.WeakSet()  # type: ignore
-        self.registered_by: weakref.WeakSet = weakref.WeakSet()  # interfaces that have registered this one
+        self.adapters: weakref.WeakKeyDictionary[type, Callable] = weakref.WeakKeyDictionary()
+        self.registered_types: weakref.WeakSet[type] = weakref.WeakSet()
+        self.registered_by: weakref.WeakSet[type] = weakref.WeakSet()  # interfaces that have registered this one
         self.structural_subclasses: Set[type] = set()
         self.impl_wrapper_type: Optional[type] = None
-        self.adapter_cache = weakref.WeakKeyDictionary()  # type: ignore
+        self.adapter_cache: weakref.WeakKeyDictionary[type, Optional[Callable]] = weakref.WeakKeyDictionary()
 
     @property
     def interface_names(self) -> FrozenSet[str]:
