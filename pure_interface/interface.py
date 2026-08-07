@@ -32,6 +32,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    cast,
 )
 
 from .errors import AdaptionError, InterfaceError
@@ -63,6 +64,17 @@ AnInterface = TypeVar("AnInterface", bound="Interface")
 AnInterfaceType = TypeVar("AnInterfaceType", bound="InterfaceType")
 
 
+def clear_adapter_caches(interface_cls: type) -> None:
+    """Clear adapter caches for the given interface, all its ancestor interfaces,
+    and any interfaces that have registered this interface via .register()."""
+    affected = [interface_cls] + list(get_pi_attribute(interface_cls, "registered_by", ()))
+    for affected_cls in affected:
+        for cls in affected_cls.__mro__:
+            cache = get_pi_attribute(cls, "adapter_cache")
+            if cache is not None:
+                cache.clear()
+
+
 def _unique_list(items: Iterable[Any]) -> List[Any]:
     seen = set()
     unique_items = []
@@ -91,10 +103,12 @@ class _PIAttributes:
         # keep an ordered list for dataclass
         self.interface_attribute_names: List[str] = _unique_list(interface_attribute_names)
         self.interface_method_signatures = interface_method_signatures
-        self.adapters = weakref.WeakKeyDictionary()  # type: ignore
-        self.registered_types = weakref.WeakSet()  # type: ignore
+        self.adapters: weakref.WeakKeyDictionary[type, Callable] = weakref.WeakKeyDictionary()
+        self.registered_types: weakref.WeakSet[type] = weakref.WeakSet()
+        self.registered_by: weakref.WeakSet[type] = weakref.WeakSet()  # interfaces that have registered this one
         self.structural_subclasses: Set[type] = set()
         self.impl_wrapper_type: Optional[type] = None
+        self.adapter_cache: weakref.WeakKeyDictionary[type, Optional[Callable]] = weakref.WeakKeyDictionary()
 
     @property
     def interface_names(self) -> FrozenSet[str]:
@@ -576,7 +590,7 @@ def _get_adapter(cls: AnInterfaceType, obj_type: Type) -> Optional[Callable]:
     candidate_interfaces.reverse()  # prefer this class over sub-class adapters
     for subcls in candidate_interfaces:
         if type_is_interface(subcls):
-            adapters.update(subcls._pi.adapters)
+            adapters.update(cast(AnInterfaceType, subcls)._pi.adapters)
     if not adapters:
         return None
 
@@ -755,7 +769,13 @@ class InterfaceType(abc.ABCMeta):
         if InterfaceType._provided_by(cls, obj, allow_implicit=allow_implicit):
             adapter = no_adaption
         else:
-            adapter = _get_adapter(cls, type(obj))
+            obj_type = type(obj)
+            cache = cls._pi.adapter_cache
+            try:
+                adapter = cache[obj_type]
+            except KeyError:
+                cache[obj_type] = _get_adapter(cls, obj_type)
+                adapter = cache[obj_type]
             if adapter is None:
                 raise AdaptionError("Cannot adapt {} to {}".format(obj, cls.__name__))
 
@@ -795,6 +815,9 @@ class InterfaceType(abc.ABCMeta):
     def register(cls, subclass: Type[_T]) -> Type[_T]:
         if type_is_interface(cls):
             cls._pi.registered_types.add(subclass)  # type: ignore[attr-defined]
+            if type_is_interface(subclass):
+                subclass._pi.registered_by.add(cls)  # type: ignore[attr-defined]
+            clear_adapter_caches(cls)
         return super().register(subclass)
 
 

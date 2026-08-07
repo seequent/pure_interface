@@ -16,6 +16,7 @@ from .interface import (
     AnInterface,
     Interface,
     InterfaceType,
+    clear_adapter_caches,
     get_pi_attribute,
     get_type_interfaces,
     type_is_interface,
@@ -81,6 +82,11 @@ def register_adapter(
         raise AdaptionError("{} already has an adapter to {}".format(from_type, to_interface))
 
     adapters[from_type] = adapter
+    # Clears all cached adapter lookups for to_interface and its ancestors.
+    # This is safe because registration is expected to happen at startup.
+    # Calling register_adapter at runtime will cause all cached adapters for
+    # the interface to be re-resolved on next use.
+    clear_adapter_caches(to_interface)
 
 
 class AdapterTracker(object):
